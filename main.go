@@ -48,25 +48,38 @@ func Checkout(repo *libgit.Repository, args []string) {
 		fmt.Printf("Doing something with %s\n", file)
 		if _, err := os.Stat(file); os.IsNotExist(err) {
 			fmt.Fprintf(os.Stderr, "File %s does not exist.\n")
-		} else {
-			for _, idxFile := range idx.Objects {
-				if idxFile.PathName == file {
-					obj, err := GetObject(repo, idxFile.Sha1)
-					if err != nil {
-						panic("Couldn't load object referenced in index.")
-					}
-
-					fmode := os.FileMode(idxFile.Mode)
-					err = ioutil.WriteFile(file, obj.GetContent(), fmode)
-					if err != nil {
-						panic("Couldn't write file" + file)
-					}
-					os.Chmod(file, os.FileMode(idxFile.Mode))
+			continue
+		}
+		for _, idxFile := range idx.Objects {
+			if idxFile.PathName == file {
+				obj, err := GetObject(repo, idxFile.Sha1)
+				if err != nil {
+					panic("Couldn't load object referenced in index.")
 				}
+
+				fmode := os.FileMode(idxFile.Mode)
+				err = ioutil.WriteFile(file, obj.GetContent(), fmode)
+				if err != nil {
+					panic("Couldn't write file" + file)
+				}
+				os.Chmod(file, os.FileMode(idxFile.Mode))
 			}
 		}
 
 	}
+}
+func Add(repo *libgit.Repository, args []string) {
+	//	gindex, _ := ReadIndex(repo)
+	for _, arg := range args {
+		if _, err := os.Stat(arg); os.IsNotExist(err) {
+			fmt.Fprintf(os.Stderr, "File %s does not exist.\n")
+			continue
+		} else {
+			//gindex.AddFile(file)
+		}
+	}
+	// file, err := os.Create(repo.Path + "/index-gg")
+	//gindex.WriteFile(file)
 }
 func Branch(repo *libgit.Repository, args []string) {
 	switch len(args) {
@@ -109,6 +122,8 @@ func main() {
 			Branch(repo, os.Args[2:])
 		case "checkout":
 			Checkout(repo, os.Args[2:])
+		case "add":
+			Add(repo, os.Args[2:])
 		}
 	}
 }

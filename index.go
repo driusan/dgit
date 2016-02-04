@@ -5,7 +5,7 @@ import (
 	"errors"
 	"fmt"
 	libgit "github.com/gogits/git"
-	//"io"
+	"io"
 	"os"
 )
 
@@ -135,4 +135,20 @@ func ReadIndexEntry(file *os.File) (*GitIndexEntry, error) {
 		panic("I can't handle such long names yet")
 	}
 	return &GitIndexEntry{f, string(name)}, nil
+}
+
+func (g *GitIndex) AddFile(file *os.File) {
+	// write git object blob of file contents to .git/objects
+	// normalize os.File name to path relative to gitRoot
+	// search GitIndex for normalized name
+	//	if GitIndexEntry found
+	//		update GitIndexEntry
+	// 	else
+	// 		add new GitIndexEntry if not found
+	//
+}
+func (g GitIndex) WriteIndex(w io.Writer) {
+	// Sort g.Objects in ascending name order
+	// write g.fixedGitIndex
+	// foreach g.Objects Write GitIndexEntry
 }
