@@ -4,6 +4,7 @@ import (
 	"encoding/binary"
 	"errors"
 	"fmt"
+	libgit "github.com/gogits/git"
 	//"io"
 	"os"
 )
@@ -55,8 +56,8 @@ type GitIndexEntry struct {
 	PathName string
 }
 
-func ReadIndex() (*GitIndex, error) {
-	file, err := os.Open(".git/index")
+func ReadIndex(g *libgit.Repository) (*GitIndex, error) {
+	file, err := os.Open(g.Path + "/index")
 	if err != nil {
 		return nil, err
 	}
