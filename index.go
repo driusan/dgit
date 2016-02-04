@@ -3,11 +3,12 @@ package main
 import (
 	"encoding/binary"
 	"errors"
-	"sort"
 	"fmt"
 	libgit "github.com/gogits/git"
 	"io"
+	"sort"
 	//"io/ioutil"
+	"bytes"
 	"crypto/sha1"
 	"os"
 )
@@ -22,13 +23,13 @@ var InvalidIndex error = errors.New("Invalid index")
 // 32bit number of index entries
 type fixedGitIndex struct {
 	Signature          [4]byte // 4
-	Version            uint32 // 8
-	NumberIndexEntries uint32 // 12
+	Version            uint32  // 8
+	NumberIndexEntries uint32  // 12
 }
 
 type GitIndex struct {
 	fixedGitIndex // 12
-	Objects []*GitIndexEntry
+	Objects       []*GitIndexEntry
 }
 type GitIndexEntry struct {
 	fixedIndexEntry
@@ -37,7 +38,7 @@ type GitIndexEntry struct {
 }
 
 type fixedIndexEntry struct {
-	Ctime     uint32       // 16
+	Ctime     uint32 // 16
 	Ctimenano uint32 // 20
 
 	Mtime     uint32 // 24
@@ -186,18 +187,31 @@ func (g GitIndex) WriteIndex(file io.Writer) {
 	for _, entry := range g.Objects {
 		binary.Write(w, binary.BigEndian, entry.fixedIndexEntry)
 		binary.Write(w, binary.BigEndian, []byte(entry.PathName))
-		padding  := 8 - ((82 + len(entry.PathName) + 4) % 8)
+		padding := 8 - ((82 + len(entry.PathName) + 4) % 8)
 		p := make([]byte, padding)
 		binary.Write(w, binary.BigEndian, p)
 	}
 	binary.Write(w, binary.BigEndian, s.Sum(nil))
-	
+
 }
 
 // Implement the sort interface on *GitIndexEntry, so that
 // it's easy to sort by name.
 type ByPath []*GitIndexEntry
-func (g ByPath) Len() int { return len(g) }
-func (g ByPath)  Swap(i, j int) { g[i], g[j] = g[j], g[i] }
+
+func (g ByPath) Len() int           { return len(g) }
+func (g ByPath) Swap(i, j int)      { g[i], g[j] = g[j], g[i] }
 func (g ByPath) Less(i, j int) bool { return g[i].PathName < g[j].PathName }
 
+// Writes the current index to a tree object.
+func (g GitIndex) WriteTree(repo *libgit.Repository) {
+	content := bytes.NewBuffer(nil)
+	// [mode] [file/folder name]\0[SHA-1 of referencing blob or tree as [20]byte]
+	for _, obj := range g.Objects {
+		fmt.Printf("%o %s\x00%x\n", obj.Mode, obj.PathName, obj.Sha1)
+		fmt.Fprintf(content, "%o %s\x00", obj.Mode, obj.PathName)
+		content.Write(obj.Sha1[:])
+	}
+	sha1, err := repo.StoreObjectLoose(libgit.ObjectTree, bytes.NewReader(content.Bytes()))
+	fmt.Printf("% x err: %s %s", sha1, err, sha1)
+}

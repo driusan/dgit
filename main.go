@@ -36,6 +36,10 @@ func GetHeadId(repo *libgit.Repository) (string, error) {
 	return "", InvalidHead
 }
 
+func WriteTree(repo *libgit.Repository) {
+	idx, _ := ReadIndex(repo)
+	idx.WriteTree(repo)
+}
 func Checkout(repo *libgit.Repository, args []string) {
 	switch len(args) {
 	case 0:
@@ -130,6 +134,8 @@ func main() {
 			Checkout(repo, os.Args[2:])
 		case "add":
 			Add(repo, os.Args[2:])
+		case "write-tree":
+			WriteTree(repo)
 		}
 	}
 }
