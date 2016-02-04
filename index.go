@@ -3,9 +3,12 @@ package main
 import (
 	"encoding/binary"
 	"errors"
+	"sort"
 	"fmt"
 	libgit "github.com/gogits/git"
 	"io"
+	//"io/ioutil"
+	"crypto/sha1"
 	"os"
 )
 
@@ -18,42 +21,41 @@ var InvalidIndex error = errors.New("Invalid index")
 // 4-byte version number (can be 2, 3 or 4)
 // 32bit number of index entries
 type fixedGitIndex struct {
-	Signature          [4]byte
-	Version            uint32
-	NumberIndexEntries uint32
+	Signature          [4]byte // 4
+	Version            uint32 // 8
+	NumberIndexEntries uint32 // 12
 }
 
 type GitIndex struct {
-	fixedGitIndex
+	fixedGitIndex // 12
 	Objects []*GitIndexEntry
 }
-
-type fixedIndexEntry struct {
-	Ctime     uint32
-	Ctimenano uint32
-
-	Mtime     uint32
-	Mtimenano uint32
-
-	Dev uint32
-	Ino uint32
-
-	Mode uint32
-
-	Uid uint32
-	Gid uint32
-
-	Fsize uint32
-
-	Sha1 [20]byte
-
-	Flags uint16
-}
-
 type GitIndexEntry struct {
 	fixedIndexEntry
 
 	PathName string
+}
+
+type fixedIndexEntry struct {
+	Ctime     uint32       // 16
+	Ctimenano uint32 // 20
+
+	Mtime     uint32 // 24
+	Mtimenano uint32 // 28
+
+	Dev uint32 // 32
+	Ino uint32 // 36
+
+	Mode uint32 // 40
+
+	Uid uint32 // 44
+	Gid uint32 // 48
+
+	Fsize uint32 // 52
+
+	Sha1 [20]byte // 72
+
+	Flags uint16 // 74
 }
 
 func ReadIndex(g *libgit.Repository) (*GitIndex, error) {
@@ -137,18 +139,65 @@ func ReadIndexEntry(file *os.File) (*GitIndexEntry, error) {
 	return &GitIndexEntry{f, string(name)}, nil
 }
 
-func (g *GitIndex) AddFile(file *os.File) {
-	// write git object blob of file contents to .git/objects
-	// normalize os.File name to path relative to gitRoot
-	// search GitIndex for normalized name
-	//	if GitIndexEntry found
-	//		update GitIndexEntry
-	// 	else
-	// 		add new GitIndexEntry if not found
-	//
+// Adds a file to the index, without writing it to disk.
+// To write it to disk after calling this, use GitIndex.WriteIndex
+//
+// This will do the following:
+// write git object blob of file contents to .git/objects
+// normalize os.File name to path relative to gitRoot
+// search GitIndex for normalized name
+//	if GitIndexEntry found
+//		update GitIndexEntry to point to the new object blob
+// 	else
+// 		add new GitIndexEntry if not found
+//
+func (g *GitIndex) AddFile(repo *libgit.Repository, file *os.File) {
+
+	sha1, err := repo.StoreObjectLoose(libgit.ObjectBlob, file)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "Error storing object: %s", err)
+	}
+	fmt.Printf("Sha1: %s\n", sha1)
+	fmt.Printf("Name is %s\n", file.Name())
+	name := getNormalizedName(file)
+	for _, entry := range g.Objects {
+		if entry.PathName == name {
+			entry.Sha1 = sha1
+			return
+		}
+	}
+	panic("Unimplemented: add new file to GitIndexEntry")
 }
-func (g GitIndex) WriteIndex(w io.Writer) {
-	// Sort g.Objects in ascending name order
-	// write g.fixedGitIndex
-	// foreach g.Objects Write GitIndexEntry
+
+func getNormalizedName(file *os.File) string {
+	return file.Name()
 }
+
+// This will write a new index file to w by doing the following:
+// 1. Sort the objects in g.Index to ascending order based on name
+// 2. Write g.fixedGitIndex to w
+// 3. for each entry in g.Objects, write it to w.
+// 4. Write the Sha1 of the contents of what was written
+func (g GitIndex) WriteIndex(file io.Writer) {
+	sort.Sort(ByPath(g.Objects))
+	s := sha1.New()
+	w := io.MultiWriter(file, s)
+	binary.Write(w, binary.BigEndian, g.fixedGitIndex)
+	for _, entry := range g.Objects {
+		binary.Write(w, binary.BigEndian, entry.fixedIndexEntry)
+		binary.Write(w, binary.BigEndian, []byte(entry.PathName))
+		padding  := 8 - ((82 + len(entry.PathName) + 4) % 8)
+		p := make([]byte, padding)
+		binary.Write(w, binary.BigEndian, p)
+	}
+	binary.Write(w, binary.BigEndian, s.Sum(nil))
+	
+}
+
+// Implement the sort interface on *GitIndexEntry, so that
+// it's easy to sort by name.
+type ByPath []*GitIndexEntry
+func (g ByPath) Len() int { return len(g) }
+func (g ByPath)  Swap(i, j int) { g[i], g[j] = g[j], g[i] }
+func (g ByPath) Less(i, j int) bool { return g[i].PathName < g[j].PathName }
+

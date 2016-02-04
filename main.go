@@ -69,17 +69,23 @@ func Checkout(repo *libgit.Repository, args []string) {
 	}
 }
 func Add(repo *libgit.Repository, args []string) {
-	//	gindex, _ := ReadIndex(repo)
+	gindex, _ := ReadIndex(repo)
 	for _, arg := range args {
 		if _, err := os.Stat(arg); os.IsNotExist(err) {
 			fmt.Fprintf(os.Stderr, "File %s does not exist.\n")
 			continue
-		} else {
-			//gindex.AddFile(file)
+		}
+		if file, err := os.Open(arg); err == nil {
+			gindex.AddFile(repo, file)
 		}
 	}
-	// file, err := os.Create(repo.Path + "/index-gg")
-	//gindex.WriteFile(file)
+	file, err := os.Create(repo.Path + "/index")
+	if err != nil {
+		fmt.Fprintln(os.Stderr, "Could not write index")
+		return
+	}
+	defer file.Close()
+	gindex.WriteIndex(file)
 }
 func Branch(repo *libgit.Repository, args []string) {
 	switch len(args) {
