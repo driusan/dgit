@@ -1,0 +1,4 @@
+The 9legacy wrapper has a hack to emulate git clone by
+downloading a tarball.
+
+This should do it properly.
