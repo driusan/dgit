@@ -1,0 +1,3 @@
+The form of git reset that takes a pathspec and removes that
+file from the index (ie the inverse of git add) is not implemented,
+only the "git reset --soft/mixed/hard <treeish>" command is implemented

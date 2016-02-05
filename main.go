@@ -10,6 +10,7 @@ import (
 )
 
 var InvalidHead error = errors.New("Invalid HEAD")
+var InvalidArgument error = errors.New("Invalid argument to function")
 
 func GetHeadBranch(repo *libgit.Repository) string {
 	file, _ := os.Open(repo.Path + "/HEAD")
@@ -72,6 +73,19 @@ func Checkout(repo *libgit.Repository, args []string) {
 
 	}
 }
+func writeIndex(repo *libgit.Repository, idx *GitIndex, indexName string) error {
+	if indexName == "" {
+		return InvalidArgument
+	}
+	file, err := os.Create(repo.Path + "/" + indexName)
+	if err != nil {
+		fmt.Fprintln(os.Stderr, "Could not write index")
+		return err
+	}
+	defer file.Close()
+	idx.WriteIndex(file)
+	return nil
+}
 func Add(repo *libgit.Repository, args []string) {
 	gindex, _ := ReadIndex(repo)
 	for _, arg := range args {
@@ -83,13 +97,131 @@ func Add(repo *libgit.Repository, args []string) {
 			gindex.AddFile(repo, file)
 		}
 	}
-	file, err := os.Create(repo.Path + "/index")
-	if err != nil {
-		fmt.Fprintln(os.Stderr, "Could not write index")
-		return
+	writeIndex(repo, gindex, "index")
+
+}
+
+func getTreeishId(repo *libgit.Repository, treeish string) string {
+	if branchId, err := repo.GetCommitIdOfBranch(treeish); err == nil {
+		return branchId
 	}
-	defer file.Close()
-	gindex.WriteIndex(file)
+	if len(treeish) == 40 {
+		return treeish
+	}
+	panic("TODO: Didn't implement getTreeishId")
+}
+
+func resetIndexFromCommit(repo *libgit.Repository, commitId string) error {
+	idx, err := ReadIndex(repo)
+	if err != nil {
+		return err
+	}
+	com, err := repo.GetCommit(commitId)
+	if err != nil {
+		return err
+	}
+	treeId := com.TreeId()
+	tree := libgit.NewTree(repo, treeId)
+	if tree == nil {
+		panic("Error retriving tree for commit")
+	}
+	idx.ResetIndex(repo, tree)
+	writeIndex(repo, idx, "index")
+	return nil
+}
+
+func resetWorkingTree(repo *libgit.Repository) error {
+	idx, err := ReadIndex(repo)
+	if err != nil {
+		return err
+	}
+	for _, indexEntry := range idx.Objects {
+		obj, err := GetObject(repo, indexEntry.Sha1)
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "Could not retrieve %x for %s: %s\n", indexEntry.Sha1, indexEntry.PathName, err)
+			continue
+		}
+		err = ioutil.WriteFile(indexEntry.PathName, obj.GetContent(), os.FileMode(indexEntry.Mode))
+		if err != nil {
+
+			continue
+		}
+		os.Chmod(indexEntry.PathName, os.FileMode(indexEntry.Mode))
+
+	}
+	return nil
+}
+
+func Reset(repo *libgit.Repository, args []string) {
+	commitId, err := GetHeadId(repo)
+	var resetPaths = false
+	var mode string = "mixed"
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "Couldn't find HEAD commit.\n")
+	}
+	for _, val := range args {
+		if _, err := os.Stat(val); err == nil {
+			resetPaths = true
+			panic("TODO: I'm not prepared to handle git reset <paths>")
+		}
+		// The better way to do this would have been:
+		// git reset [treeish] <paths>:
+		//  stat val
+		//      if valid file:
+		//          reset index to status at [treeish]
+		// (opposite of git add)
+		//
+
+		// Expand the parameter passed to a CommitID. We need
+		// the CommitID that it refers to no matter what mode
+		// we're in, but if we've already found a path already
+		// then the time for a treeish option is past.
+		if val[0] != '-' && resetPaths == false {
+			commitId = getTreeishId(repo, val)
+		} else {
+			switch val {
+			case "--soft":
+				mode = "soft"
+			case "--mixed":
+				mode = "mixed"
+			case "--hard":
+				mode = "hard"
+			default:
+				fmt.Fprintf(os.Stderr, "Unknown option: %s", val)
+			}
+		}
+	}
+	if resetPaths == false {
+		// no paths were found. This is the form
+		//  git reset [mode] commit
+		// First, update the head reference for all modes
+		branchName := GetHeadBranch(repo)
+		err := ioutil.WriteFile(repo.Path+"/refs/heads/"+branchName,
+			[]byte(fmt.Sprintf("%s", commitId)),
+			0644,
+		)
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "Error updating head reference: %s\n", err)
+			return
+		}
+
+		// mode: soft: do not touch working tree or index
+		//       mixed (default): reset the index but not working tree
+		//       hard: reset the index and the working tree
+		switch mode {
+		case "soft":
+			// don't do anything for soft reset other than update
+			// the head reference
+		case "hard":
+			resetIndexFromCommit(repo, commitId)
+			resetWorkingTree(repo)
+		case "mixed":
+			fallthrough
+		default:
+			resetIndexFromCommit(repo, commitId)
+		}
+
+	}
 }
 func Branch(repo *libgit.Repository, args []string) {
 	switch len(args) {
@@ -117,7 +249,7 @@ func Branch(repo *libgit.Repository, args []string) {
 			fmt.Fprintf(os.Stderr, "Could not create branch: %s\n", err.Error())
 		}
 	default:
-		fmt.Fprintln(os.Stderr, "Usage: ggit branch [branchname]")
+		fmt.Fprintln(os.Stderr, "Usage: go-git branch [branchname]")
 	}
 
 }
@@ -136,6 +268,8 @@ func main() {
 			Add(repo, os.Args[2:])
 		case "write-tree":
 			WriteTree(repo)
+		case "reset":
+			Reset(repo, os.Args[2:])
 		}
 	}
 }

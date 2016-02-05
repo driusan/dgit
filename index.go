@@ -7,7 +7,7 @@ import (
 	libgit "github.com/gogits/git"
 	"io"
 	"sort"
-	//"io/ioutil"
+	//   	"io/ioutil"
 	"bytes"
 	"crypto/sha1"
 	"os"
@@ -118,24 +118,30 @@ func ReadIndexEntry(file *os.File) (*GitIndexEntry, error) {
 		// But reading existant index files, there seems to be an extra 4 bytes
 		// incorporated into the index size calculation.
 		expectedOffset := 8 - ((82 + nameLength + 4) % 8)
-		whitespace := make([]byte, 1, 1)
-		var w uint16
-		// Read all the whitespace that git uses for alignment.
-		for _, _ = file.Read(whitespace); whitespace[0] == 0; _, _ = file.Read(whitespace) {
-			w += 1
-		}
+		file.Seek(int64(expectedOffset), 1)
+		/*
+			This was used to verify that the offset is correct, but it causes problems if the data following
+			the offset is empty..
+			whitespace := make([]byte, 1, 1)
+			var w uint16
+			// Read all the whitespace that git uses for alignment.
+			for _, _ = file.Read(whitespace); whitespace[0] == 0; _, _ = file.Read(whitespace) {
+				w += 1
+			}
 
-		if w != expectedOffset {
-			panic("Read incorrect number of whitespace characters")
-		}
-		if w == 0 {
-			panic("Name was not null terminated in index")
-		}
-		// Undo the last read, which wasn't whitespace..
-		file.Seek(-1, 1)
+			if w % 8 != expectedOffset {
+				panic(fmt.Sprintf("Read incorrect number of whitespace characters %d vs %d", w, expectedOffset))
+			}
+			if w == 0 {
+				panic("Name was not null terminated in index")
+			}
+
+			// Undo the last read, which wasn't whitespace..
+			file.Seek(-1, 1)
+		*/
 
 	} else {
-		panic("I can't handle such long names yet")
+		panic("TODO: I can't handle such long names yet")
 	}
 	return &GitIndexEntry{f, string(name)}, nil
 }
@@ -167,7 +173,7 @@ func (g *GitIndex) AddFile(repo *libgit.Repository, file *os.File) {
 			return
 		}
 	}
-	panic("Unimplemented: add new file to GitIndexEntry")
+	panic("TODO: Unimplemented: add new file to GitIndexEntry")
 }
 
 func getNormalizedName(file *os.File) string {
@@ -214,4 +220,91 @@ func (g GitIndex) WriteTree(repo *libgit.Repository) {
 	}
 	sha1, err := repo.StoreObjectLoose(libgit.ObjectTree, bytes.NewReader(content.Bytes()))
 	fmt.Printf("% x err: %s %s", sha1, err, sha1)
+}
+
+func expandGitTreeIntoIndexes(repo *libgit.Repository, tree *libgit.Tree, prefix string) ([]*GitIndexEntry, error) {
+	newEntries := make([]*GitIndexEntry, 0)
+
+	for _, entry := range tree.ListEntries() {
+		var dirname string
+		if prefix == "" {
+			dirname = entry.Name()
+		} else {
+			dirname = prefix + "/" + entry.Name()
+		}
+		switch entry.Type {
+		case libgit.ObjectBlob:
+			newEntry := GitIndexEntry{}
+			newEntry.Sha1 = entry.Id
+			// This isn't right.
+			// This should be:
+			// "32-bit mode, split into:
+			//      4-bit object type: valid values in binary are
+			//          1000 (regular file), 1010 (symbolic link), and
+			//          1110 (gitlink)
+			//      3-bit unused
+			//      9-bit unix permission. Only 0755 and 0644 are valid
+			//          for regular files, symbolic links have 0 in this
+			//          field"
+
+			//go-gits entry mode is an int, but it needs to be a uint32
+			switch entry.EntryMode() {
+			case libgit.ModeBlob:
+				newEntry.Mode = 0100644
+			case libgit.ModeExec:
+				newEntry.Mode = 0100755
+			case libgit.ModeSymlink:
+				newEntry.Mode = 0120000
+			case libgit.ModeCommit:
+				newEntry.Mode = 0160000
+			case libgit.ModeTree:
+				newEntry.Mode = 0040000
+			}
+			newEntry.PathName = dirname
+			newEntry.Fsize = uint32(entry.Size())
+
+			modTime := entry.ModTime()
+			newEntry.Mtime = uint32(modTime.Unix())
+			newEntry.Mtimenano = uint32(modTime.Nanosecond())
+			newEntry.Flags = uint16(len(dirname)) & 0xFFF
+			/* I don't know how git can extract these values
+			   from a tree. For now, leave them empty
+
+			   Ctime     uint32
+			   Ctimenano uint32
+			   Dev uint32
+			   Ino uint32
+			   Uid uint32
+			   Gid uint32
+			*/
+			newEntries = append(newEntries, &newEntry)
+		case libgit.ObjectTree:
+
+			subTree, err := tree.SubTree(entry.Name())
+			if err != nil {
+				panic(err)
+			}
+			subindexes, err := expandGitTreeIntoIndexes(repo, subTree, dirname)
+			if err != nil {
+				panic(err)
+			}
+			newEntries = append(newEntries, subindexes...)
+
+		default:
+			fmt.Fprintf(os.Stderr, "Unknown object type: %s\n", entry.Type)
+		}
+	}
+	return newEntries, nil
+
+}
+func (g *GitIndex) ResetIndex(repo *libgit.Repository, tree *libgit.Tree) error {
+	newEntries, err := expandGitTreeIntoIndexes(repo, tree, "")
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "Error resetting index: %s\n", err)
+		return err
+	}
+	fmt.Printf("%s", newEntries)
+	g.NumberIndexEntries = uint32(len(newEntries))
+	g.Objects = newEntries
+	return nil
 }
