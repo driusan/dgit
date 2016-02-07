@@ -253,6 +253,34 @@ func Branch(repo *libgit.Repository, args []string) {
 	}
 
 }
+func Clone(repo *libgit.Repository, args []string) {
+	var ups uploadpack
+	var repoid string
+	// TODO: This argument parsing should be smarter and more
+	// in line with how cgit does it.
+	switch len(args) {
+	case 0:
+		fmt.Fprintln(os.Stderr, "Usage: go-git clone repo [directory]")
+		return
+	case 1:
+		repoid = args[0]
+	default:
+		repoid = args[0]
+		//dest = args[1]
+	}
+
+	if repoid[0:7] == "http://" || repoid[0:8] == "https://" {
+		ups = smartHTTPServerRetriever{location: repoid,
+			repo: repo,
+		}
+	} else {
+		fmt.Fprintln(os.Stderr, "Unknown protocol.")
+		return
+	}
+	w, _ := os.Create("tmp")
+	ups.RefDiscovery(w)
+
+}
 func main() {
 	repo, err := libgit.OpenRepository(".git")
 	if err != nil {
@@ -268,8 +296,17 @@ func main() {
 			Add(repo, os.Args[2:])
 		case "write-tree":
 			WriteTree(repo)
+		case "clone":
+			Clone(repo, os.Args[2:])
+
 		case "reset":
 			Reset(repo, os.Args[2:])
+		case "unpack":
+			// Not a real git command, just for testing clone
+			// without having to keep retrieving the pack over
+			// the wire
+			f, _ := os.Open("tmp")
+			unpack(f)
 		}
 	}
 }
