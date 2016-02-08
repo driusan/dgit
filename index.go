@@ -4,7 +4,7 @@ import (
 	"encoding/binary"
 	"errors"
 	"fmt"
-	libgit "github.com/gogits/git"
+	libgit "github.com/driusan/git"
 	"io"
 	"sort"
 	//   	"io/ioutil"

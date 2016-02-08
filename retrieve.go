@@ -3,7 +3,7 @@ package main
 import (
 	"errors"
 	"fmt"
-	libgit "github.com/gogits/git"
+	libgit "github.com/driusan/git"
 	"io"
 	"net/http"
 	"os"
@@ -136,29 +136,37 @@ func (s smartHTTPServerRetriever) parseUploadPackInfoRefs(r io.Reader) (string, 
 	return postData + "00000009done\n", nil
 }
 func (s smartHTTPServerRetriever) RefDiscovery(w io.Writer) error {
+	fmt.Printf("Discovering refs")
 	resp, err := http.Get(s.location + "/info/refs?service=git-upload-pack")
 	if err != nil {
 		return err
 	}
 	defer resp.Body.Close()
+	fmt.Printf("Parsing refs")
 	toPost, err := s.parseUploadPackInfoRefs(io.TeeReader(resp.Body, os.Stderr))
 	if err != nil {
+		fmt.Printf("Grah %s", err)
 		return err
 	}
+	fmt.Printf("Grah")
 	if toPost == "" {
 		fmt.Fprintf(os.Stderr, "Already up to date\n")
 		return nil
 	}
+	fmt.Printf("Asking for pack")
 	resp2, err := http.Post(s.location+"/git-upload-pack", "application/x-git-upload-pack-request", strings.NewReader(toPost))
 	if err != nil {
+		fmt.Printf("%s", err)
 		return err
 	}
 	defer resp2.Body.Close()
+	fmt.Printf("Loading line")
 	response := loadLine(resp2.Body)
 	if response != "NAK\n" {
 		panic(response)
 	}
 
+	fmt.Printf("Getting pack file")
 	_, err = io.Copy(w, resp2.Body)
 	return err
 }

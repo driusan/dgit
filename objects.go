@@ -4,7 +4,7 @@ import (
 	"compress/zlib"
 	"errors"
 	"fmt"
-	libgit "github.com/gogits/git"
+	libgit "github.com/driusan/git"
 	"io/ioutil"
 	"os"
 	"strconv"

@@ -3,7 +3,7 @@ package main
 import (
 	"errors"
 	"fmt"
-	libgit "github.com/gogits/git"
+	libgit "github.com/driusan/git"
 	"io/ioutil"
 	"os"
 	"strings"
@@ -277,6 +277,7 @@ func Clone(repo *libgit.Repository, args []string) {
 		fmt.Fprintln(os.Stderr, "Unknown protocol.")
 		return
 	}
+	fmt.Printf("Creating tmp")
 	w, _ := os.Create("tmp")
 	ups.RefDiscovery(w)
 
@@ -306,7 +307,7 @@ func main() {
 			// without having to keep retrieving the pack over
 			// the wire
 			f, _ := os.Open("tmp")
-			unpack(f)
+			unpack(repo, f)
 		}
 	}
 }
