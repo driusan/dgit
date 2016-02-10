@@ -5,6 +5,7 @@ import (
 	"fmt"
 	libgit "github.com/driusan/git"
 	"io"
+	"io/ioutil"
 	"net/http"
 	"os"
 	"strconv"
@@ -13,9 +14,16 @@ import (
 
 var InvalidResponse error = errors.New("Invalid response")
 
+type Reference struct {
+	Sha1    string
+	Refname string
+}
 type uploadpack interface {
-	RefDiscovery(w io.Writer) error
-	ReceivePack() error
+	// Negotiates a packfile and returns a reader that can
+	// read it.
+	// As well as a map of refs/ that the server had
+	// to the hashes that they reference
+	NegotiatePack() ([]*Reference, *os.File, error)
 }
 
 type smartHTTPServerRetriever struct {
@@ -45,30 +53,26 @@ var loadLine = func(r io.Reader) string {
 
 }
 
-func (s smartHTTPServerRetriever) parseUploadPackInfoRefs(r io.Reader) (string, error) {
+func (s smartHTTPServerRetriever) parseUploadPackInfoRefs(r io.Reader) ([]*Reference, string, error) {
 	var capabilities []string
-	type reference struct {
-		id      string
-		refname string
-	}
-	var parseLine = func(s string) *reference {
-		var ret *reference
+	var parseLine = func(s string) *Reference {
+		var ret *Reference
 		var firstSpace int
 		var nameEnd int
 		for idx, char := range s {
 			if char == ' ' && ret == nil {
-				ret = &reference{
-					id: s[0:idx],
+				ret = &Reference{
+					Sha1: s[0:idx],
 				}
 				firstSpace = idx
 			}
 			if char == '\000' {
 				nameEnd = idx + 1
-				ret.refname = s[firstSpace:nameEnd]
+				ret.Refname = s[firstSpace:nameEnd]
 			}
 			if char == '\n' {
-				if ret.refname == "" {
-					ret.refname = s[firstSpace:idx]
+				if ret.Refname == "" {
+					ret.Refname = s[firstSpace:idx]
 				} else {
 					capabilities = strings.Split(s[nameEnd:], " ")
 					return ret
@@ -81,15 +85,15 @@ func (s smartHTTPServerRetriever) parseUploadPackInfoRefs(r io.Reader) (string, 
 
 	header := loadLine(r)
 	if header != "# service=git-upload-pack\n" {
-		return "", InvalidResponse
+		return nil, "", InvalidResponse
 	}
 
 	ctrl := loadLine(r)
 	if ctrl != "" {
 		// Expected a 0000 control line.
-		return "", InvalidResponse
+		return nil, "", InvalidResponse
 	}
-	var references []*reference
+	var references []*Reference
 	for line := loadLine(r); line != ""; line = loadLine(r) {
 		if line == "" {
 			break
@@ -120,7 +124,7 @@ func (s smartHTTPServerRetriever) parseUploadPackInfoRefs(r io.Reader) (string, 
 	for _, ref := range references {
 		var line string
 		//if have, _, _ := s.repo.HaveObject(ref.id); have == false {
-		line = fmt.Sprintf("want %s", ref.id)
+		line = fmt.Sprintf("want %s", ref.Sha1)
 		if sentData == false {
 			if len(responseCapabilities) > 0 {
 				line += " " + strings.Join(responseCapabilities, " ")
@@ -131,47 +135,36 @@ func (s smartHTTPServerRetriever) parseUploadPackInfoRefs(r io.Reader) (string, 
 		//}
 	}
 	if noDone {
-		return postData + "0000", nil
+		return references, postData + "0000", nil
 	}
-	return postData + "00000009done\n", nil
+	return references, postData + "00000009done\n", nil
 }
-func (s smartHTTPServerRetriever) RefDiscovery(w io.Writer) error {
-	fmt.Printf("Discovering refs")
+func (s smartHTTPServerRetriever) NegotiatePack() ([]*Reference, *os.File, error) {
 	resp, err := http.Get(s.location + "/info/refs?service=git-upload-pack")
 	if err != nil {
-		return err
+		return nil, nil, err
 	}
 	defer resp.Body.Close()
-	fmt.Printf("Parsing refs")
-	toPost, err := s.parseUploadPackInfoRefs(io.TeeReader(resp.Body, os.Stderr))
+	refs, toPost, err := s.parseUploadPackInfoRefs(io.TeeReader(resp.Body, os.Stderr))
 	if err != nil {
-		fmt.Printf("Grah %s", err)
-		return err
+		return nil, nil, err
 	}
-	fmt.Printf("Grah")
 	if toPost == "" {
 		fmt.Fprintf(os.Stderr, "Already up to date\n")
-		return nil
+		return refs, nil, nil
 	}
-	fmt.Printf("Asking for pack")
 	resp2, err := http.Post(s.location+"/git-upload-pack", "application/x-git-upload-pack-request", strings.NewReader(toPost))
 	if err != nil {
-		fmt.Printf("%s", err)
-		return err
+		return refs, nil, err
 	}
 	defer resp2.Body.Close()
-	fmt.Printf("Loading line")
 	response := loadLine(resp2.Body)
 	if response != "NAK\n" {
 		panic(response)
 	}
 
-	fmt.Printf("Getting pack file")
-	_, err = io.Copy(w, resp2.Body)
-	return err
-}
+	f, _ := ioutil.TempFile("", "gitpack")
+	io.Copy(f, resp2.Body)
 
-func (s smartHTTPServerRetriever) ReceivePack() error {
-	return nil
-
+	return refs, f, nil
 }

@@ -12,7 +12,7 @@ import (
 var InvalidHead error = errors.New("Invalid HEAD")
 var InvalidArgument error = errors.New("Invalid argument to function")
 
-func GetHeadBranch(repo *libgit.Repository) string {
+func getHeadBranch(repo *libgit.Repository) string {
 	file, _ := os.Open(repo.Path + "/HEAD")
 	value, _ := ioutil.ReadAll(file)
 	if prefix := string(value[0:5]); prefix != "ref: " {
@@ -30,9 +30,9 @@ func GetHeadBranch(repo *libgit.Repository) string {
 	return ""
 
 }
-func GetHeadId(repo *libgit.Repository) (string, error) {
-	if headBranch := GetHeadBranch(repo); headBranch != "" {
-		return repo.GetCommitIdOfBranch(GetHeadBranch(repo))
+func getHeadId(repo *libgit.Repository) (string, error) {
+	if headBranch := getHeadBranch(repo); headBranch != "" {
+		return repo.GetCommitIdOfBranch(getHeadBranch(repo))
 	}
 	return "", InvalidHead
 }
@@ -153,7 +153,7 @@ func resetWorkingTree(repo *libgit.Repository) error {
 }
 
 func Reset(repo *libgit.Repository, args []string) {
-	commitId, err := GetHeadId(repo)
+	commitId, err := getHeadId(repo)
 	var resetPaths = false
 	var mode string = "mixed"
 	if err != nil {
@@ -195,7 +195,7 @@ func Reset(repo *libgit.Repository, args []string) {
 		// no paths were found. This is the form
 		//  git reset [mode] commit
 		// First, update the head reference for all modes
-		branchName := GetHeadBranch(repo)
+		branchName := getHeadBranch(repo)
 		err := ioutil.WriteFile(repo.Path+"/refs/heads/"+branchName,
 			[]byte(fmt.Sprintf("%s", commitId)),
 			0644,
@@ -231,7 +231,7 @@ func Branch(repo *libgit.Repository, args []string) {
 			fmt.Fprintln(os.Stderr, "Could not get list of branches.")
 			return
 		}
-		head := GetHeadBranch(repo)
+		head := getHeadBranch(repo)
 		for _, b := range branches {
 			if head == b {
 				fmt.Print("* ")
@@ -241,7 +241,7 @@ func Branch(repo *libgit.Repository, args []string) {
 			fmt.Println(b)
 		}
 	case 1:
-		if head, err := GetHeadId(repo); err == nil {
+		if head, err := getHeadId(repo); err == nil {
 			if cerr := libgit.CreateBranch(repo.Path, args[0], head); cerr != nil {
 				fmt.Fprintf(os.Stderr, "Could not create branch: %s\n", cerr.Error())
 			}
@@ -251,6 +251,36 @@ func Branch(repo *libgit.Repository, args []string) {
 	default:
 		fmt.Fprintln(os.Stderr, "Usage: go-git branch [branchname]")
 	}
+
+}
+func Init(repo *libgit.Repository, args []string) {
+	if len(args) > 0 {
+		if dir := args[len(args)-1]; dir != "init" {
+			err := os.MkdirAll(dir, 0755)
+			if err != nil {
+				panic("Couldn't create directory for initializing git.")
+			}
+			err = os.Chdir(dir)
+			if err != nil {
+				panic("Couldn't change working directory while initializing git.")
+			}
+			repo.Path = ".git/"
+		}
+	}
+	// These are all the directories created by a clean "git init"
+	// with the canonical git implementation
+	os.Mkdir(".git", 0755)
+	os.MkdirAll(".git/objects/pack", 0755)
+	os.MkdirAll(".git/objects/info", 0755)
+	os.MkdirAll(".git/info", 0755)  // Should have exclude file in it
+	os.MkdirAll(".git/hooks", 0755) // should have sample hooks in it.
+	os.MkdirAll(".git/branches", 0755)
+	os.MkdirAll(".git/refs/heads", 0755)
+	os.MkdirAll(".git/refs/tags", 0755)
+
+	ioutil.WriteFile(".git/HEAD", []byte("ref: refs/heads/master\n"), 0644)
+	ioutil.WriteFile(".git/config", []byte("[core]\n\trepositoryformatversion = 0\n\tbare = false\n"), 0644)
+	ioutil.WriteFile(".git/description", []byte("Unnamed repository; edit this file 'description' to name the repository.\n"), 0644)
 
 }
 func Clone(repo *libgit.Repository, args []string) {
@@ -268,6 +298,7 @@ func Clone(repo *libgit.Repository, args []string) {
 		repoid = args[0]
 		//dest = args[1]
 	}
+	Init(repo, []string{"testing"})
 
 	if repoid[0:7] == "http://" || repoid[0:8] == "https://" {
 		ups = smartHTTPServerRetriever{location: repoid,
@@ -277,18 +308,36 @@ func Clone(repo *libgit.Repository, args []string) {
 		fmt.Fprintln(os.Stderr, "Unknown protocol.")
 		return
 	}
-	fmt.Printf("Creating tmp")
-	w, _ := os.Create("tmp")
-	ups.RefDiscovery(w)
-
-}
-func main() {
-	repo, err := libgit.OpenRepository(".git")
+	refs, pack, err := ups.NegotiatePack()
 	if err != nil {
-		panic("Couldn't open git repository.")
+		panic(err)
 	}
+	defer pack.Close()
+	defer os.RemoveAll(pack.Name())
+	pack.Seek(0, 0)
+	fmt.Printf("Unpacking into %s\n", repo.Path)
+	unpack(repo, pack)
+	for _, ref := range refs {
+		if repo.Path != "" {
+			refloc := fmt.Sprintf("%s/%s", repo.Path, strings.TrimSpace(ref.Refname))
+			refloc = strings.TrimSpace(refloc)
+			fmt.Printf("Creating %s with %s", refloc, ref.Sha1)
+			ioutil.WriteFile(
+				refloc,
+				[]byte(ref.Sha1),
+				0644,
+			)
+		}
+	}
+}
+
+func main() {
+
 	if len(os.Args) > 1 {
+		repo, _ := libgit.OpenRepository(".git")
 		switch os.Args[1] {
+		case "init":
+			Init(repo, os.Args[2:])
 		case "branch":
 			Branch(repo, os.Args[2:])
 		case "checkout":
@@ -302,12 +351,6 @@ func main() {
 
 		case "reset":
 			Reset(repo, os.Args[2:])
-		case "unpack":
-			// Not a real git command, just for testing clone
-			// without having to keep retrieving the pack over
-			// the wire
-			f, _ := os.Open("tmp")
-			unpack(repo, f)
 		}
 	}
 }
