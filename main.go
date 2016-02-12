@@ -41,6 +41,24 @@ func WriteTree(repo *libgit.Repository) {
 	idx, _ := ReadIndex(repo)
 	idx.WriteTree(repo)
 }
+
+func Config(repo *libgit.Repository, args []string) {
+	if len(args) < 2 {
+		fmt.Fprintf(os.Stderr, "Usage: go-git config [<options>]\n")
+		return
+	}
+	file, err := os.Open(repo.Path + "/config")
+	if err != nil {
+		panic("Couldn't open config\n")
+	}
+	config := parseConfig(repo, file)
+	switch args[0] {
+	case "--get":
+		fmt.Printf("%s\n", config.GetConfig(args[1]))
+		return
+	}
+	panic("Unhandled action" + args[0])
+}
 func Checkout(repo *libgit.Repository, args []string) {
 	switch len(args) {
 	case 0:
@@ -348,6 +366,8 @@ func main() {
 			WriteTree(repo)
 		case "clone":
 			Clone(repo, os.Args[2:])
+		case "config":
+			Config(repo, os.Args[2:])
 
 		case "reset":
 			Reset(repo, os.Args[2:])
