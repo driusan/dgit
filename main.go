@@ -47,17 +47,73 @@ func Config(repo *libgit.Repository, args []string) {
 		fmt.Fprintf(os.Stderr, "Usage: go-git config [<options>]\n")
 		return
 	}
-	file, err := os.Open(repo.Path + "/config")
+	file, err := os.OpenFile(repo.Path+"/config", os.O_RDWR, 0644)
 	if err != nil {
 		panic("Couldn't open config\n")
 	}
+	defer file.Close()
+
 	config := parseConfig(repo, file)
 	switch args[0] {
 	case "--get":
 		fmt.Printf("%s\n", config.GetConfig(args[1]))
 		return
+	case "--set":
+		if len(args) < 3 {
+			fmt.Fprintf(os.Stderr, "Missing value to set config to\n")
+			return
+		}
+		file.Seek(0, 0)
+		config.SetConfig(args[1], args[2])
+		config.WriteFile(file)
+		return
+
 	}
 	panic("Unhandled action" + args[0])
+}
+func Fetch(repo *libgit.Repository, args []string) {
+	if len(args) < 1 {
+		fmt.Fprintf(os.Stderr, "Missing repository to fetch")
+		return
+	}
+
+	file, err := os.Open(repo.Path + "/config")
+	if err != nil {
+		panic("Couldn't open config\n")
+	}
+	defer file.Close()
+	config := parseConfig(repo, file)
+	repoid := config.GetConfig("remote." + args[0] + ".url")
+	var ups uploadpack
+	if repoid[0:7] == "http://" || repoid[0:8] == "https://" {
+		ups = smartHTTPServerRetriever{location: repoid,
+			repo: repo,
+		}
+	} else {
+		fmt.Fprintln(os.Stderr, "Unknown protocol.")
+		return
+	}
+	refs, pack, err := ups.NegotiatePack()
+	if err != nil {
+		panic(err)
+	}
+	defer pack.Close()
+	defer os.RemoveAll(pack.Name())
+	pack.Seek(0, 0)
+	fmt.Printf("Unpacking into %s\n", repo.Path)
+	unpack(repo, pack)
+	for _, ref := range refs {
+		if repo.Path != "" {
+			refloc := fmt.Sprintf("%s/%s", repo.Path, strings.TrimSpace(ref.Refname))
+			refloc = strings.TrimSpace(refloc)
+			fmt.Printf("Creating %s with %s", refloc, ref.Sha1)
+			ioutil.WriteFile(
+				refloc,
+				[]byte(ref.Sha1),
+				0644,
+			)
+		}
+	}
 }
 func Checkout(repo *libgit.Repository, args []string) {
 	switch len(args) {
@@ -282,7 +338,9 @@ func Init(repo *libgit.Repository, args []string) {
 			if err != nil {
 				panic("Couldn't change working directory while initializing git.")
 			}
-			repo.Path = ".git/"
+			if repo != nil {
+				repo.Path = ".git/"
+			}
 		}
 	}
 	// These are all the directories created by a clean "git init"
@@ -301,8 +359,8 @@ func Init(repo *libgit.Repository, args []string) {
 	ioutil.WriteFile(".git/description", []byte("Unnamed repository; edit this file 'description' to name the repository.\n"), 0644)
 
 }
+
 func Clone(repo *libgit.Repository, args []string) {
-	var ups uploadpack
 	var repoid string
 	// TODO: This argument parsing should be smarter and more
 	// in line with how cgit does it.
@@ -314,39 +372,35 @@ func Clone(repo *libgit.Repository, args []string) {
 		repoid = args[0]
 	default:
 		repoid = args[0]
-		//dest = args[1]
 	}
-	Init(repo, []string{"testing"})
+	repoid = strings.TrimRight(repoid, "/")
+	pieces := strings.Split(repoid, "/")
 
-	if repoid[0:7] == "http://" || repoid[0:8] == "https://" {
-		ups = smartHTTPServerRetriever{location: repoid,
-			repo: repo,
-		}
-	} else {
-		fmt.Fprintln(os.Stderr, "Unknown protocol.")
+	var dirName string
+	if len(pieces) > 0 {
+		dirName = pieces[len(pieces)-1]
+	}
+	dirName = strings.TrimSuffix(dirName, ".git")
+
+	if _, err := os.Stat(dirName); err == nil {
+		fmt.Fprintf(os.Stderr, "Directory %s already exists, can not clone.\n", dirName)
 		return
 	}
-	refs, pack, err := ups.NegotiatePack()
-	if err != nil {
-		panic(err)
+	if dirName == "" {
+		panic("No directory left to clone into.")
 	}
-	defer pack.Close()
-	defer os.RemoveAll(pack.Name())
-	pack.Seek(0, 0)
-	fmt.Printf("Unpacking into %s\n", repo.Path)
-	unpack(repo, pack)
-	for _, ref := range refs {
-		if repo.Path != "" {
-			refloc := fmt.Sprintf("%s/%s", repo.Path, strings.TrimSpace(ref.Refname))
-			refloc = strings.TrimSpace(refloc)
-			fmt.Printf("Creating %s with %s", refloc, ref.Sha1)
-			ioutil.WriteFile(
-				refloc,
-				[]byte(ref.Sha1),
-				0644,
-			)
-		}
+
+	if repo == nil {
+		repo = &libgit.Repository{}
 	}
+
+	Init(repo, []string{dirName})
+
+	Config(repo, []string{"--set", "remote.origin.url", repoid})
+	Config(repo, []string{"--set", "branch.master.remote", "origin"})
+
+	Fetch(repo, []string{"origin"})
+	Reset(repo, []string{"--hard"})
 }
 
 func main() {
@@ -368,6 +422,8 @@ func main() {
 			Clone(repo, os.Args[2:])
 		case "config":
 			Config(repo, os.Args[2:])
+		case "fetch":
+			Fetch(repo, os.Args[2:])
 
 		case "reset":
 			Reset(repo, os.Args[2:])
