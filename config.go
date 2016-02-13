@@ -3,6 +3,7 @@ package main
 import (
 	"fmt"
 	libgit "github.com/driusan/git"
+    "os"
 	"io"
 	"io/ioutil"
 	"strings"
@@ -171,3 +172,34 @@ func parseConfig(repo *libgit.Repository, configFile io.Reader) GitConfig {
 	}
 	return GitConfig{sections}
 }
+
+func Config(repo *libgit.Repository, args []string) {
+	if len(args) < 2 {
+		fmt.Fprintf(os.Stderr, "Usage: go-git config [<options>]\n")
+		return
+	}
+	file, err := os.OpenFile(repo.Path+"/config", os.O_RDWR, 0644)
+	if err != nil {
+		panic("Couldn't open config\n")
+	}
+	defer file.Close()
+
+	config := parseConfig(repo, file)
+	switch args[0] {
+	case "--get":
+		fmt.Printf("%s\n", config.GetConfig(args[1]))
+		return
+	case "--set":
+		if len(args) < 3 {
+			fmt.Fprintf(os.Stderr, "Missing value to set config to\n")
+			return
+		}
+		file.Seek(0, 0)
+		config.SetConfig(args[1], args[2])
+		config.WriteFile(file)
+		return
+
+	}
+	panic("Unhandled action" + args[0])
+}
+
