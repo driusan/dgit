@@ -3,9 +3,9 @@ package main
 import (
 	"fmt"
 	libgit "github.com/driusan/git"
-    "os"
 	"io"
 	"io/ioutil"
+	"os"
 	"strings"
 )
 
@@ -202,4 +202,3 @@ func Config(repo *libgit.Repository, args []string) {
 	}
 	panic("Unhandled action" + args[0])
 }
-

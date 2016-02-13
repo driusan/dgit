@@ -63,8 +63,8 @@ func getTreeishId(repo *libgit.Repository, treeish string) string {
 }
 
 func resetIndexFromCommit(repo *libgit.Repository, commitId string) error {
-    // If the index doesn't exist, idx is a new index, so ignore
-    // the path error that ReadIndex is returning
+	// If the index doesn't exist, idx is a new index, so ignore
+	// the path error that ReadIndex is returning
 	idx, _ := ReadIndex(repo)
 	com, err := repo.GetCommit(commitId)
 	if err != nil {
@@ -128,6 +128,8 @@ func main() {
 			Fetch(repo, os.Args[2:])
 		case "reset":
 			Reset(repo, os.Args[2:])
+		case "merge":
+			Merge(repo, os.Args[2:])
 		}
 	}
 }
