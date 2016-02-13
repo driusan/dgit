@@ -187,12 +187,17 @@ func getTreeishId(repo *libgit.Repository, treeish string) string {
 }
 
 func resetIndexFromCommit(repo *libgit.Repository, commitId string) error {
-	idx, err := ReadIndex(repo)
-	if err != nil {
-		return err
-	}
+	idx, _ := ReadIndex(repo)
+	/*
+	    If the index doesn't exist, idx is a clean index..
+		if err != nil {
+			fmt.Printf("%s\n", err)
+			return err
+		}
+	*/
 	com, err := repo.GetCommit(commitId)
 	if err != nil {
+		fmt.Printf("%s\n", err)
 		return err
 	}
 	treeId := com.TreeId()

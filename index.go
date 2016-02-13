@@ -62,7 +62,14 @@ type fixedIndexEntry struct {
 func ReadIndex(g *libgit.Repository) (*GitIndex, error) {
 	file, err := os.Open(g.Path + "/index")
 	if err != nil {
-		return nil, err
+		return &GitIndex{
+			fixedGitIndex{
+				[4]byte{'D', 'I', 'R', 'C'},
+				2, // version 2
+				0, // no entries
+			},
+			make([]*GitIndexEntry, 0),
+		}, err
 	}
 	defer file.Close()
 
