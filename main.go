@@ -6,6 +6,7 @@ import (
 	libgit "github.com/driusan/git"
 	"io/ioutil"
 	"os"
+	"path/filepath"
 	"strings"
 )
 
@@ -214,6 +215,9 @@ func resetWorkingTree(repo *libgit.Repository) error {
 		if err != nil {
 			fmt.Fprintf(os.Stderr, "Could not retrieve %x for %s: %s\n", indexEntry.Sha1, indexEntry.PathName, err)
 			continue
+		}
+		if strings.Index(indexEntry.PathName, "/") > 0 {
+			os.MkdirAll(filepath.Dir(indexEntry.PathName), 0755)
 		}
 		err = ioutil.WriteFile(indexEntry.PathName, obj.GetContent(), os.FileMode(indexEntry.Mode))
 		if err != nil {
