@@ -202,12 +202,6 @@ func (d *deltaeval) Insert(src io.Reader, length uint8) {
 	if err != nil || n != int(length) {
 		panic(fmt.Sprintf("Couldn't read %d bytes: %s", length, err))
 	}
-	if debug == true {
-		fmt.Printf("Inserted %s (Hex: % x)\n", val, val)
-		morecontext := make([]byte, 100)
-		_, _ = src.Read(morecontext)
-		fmt.Printf("The next 100 bytes are : %s (% x", morecontext, morecontext)
-	}
 	d.value = append(d.value, val...)
 }
 func (d *deltaeval) Copy(repo *libgit.Repository, src ObjectReference, offset, length uint64) {
@@ -218,32 +212,25 @@ func (d *deltaeval) Copy(repo *libgit.Repository, src ObjectReference, offset, l
 	}
 	defer r.Close()
 	if offset > 0 {
-        for toRead := int64(offset); toRead == 0; {
-            tmp := make([]byte, toRead)
-            n, err := r.Read(tmp)
-            fmt.Printf("Read %d bytes of %d to throw away (want %d\n", n, offset, toRead)
-            if uint64(n) != offset || err != nil {
-                toRead -= int64(n)
-            }
-            if n == 0 || toRead < 0 {
-                panic("Couldn't correctly read offset.")
-            }
-        }
-
+		tmp := make([]byte, offset)
+		n, err := io.ReadFull(r, tmp)
+		if err != nil {
+			panic(err)
+		}
+		if n == 0 || uint64(n) != offset {
+			panic("Couldn't correctly read offset.")
+		}
 
 	}
 
 	reading := make([]byte, length)
-	n, err := r.Read(reading)
-	if debug == true {
-		fmt.Printf("Read %s (Hex: % x)\n", reading, reading)
-	}
+	n, err := io.ReadFull(r, reading)
 	if uint64(n) != length || err != nil {
 		panic("Error copying data")
 	}
 	d.value = append(d.value, reading...)
 }
-func (d *deltaeval) DoInstruction(repo *libgit.Repository, delta io.Reader, ref ObjectReference) {
+func (d *deltaeval) DoInstruction(repo *libgit.Repository, delta io.Reader, ref ObjectReference, targetSize uint64) {
 	b := make([]byte, 1)
 
 	delta.Read(b)
@@ -288,6 +275,10 @@ func (d *deltaeval) DoInstruction(repo *libgit.Repository, delta io.Reader, ref 
 		if length == 0 {
 			length = 0x10000
 		}
+		if length > targetSize {
+			panic("Trying to read too much data.")
+		}
+
 		d.Copy(repo, ref, uint64(offset), length)
 	} else {
 		d.Insert(delta, uint8(b[0]))
@@ -312,7 +303,7 @@ func calculateDelta(repo *libgit.Repository, reference ObjectReference, delta []
 
 	d := deltaeval{}
 	for {
-		d.DoInstruction(repo, deltaStream, reference)
+		d.DoInstruction(repo, deltaStream, reference, targetLength)
 		if targetLength == uint64(len(d.value)) {
 			break
 		}
