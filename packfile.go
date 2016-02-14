@@ -75,7 +75,7 @@ func (p packfile) ReadHeaderSize(r io.Reader) (PackEntryType, PackEntrySize, Obj
 			var tmp uint64 = uint64(b[0] & 0x7f)
 			size |= PackEntrySize(tmp << (4 + ((i - 1) * 7)))
 		}
-		if b[0] <= 128 {
+		if b[0] < 128 {
 			break
 		}
 		i += 1
