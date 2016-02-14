@@ -218,17 +218,19 @@ func (d *deltaeval) Copy(repo *libgit.Repository, src ObjectReference, offset, l
 	}
 	defer r.Close()
 	if offset > 0 {
+        for toRead := int64(offset); toRead == 0; {
+            tmp := make([]byte, toRead)
+            n, err := r.Read(tmp)
+            fmt.Printf("Read %d bytes of %d to throw away (want %d\n", n, offset, toRead)
+            if uint64(n) != offset || err != nil {
+                toRead -= int64(n)
+            }
+            if n == 0 || toRead < 0 {
+                panic("Couldn't correctly read offset.")
+            }
+        }
 
-		tmp := make([]byte, offset)
-		n, err := r.Read(tmp)
-		if debug == true {
-			fmt.Printf("Read %d bytes to throw away (want %d)\n", n, offset)
-			fmt.Printf("Throwing away %s", tmp)
-			fmt.Printf("\n--\n")
-		}
-		if uint64(n) != offset || err != nil {
-			panic("Couldn't read offset correctly")
-		}
+
 	}
 
 	reading := make([]byte, length)
