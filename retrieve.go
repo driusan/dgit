@@ -140,7 +140,16 @@ func (s smartHTTPServerRetriever) parseUploadPackInfoRefs(r io.Reader) ([]*Refer
 	return references, postData + "00000009done\n", nil
 }
 func (s smartHTTPServerRetriever) NegotiatePack() ([]*Reference, *os.File, error) {
+
+	s.location = strings.TrimSuffix(s.location, "/")
 	resp, err := http.Get(s.location + "/info/refs?service=git-upload-pack")
+	if resp.Header.Get("Content-Type") != "application/x-git-upload-pack-advertisement" {
+		if err != nil {
+			resp.Body.Close()
+		}
+		s.location = s.location + ".git"
+		resp, err = http.Get(s.location + "/info/refs?service=git-upload-pack")
+	}
 	if err != nil {
 		return nil, nil, err
 	}
