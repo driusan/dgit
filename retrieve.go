@@ -45,7 +45,7 @@ var loadLine = func(r io.Reader) string {
 		return ""
 	}
 	line := make([]byte, val-4)
-	n, err = r.Read(line)
+	n, err = io.ReadFull(r, line)
 	if uint64(n) != val-4 || err != nil {
 		panic(fmt.Sprintf("Unexpected line size: %d not %d: %s", n, val, line))
 	}
