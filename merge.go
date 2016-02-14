@@ -2,9 +2,9 @@ package main
 
 import (
 	"fmt"
-	"os"
 	libgit "github.com/driusan/git"
-    "io/ioutil"
+	"io/ioutil"
+	"os"
 )
 
 func isAncestor(parent *libgit.Commit, child string) bool {
@@ -37,23 +37,23 @@ func Merge(repo *libgit.Repository, args []string) {
 		panic(err)
 	}
 
-    // The current branch is an ancestor of HEAD. This
-    // is a fast-forward.
+	// The current branch is an ancestor of HEAD. This
+	// is a fast-forward.
 	if headCom, err := repo.GetCommit(head); err == nil {
 		if isAncestor(headCom, fmt.Sprintf("%s", commit.Id)) {
-		fmt.Fprintf(os.Stderr, "Already up-to-date.\n")
+			fmt.Fprintf(os.Stderr, "Already up-to-date.\n")
 			return
 		}
 	}
 
 	// Head is an ancestor of the current branch.
 	if isAncestor(commit, head) {
-        hb := getHeadBranch(repo)
-        newId := fmt.Sprintf("%s", commit.Id)
+		hb := getHeadBranch(repo)
+		newId := fmt.Sprintf("%s", commit.Id)
 
-        ioutil.WriteFile(".git/refs/heads/" + hb, []byte(newId), 0644)
-        resetIndexFromCommit(repo, newId)
-        fmt.Printf("Hooray! A Fast forward on %s! New should should be %s\n", hb, commit.Id)
+		ioutil.WriteFile(".git/refs/heads/"+hb, []byte(newId), 0644)
+		resetIndexFromCommit(repo, newId)
+		fmt.Printf("Hooray! A Fast forward on %s! New should should be %s\n", hb, commit.Id)
 		return
 	}
 
