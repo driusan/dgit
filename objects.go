@@ -28,7 +28,7 @@ func (GitBlobObject) GetType() string {
 }
 func (b GitBlobObject) GetContent() []byte {
 	if len(b.content) != b.size {
-		panic("Content of blob does not match size")
+		panic(fmt.Sprintf("Content of blob does not match size. %d != %d", len(b.content), b.size))
 	}
 	return b.content
 }
@@ -59,8 +59,9 @@ func GetObject(repo *libgit.Repository, sha1 [20]byte) (GitObject, error) {
 			if val == 0 {
 				content = b[idx+1:]
 				if size, err = strconv.Atoi(string(b[5:idx])); err != nil {
-					fmt.Printf("Error converting %s to int", b[5:idx])
+					fmt.Printf("Error converting % x to int at idx: %d", b[5:idx], idx)
 				}
+				break
 			}
 		}
 		return GitBlobObject{size, content}, nil
