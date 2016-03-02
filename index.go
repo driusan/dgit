@@ -11,6 +11,7 @@ import (
 	"bytes"
 	"crypto/sha1"
 	"os"
+	"strings"
 )
 
 var InvalidIndex error = errors.New("Invalid index")
@@ -216,17 +217,64 @@ func (g ByPath) Len() int           { return len(g) }
 func (g ByPath) Swap(i, j int)      { g[i], g[j] = g[j], g[i] }
 func (g ByPath) Less(i, j int) bool { return g[i].PathName < g[j].PathName }
 
-// Writes the current index to a tree object.
-func (g GitIndex) WriteTree(repo *libgit.Repository) {
+func writeIndexSubtree(repo *libgit.Repository, name string, entries []*GitIndexEntry) ([20]byte, error) {
+	var ret [20]byte
+	return ret, nil
+}
+func writeIndexEntries(repo *libgit.Repository, prefix string, entries []*GitIndexEntry) ([20]byte, error) {
 	content := bytes.NewBuffer(nil)
 	// [mode] [file/folder name]\0[SHA-1 of referencing blob or tree as [20]byte]
-	for _, obj := range g.Objects {
-		fmt.Printf("%o %s\x00%x\n", obj.Mode, obj.PathName, obj.Sha1)
-		fmt.Fprintf(content, "%o %s\x00", obj.Mode, obj.PathName)
-		content.Write(obj.Sha1[:])
+
+	lastname := ""
+	firstIdxForTree := -1
+
+	for idx, obj := range entries {
+		nameBits := strings.Split(obj.PathName, "/")
+
+		// Either it's the last entry and we haven't written a tree yet, or it's not the last
+		// entry but the directory changed
+		if (nameBits[0] != lastname || idx == len(entries)-1) && lastname != "" {
+			fmt.Printf("Should write tree for %s (entries %d to %d)\n", lastname, firstIdxForTree, idx)
+
+			subsha1, err := writeIndexSubtree(repo, lastname, entries[firstIdxForTree:idx])
+			if err != nil {
+				panic(err)
+			}
+
+			fmt.Printf("%o %s %x", 0040000, lastname, subsha1)
+			// Write the object
+			fmt.Fprintf(content, "%o %s\x00", 0040000, lastname)
+			content.Write(subsha1[:])
+
+			// Reset the data keeping track of what this tree is.
+			lastname = ""
+			firstIdxForTree = -1
+			continue
+		}
+		if len(nameBits) == 1 {
+			fmt.Printf("%s\n", obj)
+			//write the blob for the file portion
+			fmt.Printf("%o %s\x00%x\n", obj.Mode, obj.PathName, obj.Sha1)
+			fmt.Fprintf(content, "%o %s\x00", obj.Mode, obj.PathName)
+			content.Write(obj.Sha1[:])
+			lastname = ""
+		} else {
+			lastname = nameBits[0]
+			if firstIdxForTree == -1 {
+				firstIdxForTree = idx
+			}
+		}
 	}
+
 	sha1, err := repo.StoreObjectLoose(libgit.ObjectTree, bytes.NewReader(content.Bytes()))
-	fmt.Printf("% x err: %s %s", sha1, err, sha1)
+	return [20]byte(sha1), err
+}
+
+// Writes the current index to a tree object.
+func (g GitIndex) WriteTree(repo *libgit.Repository) {
+
+	sha1, err := writeIndexEntries(repo, "", g.Objects)
+	fmt.Printf("% x err: %s\n", sha1, err)
 }
 
 func expandGitTreeIntoIndexes(repo *libgit.Repository, tree *libgit.Tree, prefix string) ([]*GitIndexEntry, error) {
