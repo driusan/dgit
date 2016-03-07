@@ -107,6 +107,7 @@ func resetWorkingTree(repo *libgit.Repository) error {
 }
 
 func main() {
+	os.Args = []string{"go-git", "write-tree"}
 	if len(os.Args) > 1 {
 		repo, _ := libgit.OpenRepository(".git")
 		switch os.Args[1] {
