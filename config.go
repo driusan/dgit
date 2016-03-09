@@ -178,27 +178,51 @@ func Config(repo *libgit.Repository, args []string) {
 		fmt.Fprintf(os.Stderr, "Usage: go-git config [<options>]\n")
 		return
 	}
-	file, err := os.OpenFile(repo.Path+"/config", os.O_RDWR, 0644)
+	var fname string
+
+	if args[0] == "--global" {
+		fname = os.Getenv("HOME") + "/.gitconfig"
+		args = args[1:]
+	} else {
+		fname = repo.Path + "/config"
+	}
+
+	file, err := os.OpenFile(fname, os.O_RDWR|os.O_CREATE, 0644)
 	if err != nil {
 		panic("Couldn't open config\n")
 	}
 	defer file.Close()
 
 	config := parseConfig(repo, file)
+	var action string
 	switch args[0] {
 	case "--get":
-		fmt.Printf("%s\n", config.GetConfig(args[1]))
-		return
+		action = "get"
+		args = args[1:]
 	case "--set":
-		if len(args) < 3 {
+		action = "set"
+		args = args[1:]
+	default:
+		if len(args) == 1 {
+			action = "get"
+		} else if len(args) == 2 {
+			action = "set"
+		}
+	}
+	switch action {
+	case "get":
+		fmt.Printf("%s\n", config.GetConfig(args[0]))
+		return
+	case "set":
+		if len(args) < 2 {
 			fmt.Fprintf(os.Stderr, "Missing value to set config to\n")
 			return
 		}
+
 		file.Seek(0, 0)
-		config.SetConfig(args[1], args[2])
+		config.SetConfig(args[0], args[1])
 		config.WriteFile(file)
 		return
-
 	}
 	panic("Unhandled action" + args[0])
 }
