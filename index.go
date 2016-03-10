@@ -334,7 +334,7 @@ func writeIndexEntries(repo *libgit.Repository, prefix string, entries []*GitInd
 // WriteTree writes the current index to a tree object.
 // It returns the sha1 of the written tree, or an empty string
 // if there was an error
-func (g GitIndex) WriteTree(repo *libgit.Repository) string{
+func (g GitIndex) WriteTree(repo *libgit.Repository) string {
 
 	sha1, err := writeIndexEntries(repo, "", g.Objects)
 	if err != nil {

@@ -121,13 +121,16 @@ func main() {
 		case "commit":
 			sha1 := Commit(repo, os.Args[2:])
 			fmt.Printf("%s\n", sha1)
-		fmt.Printf("%s\n", sha1)
+			fmt.Printf("%s\n", sha1)
 		case "commit-tree":
 			sha1 := CommitTree(repo, os.Args[2:])
 			fmt.Printf("%s\n", sha1)
 		case "write-tree":
 			sha1 := WriteTree(repo)
 			fmt.Printf("%s\n", sha1)
+		case "symbolic-ref":
+			val := SymbolicRef(repo, os.Args[2:])
+			fmt.Printf("%s\n", val)
 		case "clone":
 			Clone(repo, os.Args[2:])
 		case "config":
