@@ -331,12 +331,16 @@ func writeIndexEntries(repo *libgit.Repository, prefix string, entries []*GitInd
 	return [20]byte(sha1), err
 }
 
-// Writes the current index to a tree object.
-func (g GitIndex) WriteTree(repo *libgit.Repository) {
+// WriteTree writes the current index to a tree object.
+// It returns the sha1 of the written tree, or an empty string
+// if there was an error
+func (g GitIndex) WriteTree(repo *libgit.Repository) string{
 
 	sha1, err := writeIndexEntries(repo, "", g.Objects)
-	//	sha1, err := writeIndexSubtree(repo, "", g.Objects)
-	fmt.Printf("\n\n%x err: %s\n", sha1, err)
+	if err != nil {
+		return ""
+	}
+	return fmt.Sprintf("%x", sha1)
 }
 
 func expandGitTreeIntoIndexes(repo *libgit.Repository, tree *libgit.Tree, prefix string) ([]*GitIndexEntry, error) {

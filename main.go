@@ -118,8 +118,16 @@ func main() {
 			Checkout(repo, os.Args[2:])
 		case "add":
 			Add(repo, os.Args[2:])
+		case "commit":
+			sha1 := Commit(repo, os.Args[2:])
+			fmt.Printf("%s\n", sha1)
+		fmt.Printf("%s\n", sha1)
+		case "commit-tree":
+			sha1 := CommitTree(repo, os.Args[2:])
+			fmt.Printf("%s\n", sha1)
 		case "write-tree":
-			WriteTree(repo)
+			sha1 := WriteTree(repo)
+			fmt.Printf("%s\n", sha1)
 		case "clone":
 			Clone(repo, os.Args[2:])
 		case "config":
