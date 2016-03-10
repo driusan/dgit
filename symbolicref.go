@@ -13,6 +13,7 @@ func getSymbolicRef(repo *libgit.Repository, symname string) string {
 	if err != nil {
 		return ""
 	}
+	defer file.Close()
 	value, err := ioutil.ReadAll(file)
 	if err != nil {
 		return ""
@@ -34,6 +35,7 @@ func updateSymbolicRef(repo *libgit.Repository, symname, refvalue string) string
 	if err != nil {
 		return ""
 	}
+	defer file.Close()
 	fmt.Fprintf(file, "ref: %s", refvalue)
 	return ""
 }
