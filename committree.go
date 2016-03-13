@@ -75,7 +75,7 @@ func CommitTree(repo *libgit.Repository, args []string) string {
 	// instead of hours, so convert it to an hour format string
 	tzStr := fmt.Sprintf("%+03d00", tzoff/(60*60))
 	fmt.Fprintf(content, "author %s %d %s\n", author, t.Unix(), tzStr)
-	fmt.Fprintf(content, "commiter %s %d %s\n", author, t.Unix(), tzStr)
+	fmt.Fprintf(content, "committer %s %d %s\n", author, t.Unix(), tzStr)
 	fmt.Fprintf(content, "%s", messageString)
 	fmt.Printf("%s", content.Bytes())
 	sha1, err := repo.StoreObjectLoose(libgit.ObjectCommit, bytes.NewReader(content.Bytes()))
