@@ -178,6 +178,15 @@ func (g *GitIndex) AddFile(repo *libgit.Repository, file *os.File) {
 	for _, entry := range g.Objects {
 		if entry.PathName == name {
 			entry.Sha1 = sha1
+
+			fstat, err := file.Stat()
+			if err != nil {
+				panic(err)
+			}
+			modTime := fstat.ModTime()
+			entry.Mtime = uint32(modTime.Unix())
+			entry.Mtimenano = uint32(modTime.Nanosecond())
+			entry.Fsize = uint32(fstat.Size())
 			return
 		}
 	}

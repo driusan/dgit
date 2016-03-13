@@ -14,6 +14,7 @@ func Add(repo *libgit.Repository, args []string) {
 			continue
 		}
 		if file, err := os.Open(arg); err == nil {
+			defer file.Close()
 			gindex.AddFile(repo, file)
 		}
 	}
