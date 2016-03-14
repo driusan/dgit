@@ -106,9 +106,27 @@ func resetWorkingTree(repo *libgit.Repository) error {
 	return nil
 }
 
+func getGitDir() string {
+	startPath, err := os.Getwd()
+	if err != nil {
+		return ""
+	}
+	if dirinfo, err := os.Stat(startPath + "/.git"); err == nil && dirinfo.IsDir() {
+		return startPath + "/.git"
+	}
+	pieces := strings.Split(startPath, "/")
+
+	for i := len(pieces); i > 0; i -= 1 {
+		dir := strings.Join(pieces[0:i], "/")
+		if dirinfo, err := os.Stat(dir + "/.git"); err == nil && dirinfo.IsDir() {
+			return dir + "/.git"
+		}
+	}
+	return ""
+}
 func main() {
 	if len(os.Args) > 1 {
-		repo, _ := libgit.OpenRepository(".git")
+		repo, _ := libgit.OpenRepository(getGitDir())
 		switch os.Args[1] {
 		case "init":
 			Init(repo, os.Args[2:])
@@ -121,7 +139,7 @@ func main() {
 		case "commit":
 			sha1 := Commit(repo, os.Args[2:])
 			fmt.Printf("%s\n", sha1)
-		fmt.Printf("%s\n", sha1)
+			fmt.Printf("%s\n", sha1)
 		case "commit-tree":
 			sha1 := CommitTree(repo, os.Args[2:])
 			fmt.Printf("%s\n", sha1)
@@ -143,6 +161,10 @@ func main() {
 			Reset(repo, os.Args[2:])
 		case "merge":
 			Merge(repo, os.Args[2:])
+		case "rev-parse":
+			RevParse(repo, os.Args[2:])
+		default:
+			fmt.Fprintf(os.Stderr, "Unknown git command.\n")
 		}
 	}
 }
