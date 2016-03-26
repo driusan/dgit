@@ -7,6 +7,7 @@ import (
 	libgit "github.com/driusan/git"
 	"io"
 	"sort"
+	"syscall"
 	//   	"io/ioutil"
 	"bytes"
 	"crypto/sha1"
@@ -190,7 +191,77 @@ func (g *GitIndex) AddFile(repo *libgit.Repository, file *os.File) {
 			return
 		}
 	}
-	panic("TODO: Unimplemented: add new file to GitIndexEntry")
+	fstat, err := file.Stat()
+	if err != nil {
+		panic(err)
+	}
+	modTime := fstat.ModTime()
+	stat := fstat.Sys().(*syscall.Stat_t)
+	csec, cnano := stat.Ctim.Unix()
+
+	var mode uint32
+	if fstat.IsDir() {
+		// This should really recursively call add for each file in the directory.
+		panic("Add can't handle directories. yet.")
+	} else {
+		// if it's a regular file, just assume it's 0644 for now
+		mode = 0x81A4
+
+	}
+	// mode is
+	/*
+	     32-bit mode, split into (high to low bits)
+
+	       4-bit object type
+	         valid values in binary are 1000 (regular file), 1010 (symbolic link)
+	         and 1110 (gitlink)
+
+	       3-bit unused
+
+	       9-bit unix permission. Only 0755 and 0644 are valid for regular files.
+	       Symbolic links and gitlinks have value 0 in this field.
+
+	   Flags is
+	    A 16-bit 'flags' field split into (high to low bits)
+
+	       1-bit assume-valid flag
+
+	       1-bit extended flag (must be zero in version 2)
+
+	       2-bit stage (during merge)
+
+	       12-bit name length if the length is less than 0xFFF; otherwise 0xFFF
+	       is stored in this field.
+
+	*/
+	//var flags uint16 = 0x8000 // start with "assume-valid" flag
+	var flags uint16 = 0x8000 // start with "assume-valid" flag
+	if len(name) >= 0x0FFF {
+		flags |= 0x0FFF
+	} else {
+		flags |= (uint16(len(name)) & 0x0FFF)
+	}
+
+	g.Objects = append(g.Objects, &GitIndexEntry{
+		fixedIndexEntry{
+			uint32(csec),                 // right?
+			uint32(cnano),                // right?
+			uint32(modTime.Unix()),       // right
+			uint32(modTime.Nanosecond()), // right
+			uint32(stat.Dev),             // right
+			uint32(stat.Ino),             // right
+			mode,
+			stat.Uid,             // right?
+			stat.Gid,             // right?
+			uint32(fstat.Size()), // right
+			sha1,                 // this is right
+			flags,                // right
+		},
+		name,
+	})
+	g.NumberIndexEntries += 1
+	sort.Sort(ByPath(g.Objects))
+	return
 }
 
 func getNormalizedName(file *os.File) string {

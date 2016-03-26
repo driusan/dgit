@@ -13,7 +13,7 @@ func RevParse(repo *libgit.Repository, args []string) {
 		case "--git-dir":
 			wd, err := os.Getwd()
 			if err == nil {
-				fmt.Printf("%s\n", strings.TrimPrefix(repo.Path, wd + "/"))
+				fmt.Printf("%s\n", strings.TrimPrefix(repo.Path, wd+"/"))
 			} else {
 				fmt.Printf("%s\n", repo.Path)
 			}
