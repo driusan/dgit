@@ -148,6 +148,8 @@ func main() {
 			fmt.Printf("%s\n", sha1)
 		case "update-ref":
 			UpdateRef(repo, os.Args[2:])
+		case "log":
+			Log(repo, os.Args[2:])
 		case "symbolic-ref":
 			val := SymbolicRef(repo, os.Args[2:])
 			fmt.Printf("%s\n", val)
