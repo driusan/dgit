@@ -1,0 +1,5 @@
+When you run 'git add filename' on a file that was in the index
+and was removed, git removes the file from the index ("adds" the
+change to the staging area.)
+
+This should be supported.

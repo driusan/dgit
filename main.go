@@ -165,6 +165,8 @@ func main() {
 			Merge(repo, os.Args[2:])
 		case "rev-parse":
 			RevParse(repo, os.Args[2:])
+		case "hash-object":
+			HashObject(repo, os.Args[2:])
 		default:
 			fmt.Fprintf(os.Stderr, "Unknown git command.\n")
 		}
