@@ -31,7 +31,12 @@ func Fetch(repo *libgit.Repository, args []string) {
 		return
 	}
 	refs, pack, err := ups.NegotiatePack()
-	if err != nil {
+	switch err {
+	case NoNewCommits:
+		return
+	case nil:
+		break
+	default:
 		panic(err)
 	}
 	defer pack.Close()

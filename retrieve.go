@@ -13,6 +13,7 @@ import (
 )
 
 var InvalidResponse error = errors.New("Invalid response")
+var NoNewCommits error = errors.New("No new commits")
 
 type Reference struct {
 	Sha1    string
@@ -121,10 +122,15 @@ func (s smartHTTPServerRetriever) parseUploadPackInfoRefs(r io.Reader) ([]*Refer
 		}
 
 	}
+	wantAtLeastOne := false
 	for _, ref := range references {
 		var line string
-		//if have, _, _ := s.repo.HaveObject(ref.id); have == false {
-		line = fmt.Sprintf("want %s", ref.Sha1)
+		if have, _, _ := s.repo.HaveObject(ref.Sha1); have == false {
+			line = fmt.Sprintf("want %s", ref.Sha1)
+			wantAtLeastOne = true
+		} else {
+			line = fmt.Sprintf("have %s", ref.Sha1)
+		}
 		if sentData == false {
 			if len(responseCapabilities) > 0 {
 				line += " " + strings.Join(responseCapabilities, " ")
@@ -132,10 +138,12 @@ func (s smartHTTPServerRetriever) parseUploadPackInfoRefs(r io.Reader) ([]*Refer
 			sentData = true
 		}
 		postData += fmt.Sprintf("%.4x%s\n", len(line)+5, line)
-		//}
 	}
 	if noDone {
 		return references, postData + "0000", nil
+	}
+	if !wantAtLeastOne {
+		return nil, "", nil
 	}
 	return references, postData + "00000009done\n", nil
 }
@@ -160,7 +168,7 @@ func (s smartHTTPServerRetriever) NegotiatePack() ([]*Reference, *os.File, error
 	}
 	if toPost == "" {
 		fmt.Fprintf(os.Stderr, "Already up to date\n")
-		return refs, nil, nil
+		return refs, nil, NoNewCommits
 	}
 	resp2, err := http.Post(s.location+"/git-upload-pack", "application/x-git-upload-pack-request", strings.NewReader(toPost))
 	if err != nil {
