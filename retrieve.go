@@ -1,9 +1,9 @@
 package main
 
 import (
+	"bufio"
 	"errors"
 	"fmt"
-"bufio"
 	"io"
 	"io/ioutil"
 	"net/http"
@@ -22,6 +22,10 @@ type Reference struct {
 	Refname string
 }
 type uploadpack interface {
+	// Retrieves a list of references from the server, using git service
+	// "service".
+	RetrieveReferences(service string, r io.Reader) (refs []*Reference, capabilities []string, err error)
+
 	// Negotiates a packfile and returns a reader that can
 	// read it.
 	// As well as a map of refs/ that the server had
@@ -59,7 +63,7 @@ var loadLine = func(r io.Reader) string {
 
 }
 
-func (s smartHTTPServerRetriever) parseUploadPackInfoRefs(r io.Reader) ([]*Reference, string, error) {
+func (s smartHTTPServerRetriever) RetrieveReferences(service string, r io.Reader) ([]*Reference, []string, error) {
 	var capabilities []string
 	var parseLine = func(s string) *Reference {
 		var ret *Reference
@@ -90,14 +94,14 @@ func (s smartHTTPServerRetriever) parseUploadPackInfoRefs(r io.Reader) ([]*Refer
 	}
 
 	header := loadLine(r)
-	if header != "# service=git-upload-pack\n" && header != "# service=git-receive-pack\n" {
-		return nil, "", InvalidResponse
+	if header != "# service="+service+"\n" {
+		return nil, nil, InvalidResponse
 	}
 
 	ctrl := loadLine(r)
 	if ctrl != "" {
 		// Expected a 0000 control line.
-		return nil, "", InvalidResponse
+		return nil, nil, InvalidResponse
 	}
 	var references []*Reference
 	for line := loadLine(r); line != ""; line = loadLine(r) {
@@ -107,11 +111,20 @@ func (s smartHTTPServerRetriever) parseUploadPackInfoRefs(r io.Reader) ([]*Refer
 			references = append(references, parseLine(line))
 		}
 	}
+	return references, capabilities, nil
+
+}
+func (s smartHTTPServerRetriever) parseUploadPackInfoRefs(r io.Reader) ([]*Reference, string, error) {
 	var postData string
 
 	var sentData bool = false
 	var noDone bool = false
 	var responseCapabilities = make([]string, 0)
+	references, capabilities, err := s.RetrieveReferences("git-upload-pack", r)
+	if err != nil {
+		return nil, "", err
+	}
+
 	for _, val := range capabilities {
 		switch val {
 		case "no-done":
@@ -148,45 +161,45 @@ func (s smartHTTPServerRetriever) parseUploadPackInfoRefs(r io.Reader) ([]*Refer
 		return references, postData + "0000", nil
 	}
 	if !wantAtLeastOne {
-		return nil, "", nil
+		return references, "", nil
 	}
 	return references, postData + "00000009done\n", nil
 }
 
-func (s smartHTTPServerRetriever) NegotiateSendPack() ([]*Reference, error) {
+func readLine(prompt string) string {
 	getInput := bufio.NewReader(os.Stdin)
+	var val string
 	var err error
-	var username, password string
 	for {
-		fmt.Fprintf(os.Stderr, "Username: ")
-		username, err = getInput.ReadString('\n')
+		fmt.Fprintf(os.Stderr, prompt)
+		val, err = getInput.ReadString('\n')
 		if err != nil {
-			return nil, err
+			return ""
 		}
 
-		username = strings.TrimSpace(username)
-		if username != "" {
-			break
+		val = strings.TrimSpace(val)
+		if val != "" {
+			return val
 		}
 	}
-	for {
-		fmt.Fprintf(os.Stderr, "Password: ")
-		password, err = getInput.ReadString('\n')
-		if err != nil {
-			return nil, err
-		}
+}
 
-		password = strings.TrimSpace(password)
-		if password != "" {
-			break
-		}
-	}
-	fmt.Printf("Username: '%s': %s", username, password)
-	return nil, errors.New("Not yet implemented")
-	fmt.Fprintf(os.Stderr, "Password: ")
+// Retrieves a list of references from the server using service and expecting Content-Type
+// of expectedmime
+func (s smartHTTPServerRetriever) getRefs(user, password string, service, expectedmime string) (io.ReadCloser, error) {
+	// Try directly accessing the server's URL.
 	s.location = strings.TrimSuffix(s.location, "/")
-	resp, err := http.Get(s.location + "/info/refs?service=git-receive-pack")
-	if resp.Header.Get("Content-Type") != "application/x-git-receive-pack-request" {
+	req, err := http.NewRequest("GET", s.location+"/info/refs?service="+service, nil)
+	if err != nil {
+		return nil, err
+	}
+
+	if user != "" || password != "" {
+		req.SetBasicAuth(user, password)
+	}
+	resp, err := http.DefaultClient.Do(req)
+	if resp.Header.Get("Content-Type") != expectedmime {
+		// If it didn't work, close the body and try again at "url.git"
 		if err != nil {
 			resp.Body.Close()
 		}
@@ -194,7 +207,11 @@ func (s smartHTTPServerRetriever) NegotiateSendPack() ([]*Reference, error) {
 			return nil, errors.New(resp.Status)
 		}
 		s.location = s.location + ".git"
-		resp, err = http.Get(s.location + "/info/refs?service=git-receive-pack")
+		req, err = http.NewRequest("GET", s.location+"/info/refs?service="+service, nil)
+		if user != "" || password != "" {
+			req.SetBasicAuth(user, password)
+		}
+		resp, err = http.DefaultClient.Do(req)
 	}
 	if err != nil {
 		return nil, err
@@ -202,8 +219,22 @@ func (s smartHTTPServerRetriever) NegotiateSendPack() ([]*Reference, error) {
 	if resp.StatusCode >= 400 {
 		return nil, errors.New(resp.Status)
 	}
-	defer resp.Body.Close()
-	refs, _, err := s.parseUploadPackInfoRefs(io.TeeReader(resp.Body, os.Stderr))
+	// It worked, so return the Body reader. It's the callers responsibility
+	// to close it.
+	return resp.Body, nil
+}
+func (s smartHTTPServerRetriever) NegotiateSendPack() ([]*Reference, error) {
+	var err error
+
+	username := readLine("Username: ")
+	password := readLine("Password: ")
+	r, err := s.getRefs(username, password, "git-receive-pack", "application/x-git-receive-pack-request")
+	if err != nil {
+		return nil, err
+	}
+	defer r.Close()
+
+	refs, _, err := s.RetrieveReferences("git-receive-pack", r)
 	if err != nil {
 		return nil, err
 	}
@@ -211,20 +242,13 @@ func (s smartHTTPServerRetriever) NegotiateSendPack() ([]*Reference, error) {
 
 }
 func (s smartHTTPServerRetriever) NegotiatePack() ([]*Reference, *os.File, error) {
-	s.location = strings.TrimSuffix(s.location, "/")
-	resp, err := http.Get(s.location + "/info/refs?service=git-upload-pack")
-	if resp.Header.Get("Content-Type") != "application/x-git-upload-pack-advertisement" {
-		if err != nil {
-			resp.Body.Close()
-		}
-		s.location = s.location + ".git"
-		resp, err = http.Get(s.location + "/info/refs?service=git-upload-pack")
-	}
+	r, err := s.getRefs("", "", "git-upload-pack", "application/x-git-upload-pack-advertisement")
 	if err != nil {
 		return nil, nil, err
 	}
-	defer resp.Body.Close()
-	refs, toPost, err := s.parseUploadPackInfoRefs(io.TeeReader(resp.Body, os.Stderr))
+	defer r.Close()
+	refs, toPost, err := s.parseUploadPackInfoRefs(r)
+	//refs, toPost, err := s.parseUploadPackInfoRefs(o.TeeReader(r, os.Stderr))
 	if err != nil {
 		return nil, nil, err
 	}
@@ -232,18 +256,18 @@ func (s smartHTTPServerRetriever) NegotiatePack() ([]*Reference, *os.File, error
 		fmt.Fprintf(os.Stderr, "Already up to date\n")
 		return refs, nil, NoNewCommits
 	}
-	resp2, err := http.Post(s.location+"/git-upload-pack", "application/x-git-upload-pack-request", strings.NewReader(toPost))
+	r2, err := http.Post(s.location+"/git-upload-pack", "application/x-git-upload-pack-request", strings.NewReader(toPost))
 	if err != nil {
 		return refs, nil, err
 	}
-	defer resp2.Body.Close()
-	response := loadLine(resp2.Body)
+	defer r2.Body.Close()
+	response := loadLine(r2.Body)
 	if response != "NAK\n" {
 		panic(response)
 	}
 
 	f, _ := ioutil.TempFile("", "gitpack")
-	io.Copy(f, resp2.Body)
+	io.Copy(f, r2.Body)
 
 	return refs, f, nil
 }
