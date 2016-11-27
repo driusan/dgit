@@ -11,6 +11,15 @@ import (
 	libgit "github.com/driusan/git"
 )
 
+func HashFile(t, filename string) (Sha1, error) {
+	data, err := ioutil.ReadFile(filename)
+	if err != nil {
+		return Sha1{}, err
+	}
+	h := sha1.New()
+	fmt.Fprintf(h, "%s %d\000%s", t, len(data), data)
+	return Sha1(h.Sum(nil)), nil
+}
 func HashObject(repo *libgit.Repository, args []string) {
 	var t string
 	var write, stdin, stdinpaths bool

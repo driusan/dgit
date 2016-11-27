@@ -53,6 +53,11 @@ func writeIndex(repo *libgit.Repository, idx *GitIndex, indexName string) error 
 }
 
 func getTreeishId(repo *libgit.Repository, treeish string) string {
+	if treeish == "HEAD" {
+		if head, err := getHeadId(repo); err == nil {
+			return head
+		}
+	}
 	if branchId, err := repo.GetCommitIdOfBranch(treeish); err == nil {
 		return branchId
 	}
@@ -167,8 +172,12 @@ func main() {
 			RevParse(repo, os.Args[2:])
 		case "hash-object":
 			HashObject(repo, os.Args[2:])
+		case "status":
+			Status(repo, os.Args[2:])
+		case "ls-tree":
+			LsTree(repo, os.Args[2:])
 		default:
-			fmt.Fprintf(os.Stderr, "Unknown git command.\n")
+			fmt.Fprintf(os.Stderr, "Unknown git command %s.\n", os.Args[1])
 		}
 	}
 }
