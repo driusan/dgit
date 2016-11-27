@@ -263,6 +263,16 @@ func (g *GitIndex) AddFile(repo *libgit.Repository, file *os.File) {
 	return
 }
 
+func (g *GitIndex) RemoveFile(repo *libgit.Repository, file string) {
+	for i, entry := range g.Objects {
+		if entry.PathName == file {
+			//println("Should remove ", i)
+			g.Objects = append(g.Objects[:i], g.Objects[i+1:]...)
+			g.NumberIndexEntries -= 1
+		}
+	}
+}
+
 func getNormalizedName(file *os.File) string {
 	return file.Name()
 }
