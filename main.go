@@ -176,6 +176,8 @@ func main() {
 			Status(repo, os.Args[2:])
 		case "ls-tree":
 			LsTree(repo, os.Args[2:])
+		case "push":
+			Push(repo, os.Args[2:])
 		default:
 			fmt.Fprintf(os.Stderr, "Unknown git command %s.\n", os.Args[1])
 		}

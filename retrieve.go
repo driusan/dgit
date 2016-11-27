@@ -3,13 +3,15 @@ package main
 import (
 	"errors"
 	"fmt"
-	libgit "github.com/driusan/git"
+"bufio"
 	"io"
 	"io/ioutil"
 	"net/http"
 	"os"
 	"strconv"
 	"strings"
+
+	libgit "github.com/driusan/git"
 )
 
 var InvalidResponse error = errors.New("Invalid response")
@@ -25,6 +27,9 @@ type uploadpack interface {
 	// As well as a map of refs/ that the server had
 	// to the hashes that they reference
 	NegotiatePack() ([]*Reference, *os.File, error)
+
+	// Negotiate references that should up uploaded in a sendpack
+	NegotiateSendPack() ([]*Reference, error)
 }
 
 type smartHTTPServerRetriever struct {
@@ -85,7 +90,7 @@ func (s smartHTTPServerRetriever) parseUploadPackInfoRefs(r io.Reader) ([]*Refer
 	}
 
 	header := loadLine(r)
-	if header != "# service=git-upload-pack\n" {
+	if header != "# service=git-upload-pack\n" && header != "# service=git-receive-pack\n" {
 		return nil, "", InvalidResponse
 	}
 
@@ -147,8 +152,65 @@ func (s smartHTTPServerRetriever) parseUploadPackInfoRefs(r io.Reader) ([]*Refer
 	}
 	return references, postData + "00000009done\n", nil
 }
-func (s smartHTTPServerRetriever) NegotiatePack() ([]*Reference, *os.File, error) {
 
+func (s smartHTTPServerRetriever) NegotiateSendPack() ([]*Reference, error) {
+	getInput := bufio.NewReader(os.Stdin)
+	var err error
+	var username, password string
+	for {
+		fmt.Fprintf(os.Stderr, "Username: ")
+		username, err = getInput.ReadString('\n')
+		if err != nil {
+			return nil, err
+		}
+
+		username = strings.TrimSpace(username)
+		if username != "" {
+			break
+		}
+	}
+	for {
+		fmt.Fprintf(os.Stderr, "Password: ")
+		password, err = getInput.ReadString('\n')
+		if err != nil {
+			return nil, err
+		}
+
+		password = strings.TrimSpace(password)
+		if password != "" {
+			break
+		}
+	}
+	fmt.Printf("Username: '%s': %s", username, password)
+	return nil, errors.New("Not yet implemented")
+	fmt.Fprintf(os.Stderr, "Password: ")
+	s.location = strings.TrimSuffix(s.location, "/")
+	resp, err := http.Get(s.location + "/info/refs?service=git-receive-pack")
+	if resp.Header.Get("Content-Type") != "application/x-git-receive-pack-request" {
+		if err != nil {
+			resp.Body.Close()
+		}
+		if resp.StatusCode >= 400 && resp.StatusCode != 404 {
+			return nil, errors.New(resp.Status)
+		}
+		s.location = s.location + ".git"
+		resp, err = http.Get(s.location + "/info/refs?service=git-receive-pack")
+	}
+	if err != nil {
+		return nil, err
+	}
+	if resp.StatusCode >= 400 {
+		return nil, errors.New(resp.Status)
+	}
+	defer resp.Body.Close()
+	refs, _, err := s.parseUploadPackInfoRefs(io.TeeReader(resp.Body, os.Stderr))
+	if err != nil {
+		return nil, err
+	}
+	return refs, nil
+
+}
+func (s smartHTTPServerRetriever) NegotiatePack() ([]*Reference, *os.File, error) {
 	s.location = strings.TrimSuffix(s.location, "/")
 	resp, err := http.Get(s.location + "/info/refs?service=git-upload-pack")
 	if resp.Header.Get("Content-Type") != "application/x-git-upload-pack-advertisement" {
