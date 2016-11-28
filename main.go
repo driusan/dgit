@@ -178,6 +178,8 @@ func main() {
 			LsTree(repo, os.Args[2:])
 		case "push":
 			Push(repo, os.Args[2:])
+		case "pack-objects":
+			PackObjects(repo, os.Stdin, os.Args[2:])
 		default:
 			fmt.Fprintf(os.Stderr, "Unknown git command %s.\n", os.Args[1])
 		}

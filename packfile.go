@@ -9,6 +9,7 @@ import (
 	libgit "github.com/driusan/git"
 	"github.com/driusan/go-git/zlib"
 	"io"
+	//"io/ioutil"
 	"os"
 )
 
@@ -35,6 +36,37 @@ const (
 	OBJ_REF_DELTA PackEntryType = 7
 )
 
+func SendPackfile(repo *libgit.Repository, w io.Writer, objects []Sha1) error {
+	sha := sha1.New()
+	w = io.MultiWriter(w, sha)
+	n, err := w.Write([]byte{'P', 'A', 'C', 'K'})
+	if n != 4 {
+		panic("Could not write signature")
+	}
+	if err != nil {
+		return err
+	}
+
+	// Version
+	binary.Write(w, binary.BigEndian, uint32(2))
+	// Size
+	binary.Write(w, binary.BigEndian, uint32(len(objects)))
+	for _, obj := range objects {
+		s := VariableLengthInt(obj.UncompressedSize(repo))
+		err := s.WriteVariable(w, obj.PackEntryType(repo))
+		if err != nil {
+			return err
+		}
+
+		err = obj.CompressedWriter(repo, w)
+		if err != nil {
+			return err
+		}
+	}
+	trailer := sha.Sum(nil)
+	w.Write(trailer)
+	return nil
+}
 func (p packfile) ReadHeaderSize(r io.Reader) (PackEntryType, PackEntrySize, ObjectReference) {
 	b := make([]byte, 1)
 	var i uint
@@ -89,7 +121,6 @@ func (p packfile) ReadHeaderSize(r io.Reader) (PackEntryType, PackEntrySize, Obj
 	return entrytype, size, refDelta
 }
 
-// Returns
 func (p packfile) ReadEntryDataStream(r io.ReadSeeker) (uncompressed []byte, compressed []byte) {
 	b := new(bytes.Buffer)
 	bookmark, _ := r.Seek(0, 1)
@@ -159,7 +190,6 @@ func writeObject(repo *libgit.Repository, objType string, rawdata []byte) error 
 	directory := fmt.Sprintf("%x", sha[0:1])
 	file := fmt.Sprintf("%x", sha[1:])
 
-	fmt.Printf("Putting %x in %s/%s\n", sha, directory, file)
 	os.MkdirAll(repo.Path+"/objects/"+directory, os.FileMode(0755))
 	f, err := os.Create(repo.Path + "/objects/" + directory + "/" + file)
 	if err != nil {
@@ -175,6 +205,30 @@ func writeObject(repo *libgit.Repository, objType string, rawdata []byte) error 
 }
 
 type VariableLengthInt uint64
+
+func (v VariableLengthInt) WriteVariable(w io.Writer, typ PackEntryType) error {
+	b := make([]byte, 0)
+	// Encode the type
+	theByte := byte(typ) << 4
+	// Encode the last 4 bits
+	theByte |= byte(v & 0xF)
+	v = v >> 4
+	b = append(b, theByte)
+	for {
+		if v == 0 {
+			break
+		}
+
+		b[len(b)-1] |= 0x80
+
+		theByte = byte(v & 0x7F)
+		b = append(b, theByte)
+		v = v >> 7
+
+	}
+	w.Write(b)
+	return nil
+}
 
 func ReadVariable(src io.Reader) uint64 {
 	b := make([]byte, 1)
