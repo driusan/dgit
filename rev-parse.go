@@ -7,7 +7,26 @@ import (
 	"strings"
 )
 
-func RevParse(repo *libgit.Repository, args []string) {
+type ParsedRevision struct {
+	Id       Sha1
+	Excluded bool
+}
+
+func getBranchSha1(repo *libgit.Repository, branchname string) (Sha1, error) {
+	if branchname == "HEAD" {
+		head, err := getHeadId(repo)
+		if err != nil {
+			return nil, err
+		}
+		return Sha1FromString(head)
+	}
+	sha, err := getBranchId(repo, branchname)
+	if err != nil {
+		return nil, err
+	}
+	return Sha1FromString(sha)
+}
+func RevParse(repo *libgit.Repository, args []string) (commits []ParsedRevision, err2 error) {
 	for _, arg := range args {
 		switch arg {
 		case "--git-dir":
@@ -20,9 +39,28 @@ func RevParse(repo *libgit.Repository, args []string) {
 		default:
 			if len(arg) > 0 && arg[0] == '-' {
 				fmt.Printf("%s\n", arg)
+			} else {
+				var sha string
+				var exclude bool
+				var err error
+				if arg[0] == '^' {
+					sha = arg[1:]
+					exclude = true
+				} else {
+					sha = arg
+					exclude = false
+				}
+				comm, err := getBranchSha1(repo, sha)
+				if err != nil {
+					err2 = err
+				} else {
+					commits = append(commits, ParsedRevision{comm, exclude})
+				}
+
 			}
+
 		}
 
 	}
-
+	return
 }

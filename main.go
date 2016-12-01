@@ -38,6 +38,9 @@ func getHeadId(repo *libgit.Repository) (string, error) {
 	return "", InvalidHead
 }
 
+func getBranchId(repo *libgit.Repository, b string) (string, error) {
+	return repo.GetCommitIdOfBranch(b)
+}
 func writeIndex(repo *libgit.Repository, idx *GitIndex, indexName string) error {
 	if indexName == "" {
 		return InvalidArgument
@@ -169,7 +172,20 @@ func main() {
 		case "merge":
 			Merge(repo, os.Args[2:])
 		case "rev-parse":
-			RevParse(repo, os.Args[2:])
+			commits, err := RevParse(repo, os.Args[2:])
+			if err != nil {
+				fmt.Fprintf(os.Stderr, "%v\n", err)
+				os.Exit(4)
+			}
+			for _, sha := range commits {
+				if sha.Excluded {
+					fmt.Print("^")
+				}
+				fmt.Println(sha.Id.String())
+			}
+
+		case "rev-list":
+			RevList(repo, os.Args[2:])
 		case "hash-object":
 			HashObject(repo, os.Args[2:])
 		case "status":
