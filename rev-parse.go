@@ -50,13 +50,21 @@ func RevParse(repo *libgit.Repository, args []string) (commits []ParsedRevision,
 					sha = arg
 					exclude = false
 				}
+				if len(sha) == 40 {
+					comm, err := Sha1FromString(sha)
+					if err != nil {
+						panic(err)
+					}
+					commits = append(commits, ParsedRevision{comm, exclude})
+					continue
+				}
+
 				comm, err := getBranchSha1(repo, sha)
 				if err != nil {
 					err2 = err
 				} else {
 					commits = append(commits, ParsedRevision{comm, exclude})
 				}
-
 			}
 
 		}

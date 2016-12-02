@@ -8,8 +8,9 @@ import (
 	//"strings"
 )
 
-func RevList(repo *libgit.Repository, args []string) {
+func RevList(repo *libgit.Repository, args []string) ([]Sha1, error) {
 	includeObjects := flag.Bool("objects", false, "include non-commit objects in output")
+	quiet := flag.Bool("quiet", false, "prevent printing of revisions")
 	os.Args = append([]string{"git rev-list"}, args...)
 	flag.Parse()
 	args = flag.Args()
@@ -23,7 +24,7 @@ func RevList(repo *libgit.Repository, args []string) {
 		if rev[0] == '^' && len(rev) > 1 {
 			commits, err := RevParse(repo, []string{rev[1:]})
 			if err != nil {
-				panic(err)
+				panic(rev + ":" + err.Error())
 			}
 			for _, commit := range commits {
 				ancestors := commit.Id.Ancestors(repo)
@@ -43,6 +44,7 @@ func RevList(repo *libgit.Repository, args []string) {
 			}
 		}
 	}
+	objs := make([]Sha1, 0)
 	// Then follow the parents of the non-excluded ones until they hit
 	// something that was excluded.
 	for _, rev := range args {
@@ -60,23 +62,27 @@ func RevList(repo *libgit.Repository, args []string) {
 		ancestors := com.Id.Ancestors(repo)
 		for _, allC := range ancestors {
 			if _, ok := excludeList[Sha1(allC).String()]; !ok {
-				fmt.Printf("%v\n", Sha1(allC).String())
+				if !*quiet {
+					fmt.Printf("%v\n", Sha1(allC).String())
+				}
+				objs = append(objs, Sha1(allC))
 				if *includeObjects {
-					objs, err := allC.GetAllObjects(repo)
+					objs2, err := allC.GetAllObjects(repo)
 					if err != nil {
 						panic(err)
 					}
-					for _, o := range objs {
+					for _, o := range objs2 {
 						if _, okie := excludeList[o.String()]; !okie {
-							fmt.Printf("%v\n", o.String())
+							if !*quiet {
+								fmt.Printf("%v\n", o.String())
+							}
+							objs = append(objs, Sha1(o))
 						}
 						excludeList[o.String()] = true
 					}
 				}
 			}
 		}
-
-		//lgCommits := repo.CommitsBefore(com.String())
-
 	}
+	return objs, nil
 }

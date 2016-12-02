@@ -23,7 +23,7 @@ func Fetch(repo *libgit.Repository, args []string) {
 	repoid := config.GetConfig("remote." + args[0] + ".url")
 	var ups uploadpack
 	if repoid[0:7] == "http://" || repoid[0:8] == "https://" {
-		ups = smartHTTPServerRetriever{location: repoid,
+		ups = &smartHTTPServerRetriever{location: repoid,
 			repo: repo,
 		}
 	} else {

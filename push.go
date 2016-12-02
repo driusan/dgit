@@ -2,8 +2,10 @@ package main
 
 import (
 	"fmt"
-	libgit "github.com/driusan/git"
 	"os"
+	"strings"
+
+	libgit "github.com/driusan/git"
 )
 
 func Push(repo *libgit.Repository, args []string) {
@@ -18,23 +20,61 @@ func Push(repo *libgit.Repository, args []string) {
 	}
 	defer file.Close()
 	config := parseConfig(repo, file)
-	repoid := config.GetConfig("remote." + args[0] + ".url")
+	remote := config.GetConfig("branch." + args[0] + ".remote")
+	mergebranch := strings.TrimSpace(config.GetConfig("branch." + args[0] + ".merge"))
+	repoid := config.GetConfig("remote." + remote + ".url")
+	println(remote, " on ", repoid)
 	var ups uploadpack
 	if repoid[0:7] == "http://" || repoid[0:8] == "https://" {
-		ups = smartHTTPServerRetriever{location: repoid,
+		ups = &smartHTTPServerRetriever{location: repoid,
 			repo: repo,
 		}
 	} else {
 		fmt.Fprintln(os.Stderr, "Unknown protocol.")
 		return
 	}
+
 	refs, err := ups.NegotiateSendPack()
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "%v", err)
 		return
 	}
 	for _, ref := range refs {
-		fmt.Printf("Refname: %s Sha1: %s\n", ref.Refname, ref.Sha1)
+		trimmed := strings.TrimSuffix(ref.Refname, "\000")
+		trimmed = strings.TrimSpace(trimmed)
+		if trimmed == mergebranch {
+			localSha, err := RevParse(repo, []string{args[0]})
+			if err != nil {
+				panic(err)
+			}
+			fmt.Printf("Refname: %s Remote Sha1: %s Local Sha1: %s\n", ref.Refname, ref.Sha1, localSha[0].Id)
+			objects, err := RevList(repo, []string{"--objects", "--quiet", localSha[0].Id.String(), "^" + ref.Sha1})
+			if err != nil {
+				panic(err)
+			}
+			var lines string
+			for _, o := range objects {
+				lines = fmt.Sprintf("%s%s\n", lines, o.String())
+			}
+
+			PackObjects(repo, strings.NewReader(lines), []string{"foo"})
+			f, err := os.Open("foo.pack")
+			if err != nil {
+				panic(err)
+			}
+			defer f.Close()
+			stat, err := f.Stat()
+			if err != nil {
+				panic(err)
+			}
+			print(stat.Size())
+			//defer os.Remove("foo.pack")
+			ups.SendPack(UpdateReference{
+				LocalSha1:  localSha[0].Id.String(),
+				RemoteSha1: ref.Sha1,
+				Refname:    ref.Refname,
+			}, f, stat.Size())
+		}
 	}
 
 }

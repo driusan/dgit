@@ -14,12 +14,30 @@ import (
 	libgit "github.com/driusan/git"
 )
 
+type PktLine string
+
+func PktLineEncode(line []byte) (PktLine, error) {
+	if len(line) > 65535 {
+		return "", fmt.Errorf("Line too long to encode in PktLine format")
+	}
+	return PktLine(fmt.Sprintf("%.4x%s\n", len(line)+5, line)), nil
+}
+
+func (p PktLine) String() string {
+	return string(p)
+}
+
 var InvalidResponse error = errors.New("Invalid response")
 var NoNewCommits error = errors.New("No new commits")
 
 type Reference struct {
 	Sha1    string
 	Refname string
+}
+
+type UpdateReference struct {
+	LocalSha1, RemoteSha1 string
+	Refname               string
 }
 type uploadpack interface {
 	// Retrieves a list of references from the server, using git service
@@ -34,11 +52,17 @@ type uploadpack interface {
 
 	// Negotiate references that should up uploaded in a sendpack
 	NegotiateSendPack() ([]*Reference, error)
+
+	// Sends the PackFile from a Reader and requests that the references in
+	// []UpdateReference be updated on the remote server
+	SendPack(ref UpdateReference, r io.Reader, size int64) error
 }
 
 type smartHTTPServerRetriever struct {
 	location string
 	repo     *libgit.Repository
+
+	username, password string
 }
 
 var loadLine = func(r io.Reader) string {
@@ -186,7 +210,7 @@ func readLine(prompt string) string {
 
 // Retrieves a list of references from the server using service and expecting Content-Type
 // of expectedmime
-func (s smartHTTPServerRetriever) getRefs(user, password string, service, expectedmime string) (io.ReadCloser, error) {
+func (s *smartHTTPServerRetriever) getRefs(service, expectedmime string) (io.ReadCloser, error) {
 	// Try directly accessing the server's URL.
 	s.location = strings.TrimSuffix(s.location, "/")
 	req, err := http.NewRequest("GET", s.location+"/info/refs?service="+service, nil)
@@ -194,8 +218,9 @@ func (s smartHTTPServerRetriever) getRefs(user, password string, service, expect
 		return nil, err
 	}
 
-	if user != "" || password != "" {
-		req.SetBasicAuth(user, password)
+	if s.username != "" || s.password != "" {
+		println("Setting password ", s.username, s.password)
+		req.SetBasicAuth(s.username, s.password)
 	}
 	resp, err := http.DefaultClient.Do(req)
 	if resp.Header.Get("Content-Type") != expectedmime {
@@ -203,38 +228,49 @@ func (s smartHTTPServerRetriever) getRefs(user, password string, service, expect
 		if err != nil {
 			resp.Body.Close()
 		}
-		if resp.StatusCode >= 400 && resp.StatusCode != 404 {
+		/*
+		println("I am here")
+		if resp.StatusCode >= 400 && resp.StatusCode != 404 && resp.StatusCode {
 			return nil, errors.New(resp.Status)
 		}
+		println("I am now here")
+			*/
 		s.location = s.location + ".git"
 		req, err = http.NewRequest("GET", s.location+"/info/refs?service="+service, nil)
-		if user != "" || password != "" {
-			req.SetBasicAuth(user, password)
+		if s.username != "" || s.password != "" {
+			req.SetBasicAuth(s.username, s.password)
 		}
 		resp, err = http.DefaultClient.Do(req)
 	}
 	if err != nil {
 		return nil, err
 	}
+	println("I am now here2")
 	if resp.StatusCode >= 400 {
+	println("I am now here2.5")
 		return nil, errors.New(resp.Status)
 	}
+	println("I am now here3")
 	// It worked, so return the Body reader. It's the callers responsibility
 	// to close it.
 	return resp.Body, nil
 }
-func (s smartHTTPServerRetriever) NegotiateSendPack() ([]*Reference, error) {
+
+func (s *smartHTTPServerRetriever) NegotiateSendPack() ([]*Reference, error) {
 	var err error
 
-	username := readLine("Username: ")
-	password := readLine("Password: ")
-	r, err := s.getRefs(username, password, "git-receive-pack", "application/x-git-receive-pack-request")
+	s.username = readLine("Username: ")
+	s.password = readLine("Password: ")
+	r, err := s.getRefs("git-receive-pack", "application/x-git-receive-pack-request")
 	if err != nil {
 		return nil, err
 	}
 	defer r.Close()
 
-	refs, _, err := s.RetrieveReferences("git-receive-pack", r)
+	refs, cap, err := s.RetrieveReferences("git-receive-pack", r)
+	for _, c := range cap {
+		println(c)
+	}
 	if err != nil {
 		return nil, err
 	}
@@ -242,7 +278,7 @@ func (s smartHTTPServerRetriever) NegotiateSendPack() ([]*Reference, error) {
 
 }
 func (s smartHTTPServerRetriever) NegotiatePack() ([]*Reference, *os.File, error) {
-	r, err := s.getRefs("", "", "git-upload-pack", "application/x-git-upload-pack-advertisement")
+	r, err := s.getRefs("git-upload-pack", "application/x-git-upload-pack-advertisement")
 	if err != nil {
 		return nil, nil, err
 	}
@@ -270,4 +306,60 @@ func (s smartHTTPServerRetriever) NegotiatePack() ([]*Reference, *os.File, error
 	io.Copy(f, r2.Body)
 
 	return refs, f, nil
+}
+
+func (s smartHTTPServerRetriever) SendPack(ref UpdateReference, r io.Reader, size int64) error {
+	var toPost string
+	line, err := PktLineEncode([]byte(fmt.Sprintf("%s %s %s\000 report-status quiet sideband-64k agent=go-git/0.0.1", ref.RemoteSha1, ref.LocalSha1, strings.TrimSpace(ref.Refname))))
+	if err != nil {
+		panic(err)
+	}
+	toPost += line.String()
+	/*line, err = PktLineEncode([]byte(fmt.Sprintf("%.40d %s %s", 0, ref.RemoteSha1, "test")))
+	if err != nil {
+		panic(err)
+	}
+	toPost += line.String()
+	*/
+	toPost += "0000"
+
+	body := io.MultiReader(strings.NewReader(toPost), r, strings.NewReader("0000"))
+
+	/*
+		bytes, _ := ioutil.ReadAll(body)
+		ioutil.WriteFile("tmp.post", bytes, 0664)
+
+		return nil
+	*/
+	req, err := http.NewRequest("POST", s.location+"/git-receive-pack", body)
+	if err != nil {
+		return err
+	}
+	req.Header.Set("User-Agent", "go-git/0.0.1")
+
+	req.ContentLength = int64(len(toPost)) + size + 4
+	//req.Body = body
+	req.Header.Set("Content-Type", "application/x-git-receive-pack-request")
+	if s.username != "" || s.password != "" {
+		req.SetBasicAuth(s.username, s.password)
+	}
+
+	resp, err2 := http.DefaultClient.Do(req)
+	if err2 != nil {
+		panic(err2)
+	}
+	defer resp.Body.Close()
+	if resp.Body == nil {
+		panic("Response body is nil :(")
+	}
+	b, err3 := ioutil.ReadAll(resp.Body)
+	fmt.Printf("%s %v %s (%d)\n\n%sdone", resp.Proto, resp.Close, resp.Status, resp.ContentLength, b)
+	for key, val := range resp.Header {
+		fmt.Printf("%s %s\n", key, val)
+	}
+	if err3 != nil {
+		panic(err3)
+	}
+	return err3
+
 }
