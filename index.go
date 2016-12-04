@@ -7,7 +7,6 @@ import (
 	libgit "github.com/driusan/git"
 	"io"
 	"sort"
-	"syscall"
 	//   	"io/ioutil"
 	"bytes"
 	"crypto/sha1"
@@ -195,8 +194,8 @@ func (g *GitIndex) AddFile(repo *libgit.Repository, file *os.File) {
 		panic(err)
 	}
 	modTime := fstat.ModTime()
-	stat := fstat.Sys().(*syscall.Stat_t)
-	csec, cnano := stat.Ctim.Unix()
+	//stat := fstat.Sys().(*syscall.Stat_t)
+	//csec, cnano := stat.Ctim.Unix()
 
 	var mode uint32
 	if fstat.IsDir() {
@@ -243,15 +242,15 @@ func (g *GitIndex) AddFile(repo *libgit.Repository, file *os.File) {
 
 	g.Objects = append(g.Objects, &GitIndexEntry{
 		fixedIndexEntry{
-			uint32(csec),                 // right?
-			uint32(cnano),                // right?
+			0,//uint32(csec),                 // right?
+			0,//uint32(cnano),                // right?
 			uint32(modTime.Unix()),       // right
 			uint32(modTime.Nanosecond()), // right
-			uint32(stat.Dev),             // right
-			uint32(stat.Ino),             // right
+			0,//uint32(stat.Dev),             // right
+			0,//uint32(stat.Ino),             // right
 			mode,
-			stat.Uid,             // right?
-			stat.Gid,             // right?
+			0,//stat.Uid,             // right?
+			0,//stat.Gid,             // right?
 			uint32(fstat.Size()), // right
 			sha1,                 // this is right
 			flags,                // right
