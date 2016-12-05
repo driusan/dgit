@@ -5,7 +5,6 @@ import (
 	libgit "github.com/driusan/git"
 	"io/ioutil"
 	"os"
-	"strings"
 )
 
 func Fetch(c *Client, repo *libgit.Repository, args []string) {
@@ -46,8 +45,7 @@ func Fetch(c *Client, repo *libgit.Repository, args []string) {
 	unpack(c, repo, pack)
 	for _, ref := range refs {
 		if c.GitDir != "" {
-			refloc := fmt.Sprintf("%s/%s", c.GitDir, strings.TrimSpace(ref.Refname))
-			refloc = strings.TrimSpace(refloc)
+			refloc := fmt.Sprintf("%s/%s", c.GitDir, ref.Refname.String())
 			fmt.Printf("Creating %s with %s", refloc, ref.Sha1)
 			ioutil.WriteFile(
 				refloc,
