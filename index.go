@@ -242,15 +242,15 @@ func (g *GitIndex) AddFile(repo *libgit.Repository, file *os.File) {
 
 	g.Objects = append(g.Objects, &GitIndexEntry{
 		fixedIndexEntry{
-			0,//uint32(csec),                 // right?
-			0,//uint32(cnano),                // right?
+			0, //uint32(csec),                 // right?
+			0, //uint32(cnano),                // right?
 			uint32(modTime.Unix()),       // right
 			uint32(modTime.Nanosecond()), // right
-			0,//uint32(stat.Dev),             // right
-			0,//uint32(stat.Ino),             // right
+			0, //uint32(stat.Dev),             // right
+			0, //uint32(stat.Ino),             // right
 			mode,
-			0,//stat.Uid,             // right?
-			0,//stat.Gid,             // right?
+			0,                    //stat.Uid,             // right?
+			0,                    //stat.Gid,             // right?
 			uint32(fstat.Size()), // right
 			sha1,                 // this is right
 			flags,                // right

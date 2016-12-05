@@ -20,10 +20,6 @@ type stagedFile struct {
 	Removed  bool
 }
 
-func getWorkDirectoryRoot(repo *libgit.Repository) string {
-	return strings.TrimSuffix(repo.Path, "/.git")
-}
-
 func findUntrackedFilesFromDir(root, parent, dir string, tracked map[string]bool) (untracked []string) {
 	files, err := ioutil.ReadDir(dir)
 	if err != nil {
@@ -47,15 +43,15 @@ func findUntrackedFilesFromDir(root, parent, dir string, tracked map[string]bool
 	return
 
 }
-func findUntrackedFiles(repo *libgit.Repository, tracked map[string]bool) []string {
-	wd := getWorkDirectoryRoot(repo)
-	if wd == "" {
+func findUntrackedFiles(c *Client, tracked map[string]bool) []string {
+	if c.WorkDir == "" {
 		return nil
 	}
+	wd := string(c.WorkDir)
 	return findUntrackedFilesFromDir(wd+"/", wd, wd, tracked)
 }
 
-func Status(repo *libgit.Repository, args []string) {
+func Status(c *Client, repo *libgit.Repository, args []string) {
 	idx, err := ReadIndex(repo)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "%v\n", err)
@@ -130,7 +126,7 @@ func Status(repo *libgit.Repository, args []string) {
 			)
 		}
 	}
-	untracked := findUntrackedFiles(repo, fileInIndex)
+	untracked := findUntrackedFiles(c, fileInIndex)
 	if len(stagedFiles) != 0 {
 		fmt.Printf(
 			`Changes to be committed:

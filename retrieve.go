@@ -229,12 +229,12 @@ func (s *smartHTTPServerRetriever) getRefs(service, expectedmime string) (io.Rea
 			resp.Body.Close()
 		}
 		/*
-		println("I am here")
-		if resp.StatusCode >= 400 && resp.StatusCode != 404 && resp.StatusCode {
-			return nil, errors.New(resp.Status)
-		}
-		println("I am now here")
-			*/
+			println("I am here")
+			if resp.StatusCode >= 400 && resp.StatusCode != 404 && resp.StatusCode {
+				return nil, errors.New(resp.Status)
+			}
+			println("I am now here")
+		*/
 		s.location = s.location + ".git"
 		req, err = http.NewRequest("GET", s.location+"/info/refs?service="+service, nil)
 		if s.username != "" || s.password != "" {
@@ -247,7 +247,7 @@ func (s *smartHTTPServerRetriever) getRefs(service, expectedmime string) (io.Rea
 	}
 	println("I am now here2")
 	if resp.StatusCode >= 400 {
-	println("I am now here2.5")
+		println("I am now here2.5")
 		return nil, errors.New(resp.Status)
 	}
 	println("I am now here3")

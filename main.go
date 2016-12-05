@@ -2,7 +2,9 @@ package main
 
 import (
 	"errors"
+	"flag"
 	"fmt"
+
 	libgit "github.com/driusan/git"
 	"io/ioutil"
 	"os"
@@ -114,92 +116,98 @@ func resetWorkingTree(repo *libgit.Repository) error {
 	return nil
 }
 
-func getGitDir() string {
-	startPath, err := os.Getwd()
-	if err != nil {
-		return ""
-	}
-	if dirinfo, err := os.Stat(startPath + "/.git"); err == nil && dirinfo.IsDir() {
-		return startPath + "/.git"
-	}
-	pieces := strings.Split(startPath, "/")
-
-	for i := len(pieces); i > 0; i -= 1 {
-		dir := strings.Join(pieces[0:i], "/")
-		if dirinfo, err := os.Stat(dir + "/.git"); err == nil && dirinfo.IsDir() {
-			return dir + "/.git"
-		}
-	}
-	return ""
-}
 func main() {
-	if len(os.Args) > 1 {
-		repo, _ := libgit.OpenRepository(getGitDir())
-		switch os.Args[1] {
-		case "init":
-			Init(repo, os.Args[2:])
-		case "branch":
-			Branch(repo, os.Args[2:])
-		case "checkout":
-			Checkout(repo, os.Args[2:])
-		case "add":
-			Add(repo, os.Args[2:])
-		case "commit":
-			sha1 := Commit(repo, os.Args[2:])
-			fmt.Printf("%s\n", sha1)
-			fmt.Printf("%s\n", sha1)
-		case "commit-tree":
-			sha1 := CommitTree(repo, os.Args[2:])
-			fmt.Printf("%s\n", sha1)
-		case "write-tree":
-			sha1 := WriteTree(repo)
-			fmt.Printf("%s\n", sha1)
-		case "update-ref":
-			UpdateRef(repo, os.Args[2:])
-		case "log":
-			Log(repo, os.Args[2:])
-		case "symbolic-ref":
-			val := SymbolicRef(repo, os.Args[2:])
-			fmt.Printf("%s\n", val)
-		case "clone":
-			Clone(repo, os.Args[2:])
-		case "config":
-			Config(repo, os.Args[2:])
-		case "fetch":
-			Fetch(repo, os.Args[2:])
-		case "reset":
-			Reset(repo, os.Args[2:])
-		case "merge":
-			Merge(repo, os.Args[2:])
-		case "rev-parse":
-			commits, err := RevParse(repo, os.Args[2:])
-			if err != nil {
-				fmt.Fprintf(os.Stderr, "%v\n", err)
-				os.Exit(4)
-			}
-			for _, sha := range commits {
-				if sha.Excluded {
-					fmt.Print("^")
-				}
-				fmt.Println(sha.Id.String())
-			}
+	workdir := flag.String("work-tree", "", "specify the working directory of git")
+	gitdir := flag.String("git-dir", "", "specify the repository of git")
+	flag.Usage = func() {
+		fmt.Fprintf(os.Stderr, "Usage: %s [global options] subcommand [options]\n", os.Args[0])
+		fmt.Fprintf(os.Stderr, "\nGlobal options:\n\n")
+		flag.PrintDefaults()
+	}
+	flag.Parse()
+	args := flag.Args()
+	if len(args) < 1 {
+		flag.Usage()
+		os.Exit(2)
+	}
+	c, err := NewClient(*gitdir, *workdir)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "%v\n", err)
+		os.Exit(3)
+	}
+	if c.GitDir == "" {
+		fmt.Fprintf(os.Stderr, "Could not find .git directory\n", err)
+		os.Exit(4)
+	}
+	cmd := args[0]
+	args = args[1:]
 
-		case "rev-list":
-			RevList(repo, os.Args[2:])
-		case "hash-object":
-			HashObject(repo, os.Args[2:])
-		case "status":
-			Status(repo, os.Args[2:])
-		case "ls-tree":
-			LsTree(repo, os.Args[2:])
-		case "push":
-			Push(repo, os.Args[2:])
-		case "pack-objects":
-			PackObjects(repo, os.Stdin, os.Args[2:])
-		case "send-pack":
-			SendPack(repo, os.Args[2:])
-		default:
-			fmt.Fprintf(os.Stderr, "Unknown git command %s.\n", os.Args[1])
+	// TODO: Get rid of this. It's only here for a transition.
+	repo, _ := libgit.OpenRepository(c.GitDir.String())
+	switch cmd {
+	case "init":
+		Init(repo, args)
+	case "branch":
+		Branch(repo, args)
+	case "checkout":
+		Checkout(repo, args)
+	case "add":
+		Add(repo, args)
+	case "commit":
+		sha1 := Commit(repo, args)
+		fmt.Printf("%s\n", sha1)
+		fmt.Printf("%s\n", sha1)
+	case "commit-tree":
+		sha1 := CommitTree(repo, args)
+		fmt.Printf("%s\n", sha1)
+	case "write-tree":
+		sha1 := WriteTree(repo)
+		fmt.Printf("%s\n", sha1)
+	case "update-ref":
+		UpdateRef(repo, args)
+	case "log":
+		Log(repo, args)
+	case "symbolic-ref":
+		val := SymbolicRef(repo, args)
+		fmt.Printf("%s\n", val)
+	case "clone":
+		Clone(repo, args)
+	case "config":
+		Config(repo, args)
+	case "fetch":
+		Fetch(repo, args)
+	case "reset":
+		Reset(repo, args)
+	case "merge":
+		Merge(repo, args)
+	case "rev-parse":
+		commits, err := RevParse(repo, args)
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "%v\n", err)
+			os.Exit(4)
 		}
+		for _, sha := range commits {
+			if sha.Excluded {
+				fmt.Print("^")
+			}
+			fmt.Println(sha.Id.String())
+		}
+
+	case "rev-list":
+		RevList(repo, args)
+	case "hash-object":
+		HashObject(repo, args)
+	case "status":
+		Status(c, repo, args)
+	case "ls-tree":
+		LsTree(repo, args)
+	case "push":
+		Push(repo, args)
+	case "pack-objects":
+		PackObjects(repo, os.Stdin, args)
+	case "send-pack":
+		SendPack(repo, args)
+	default:
+		fmt.Fprintf(os.Stderr, "Unknown git command %s.\n", cmd)
 	}
 }

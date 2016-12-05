@@ -11,6 +11,9 @@ import (
 type File string
 
 func (f File) Exists() bool {
+	if _, err := os.Stat(string(f)); os.IsNotExist(err) {
+		return false
+	}
 	return true
 }
 
@@ -25,6 +28,10 @@ func (g GitDir) String() string {
 	return string(g)
 }
 
+func (g GitDir) Exists() bool {
+	return File(g).Exists()
+}
+
 // WorkDir is the top level of the work directory of the current process, or
 // the empty string if the --bare option is provided
 type WorkDir File
@@ -34,18 +41,45 @@ type Client struct {
 	WorkDir WorkDir
 }
 
-func NewClient(gitDir, workDir string) (*Client, error) {
-	gitdir := File(gitDir)
-	if gitdir == "" {
-		// TODO: Check the GIT_DIR os environment, then walk the tree
-		// to find the nearest .git directory
+// Walks from the current directory to find a .git directory
+func findGitDir() GitDir {
+	startPath, err := os.Getwd()
+	if err != nil {
+		return ""
 	}
+	if dirinfo, err := os.Stat(startPath + "/.git"); err == nil && dirinfo.IsDir() {
+		return GitDir(startPath) + "/.git"
+	}
+	pieces := strings.Split(startPath, "/")
+
+	for i := len(pieces); i > 0; i -= 1 {
+		dir := strings.Join(pieces[0:i], "/")
+		if dirinfo, err := os.Stat(dir + "/.git"); err == nil && dirinfo.IsDir() {
+			return GitDir(dir) + "/.git"
+		}
+	}
+	return ""
+}
+
+func NewClient(gitDir, workDir string) (*Client, error) {
+	gitdir := GitDir(gitDir)
+	if gitdir == "" {
+		gitdir = GitDir(os.Getenv("GIT_DIR"))
+		if gitdir == "" {
+			gitdir = findGitDir()
+		}
+	}
+
 	if gitdir == "" || !gitdir.Exists() {
 		return nil, fmt.Errorf("fatal: Not a git repository (or any parent)")
 	}
 
-	workdir := File(workDir)
+	workdir := WorkDir(workDir)
 	if workdir == "" {
+		workdir = WorkDir(os.Getenv("GIT_WORK_TREE"))
+		if workdir == "" {
+			workdir = WorkDir(strings.TrimSuffix(gitdir.String(), "/.git"))
+		}
 		// TODO: Check the GIT_WORK_TREE os environment, then strip .git
 		// from the gitdir if it doesn't exist.
 	}
