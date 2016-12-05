@@ -2,14 +2,13 @@ package main
 
 import (
 	"fmt"
-	libgit "github.com/driusan/git"
 	"io/ioutil"
 	"os"
 	"strings"
 )
 
-func getSymbolicRef(repo *libgit.Repository, symname string) string {
-	file, err := os.Open(repo.Path + "/" + symname)
+func getSymbolicRef(c *Client, symname string) string {
+	file, err := c.GitDir.Open(File(symname))
 	if err != nil {
 		return ""
 	}
@@ -26,12 +25,12 @@ func getSymbolicRef(repo *libgit.Repository, symname string) string {
 
 }
 
-func updateSymbolicRef(repo *libgit.Repository, symname, refvalue string) string {
+func updateSymbolicRef(c *Client, symname, refvalue string) string {
 	if len(refvalue) < 5 || refvalue[0:5] != "refs/" {
 		fmt.Fprintf(os.Stderr, "fatal: Refusing to point "+symname+" outside of refs/")
 		return ""
 	}
-	file, err := os.Create(repo.Path + "/" + symname)
+	file, err := c.GitDir.Create(File(symname))
 	if err != nil {
 		return ""
 	}
@@ -39,7 +38,8 @@ func updateSymbolicRef(repo *libgit.Repository, symname, refvalue string) string
 	fmt.Fprintf(file, "ref: %s", refvalue)
 	return ""
 }
-func SymbolicRef(repo *libgit.Repository, args []string) string {
+
+func SymbolicRef(c *Client, args []string) string {
 	var startAt int
 	var skipNext bool
 	//	var reason string
@@ -60,9 +60,9 @@ func SymbolicRef(repo *libgit.Repository, args []string) string {
 	args = args[startAt:]
 	switch len(args) {
 	case 1:
-		return getSymbolicRef(repo, args[0])
+		return getSymbolicRef(c, args[0])
 	case 2:
-		return updateSymbolicRef(repo, args[0], args[1])
+		return updateSymbolicRef(c, args[0], args[1])
 	default:
 		panic("Arguments were parsed incorrectly or invalid. Can't get or update symbolic ref")
 	}

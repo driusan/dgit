@@ -146,11 +146,11 @@ func main() {
 		sha1 := WriteTree(c, repo)
 		fmt.Printf("%s\n", sha1)
 	case "update-ref":
-		UpdateRef(repo, args)
+		UpdateRef(c, args)
 	case "log":
 		Log(c, repo, args)
 	case "symbolic-ref":
-		val := SymbolicRef(repo, args)
+		val := SymbolicRef(c, args)
 		fmt.Printf("%s\n", val)
 	case "clone":
 		Clone(c, repo, args)
