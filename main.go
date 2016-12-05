@@ -128,7 +128,7 @@ func main() {
 	case "checkout":
 		Checkout(c, args)
 	case "add":
-		Add(c, repo, args)
+		Add(c, args)
 	case "commit":
 		sha1 := Commit(c, repo, args)
 		fmt.Printf("%s\n", sha1)

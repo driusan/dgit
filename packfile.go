@@ -184,7 +184,7 @@ func (c *Client) WriteObject(objType string, rawdata []byte) (Sha1, error) {
 		}
 
 		//fmt.Fprintf(os.Stderr, "Already have object %x\n", sha)
-		return nil, ObjectExists
+		return Sha1(sha[:]), ObjectExists
 
 	}
 	directory := fmt.Sprintf("%x", sha[0:1])

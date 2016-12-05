@@ -39,6 +39,17 @@ func (s TreeID) String() string {
 	return fmt.Sprintf("%x", string(s))
 }
 
+// Converts from a slice to an array, mostly for working with indexes.
+func (s Sha1) AsByteArray() (val [20]byte) {
+	if len(s) != 20 {
+		panic(fmt.Sprintf("Invalid Sha1 %x (Size: %d)", s, len(s)))
+	}
+	for i, b := range s {
+		val[i] = b
+	}
+	return
+}
+
 // Writes the object to w in compressed form
 func (s Sha1) CompressedWriter(repo *libgit.Repository, w io.Writer) error {
 	id, err := libgit.NewId(s)

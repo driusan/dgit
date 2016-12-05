@@ -2,20 +2,20 @@ package main
 
 import (
 	//"fmt"
-	libgit "github.com/driusan/git"
 	"os"
 )
 
-func Add(c *Client, repo *libgit.Repository, args []string) {
+func Add(c *Client, args []string) {
 	gindex, _ := c.GitDir.ReadIndex()
 	for _, arg := range args {
-		if _, err := os.Stat(arg); os.IsNotExist(err) {
+		f := File(arg)
+		if !f.Exists() {
 			gindex.RemoveFile(arg)
 			continue
 		}
 		if file, err := os.Open(arg); err == nil {
 			defer file.Close()
-			gindex.AddFile(repo, file)
+			gindex.AddFile(c, file)
 		}
 	}
 	writeIndex(c, gindex, "index")

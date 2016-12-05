@@ -1,16 +1,16 @@
 package main
 
 import (
+	"bytes"
+	"crypto/sha1"
 	"encoding/binary"
 	"errors"
 	"fmt"
 	libgit "github.com/driusan/git"
 	"io"
-	"sort"
-	//   	"io/ioutil"
-	"bytes"
-	"crypto/sha1"
+	"io/ioutil"
 	"os"
+	"sort"
 	"strings"
 )
 
@@ -165,13 +165,17 @@ func ReadIndexEntry(file *os.File) (*GitIndexEntry, error) {
 // 	else
 // 		add new GitIndexEntry if not found
 //
-func (g *GitIndex) AddFile(repo *libgit.Repository, file *os.File) {
-
-	sha1, err := repo.StoreObjectLoose(libgit.ObjectBlob, file)
+func (g *GitIndex) AddFile(c *Client, file *os.File) {
+	contents, err := ioutil.ReadAll(file)
 	if err != nil {
+		panic(err)
+	}
+	hash, err := c.WriteObject("blob", contents)
+	if err != nil && err != ObjectExists {
 		fmt.Fprintf(os.Stderr, "Error storing object: %s", err)
 	}
-	fmt.Printf("Sha1: %s\n", sha1)
+	sha1 := hash.AsByteArray()
+	fmt.Printf("Sha1: %x\n", sha1)
 	fmt.Printf("Name is %s\n", file.Name())
 	name := getNormalizedName(file)
 	for _, entry := range g.Objects {
