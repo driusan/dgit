@@ -18,11 +18,11 @@ var InvalidArgument error = errors.New("Invalid argument to function")
 func getBranchId(repo *libgit.Repository, b string) (string, error) {
 	return repo.GetCommitIdOfBranch(b)
 }
-func writeIndex(repo *libgit.Repository, idx *GitIndex, indexName string) error {
+func writeIndex(c *Client, idx *GitIndex, indexName string) error {
 	if indexName == "" {
 		return InvalidArgument
 	}
-	file, err := os.Create(repo.Path + "/" + indexName)
+	file, err := c.GitDir.Create(File(indexName))
 	if err != nil {
 		fmt.Fprintln(os.Stderr, "Could not write index")
 		return err
@@ -51,7 +51,7 @@ func getTreeishId(c *Client, repo *libgit.Repository, treeish string) string {
 func resetIndexFromCommit(c *Client, repo *libgit.Repository, commitId string) error {
 	// If the index doesn't exist, idx is a new index, so ignore
 	// the path error that ReadIndex is returning
-	idx, _ := ReadIndex(c, repo)
+	idx, _ := c.GitDir.ReadIndex()
 	com, err := repo.GetCommit(commitId)
 	if err != nil {
 		fmt.Printf("%s\n", err)
@@ -63,17 +63,17 @@ func resetIndexFromCommit(c *Client, repo *libgit.Repository, commitId string) e
 		panic("Error retriving tree for commit")
 	}
 	idx.ResetIndex(repo, tree)
-	writeIndex(repo, idx, "index")
+	writeIndex(c, idx, "index")
 	return nil
 }
 
-func resetWorkingTree(c *Client, repo *libgit.Repository) error {
-	idx, err := ReadIndex(c, repo)
+func resetWorkingTree(c *Client) error {
+	idx, err := c.GitDir.ReadIndex()
 	if err != nil {
 		return err
 	}
 	for _, indexEntry := range idx.Objects {
-		obj, err := GetObject(repo, indexEntry.Sha1)
+		obj, err := c.GetObject(indexEntry.Sha1)
 		if err != nil {
 			fmt.Fprintf(os.Stderr, "Could not retrieve %x for %s: %s\n", indexEntry.Sha1, indexEntry.PathName, err)
 			continue
@@ -126,7 +126,7 @@ func main() {
 	case "branch":
 		Branch(c, repo, args)
 	case "checkout":
-		Checkout(c, repo, args)
+		Checkout(c, args)
 	case "add":
 		Add(c, repo, args)
 	case "commit":

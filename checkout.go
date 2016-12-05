@@ -2,27 +2,27 @@ package main
 
 import (
 	"fmt"
-	libgit "github.com/driusan/git"
 	"io/ioutil"
 	"os"
 )
 
-func Checkout(c *Client, repo *libgit.Repository, args []string) {
+func Checkout(c *Client, args []string) {
 	switch len(args) {
 	case 0:
 		fmt.Fprintf(os.Stderr, "Missing argument for checkout")
 		return
 	}
 
-	idx, _ := ReadIndex(c, repo)
+	idx, _ := c.GitDir.ReadIndex()
 	for _, file := range args {
 		fmt.Printf("Doing something with %s\n", file)
 		f := File(file)
 		if !f.Exists() {
+			continue
 		}
 		for _, idxFile := range idx.Objects {
 			if idxFile.PathName == file {
-				obj, err := GetObject(repo, idxFile.Sha1)
+				obj, err := c.GetObject(idxFile.Sha1)
 				if err != nil {
 					panic("Couldn't load object referenced in index.")
 				}

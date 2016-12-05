@@ -4,7 +4,6 @@ import (
 	"compress/zlib"
 	"errors"
 	"fmt"
-	libgit "github.com/driusan/git"
 	"io/ioutil"
 	"os"
 	"strconv"
@@ -35,8 +34,8 @@ func (b GitBlobObject) GetContent() []byte {
 func (b GitBlobObject) GetSize() int {
 	return b.size
 }
-func GetObject(repo *libgit.Repository, sha1 [20]byte) (GitObject, error) {
-	objectname := fmt.Sprintf("%s/objects/%x/%x", repo.Path, sha1[0:1], sha1[1:])
+func (c *Client) GetObject(sha1 [20]byte) (GitObject, error) {
+	objectname := fmt.Sprintf("%s/objects/%x/%x", c.GitDir, sha1[0:1], sha1[1:])
 	fmt.Printf("File: %s\n", objectname)
 	f, err := os.Open(objectname)
 	if err != nil {

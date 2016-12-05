@@ -101,15 +101,15 @@ func (c *Client) GetHeadID() (string, error) {
 
 }
 
+	/*
 func (c *Client) GetHeadSha1() (Sha1, error) {
 	panic("Not yet reimplemented")
-	/*
 		if headBranch := getHeadBranch(repo); headBranch != "" {
 			return repo.GetCommitIdOfBranch(getHeadBranch(repo))
 		}
 		return "", InvalidHead
-	*/
 }
+	*/
 
 func (c *Client) GetBranches() ([]string, error) {
 	panic("Not implemented")
@@ -142,4 +142,10 @@ func (c *Client) CreateBranch(name string, sha1 Sha1) error {
 // a leading slash.
 func (gd GitDir) Open(f File) (*os.File, error) {
 	return os.Open(gd.String() + "/" + f.String())
+}
+
+// Creates a file relative to GitDir. There should not be
+// a leading slash.
+func (gd GitDir) Create(f File) (*os.File, error) {
+	return os.Create(gd.String() + "/" + f.String())
 }

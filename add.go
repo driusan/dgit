@@ -7,10 +7,10 @@ import (
 )
 
 func Add(c *Client, repo *libgit.Repository, args []string) {
-	gindex, _ := ReadIndex(c, repo)
+	gindex, _ := c.GitDir.ReadIndex()
 	for _, arg := range args {
 		if _, err := os.Stat(arg); os.IsNotExist(err) {
-			gindex.RemoveFile(repo, arg)
+			gindex.RemoveFile(arg)
 			continue
 		}
 		if file, err := os.Open(arg); err == nil {
@@ -18,6 +18,6 @@ func Add(c *Client, repo *libgit.Repository, args []string) {
 			gindex.AddFile(repo, file)
 		}
 	}
-	writeIndex(repo, gindex, "index")
+	writeIndex(c, gindex, "index")
 
 }

@@ -60,8 +60,8 @@ type fixedIndexEntry struct {
 	Flags uint16 // 74
 }
 
-func ReadIndex(c *Client, g *libgit.Repository) (*GitIndex, error) {
-	file, err := c.GitDir.Open("index")
+func (d GitDir) ReadIndex() (*GitIndex, error) {
+	file, err := d.Open("index")
 	if err != nil {
 		return &GitIndex{
 			fixedGitIndex{
@@ -262,7 +262,7 @@ func (g *GitIndex) AddFile(repo *libgit.Repository, file *os.File) {
 	return
 }
 
-func (g *GitIndex) RemoveFile(repo *libgit.Repository, file string) {
+func (g *GitIndex) RemoveFile(file string) {
 	for i, entry := range g.Objects {
 		if entry.PathName == file {
 			//println("Should remove ", i)

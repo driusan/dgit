@@ -69,7 +69,7 @@ func Reset(c *Client, repo *libgit.Repository, args []string) {
 			// the head reference
 		case "hard":
 			resetIndexFromCommit(c, repo, commitId)
-			resetWorkingTree(c, repo)
+			resetWorkingTree(c)
 		case "mixed":
 			fallthrough
 		default:

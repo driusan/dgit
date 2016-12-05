@@ -5,7 +5,7 @@ import (
 )
 
 func WriteTree(c *Client, repo *libgit.Repository) string {
-	idx, _ := ReadIndex(c, repo)
+	idx, _ := c.GitDir.ReadIndex()
 	sha1 := idx.WriteTree(repo)
 	return sha1
 }
