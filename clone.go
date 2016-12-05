@@ -46,7 +46,7 @@ func Clone(c *Client, repo *libgit.Repository, args []string) {
 		repo = &libgit.Repository{}
 	}
 
-	Init(c, []string{dirName})
+	c = Init(c, []string{dirName})
 
 	Config(c, []string{"--set", "remote.origin.url", repoid})
 	Config(c, []string{"--set", "branch.master.remote", "origin"})

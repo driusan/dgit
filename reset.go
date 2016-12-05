@@ -51,7 +51,7 @@ func Reset(c *Client, repo *libgit.Repository, args []string) {
 		//  git reset [mode] commit
 		// First, update the head reference for all modes
 		branchName := c.GetHeadBranch()
-		err := ioutil.WriteFile(repo.Path+"/refs/heads/"+branchName,
+		err := ioutil.WriteFile(c.GitDir.String()+"/refs/heads/"+branchName,
 			[]byte(fmt.Sprintf("%s", commitId)),
 			0644,
 		)

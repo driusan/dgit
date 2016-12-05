@@ -92,6 +92,14 @@ func resetWorkingTree(c *Client) error {
 	return nil
 }
 
+func requiresGitDir(cmd string) bool {
+	switch cmd {
+	case "init", "clone":
+		return false
+	default:
+		return true
+	}
+}
 func main() {
 	workdir := flag.String("work-tree", "", "specify the working directory of git")
 	gitdir := flag.String("git-dir", "", "specify the repository of git")
@@ -108,11 +116,11 @@ func main() {
 	}
 	c, err := NewClient(*gitdir, *workdir)
 	cmd := args[0]
-	if err != nil && cmd != "init" {
+	if err != nil && requiresGitDir(cmd) {
 		fmt.Fprintf(os.Stderr, "%v\n", err)
 		os.Exit(3)
 	}
-	if c != nil && c.GitDir == "" && cmd != "init" {
+	if c != nil && c.GitDir == "" && requiresGitDir(cmd) {
 		fmt.Fprintf(os.Stderr, "Could not find .git directory\n", err)
 		os.Exit(4)
 	}

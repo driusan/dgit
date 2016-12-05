@@ -5,7 +5,7 @@ import (
 	"os"
 )
 
-func Init(c *Client, args []string) {
+func Init(c *Client, args []string) *Client {
 	if len(args) > 0 {
 		if dir := args[len(args)-1]; dir != "init" {
 			err := os.MkdirAll(dir, 0755)
@@ -16,14 +16,20 @@ func Init(c *Client, args []string) {
 			if err != nil {
 				panic("Couldn't change working directory while initializing git.")
 			}
+			os.Mkdir(".git", 0755)
 			if c != nil {
-				c.GitDir = GitDir(dir + ".git/")
+				c.GitDir = GitDir(dir + ".git")
+				c.WorkDir = WorkDir(dir)
+			} else {
+				c, err = NewClient(".git", dir)
+				if err != nil {
+					panic(err)
+				}
 			}
 		}
 	}
 	// These are all the directories created by a clean "git init"
 	// with the canonical git implementation
-	os.Mkdir(".git", 0755)
 	os.MkdirAll(".git/objects/pack", 0755)
 	os.MkdirAll(".git/objects/info", 0755)
 	os.MkdirAll(".git/info", 0755)  // Should have exclude file in it
@@ -35,5 +41,5 @@ func Init(c *Client, args []string) {
 	ioutil.WriteFile(".git/HEAD", []byte("ref: refs/heads/master\n"), 0644)
 	ioutil.WriteFile(".git/config", []byte("[core]\n\trepositoryformatversion = 0\n\tbare = false\n"), 0644)
 	ioutil.WriteFile(".git/description", []byte("Unnamed repository; edit this file 'description' to name the repository.\n"), 0644)
-
+	return c
 }
