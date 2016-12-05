@@ -3,7 +3,6 @@ package main
 import (
 	"bytes"
 	"fmt"
-	libgit "github.com/driusan/git"
 	"os"
 	"time"
 )
@@ -20,7 +19,7 @@ func (c *Client) GetAuthor() string {
 	return fmt.Sprintf("%s <%s>", name, email)
 
 }
-func CommitTree(c *Client, repo *libgit.Repository, args []string) string {
+func CommitTree(c *Client, args []string) string {
 	content := bytes.NewBuffer(nil)
 
 	var parents []string

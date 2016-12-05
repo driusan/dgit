@@ -134,7 +134,7 @@ func main() {
 		fmt.Printf("%s\n", sha1)
 		fmt.Printf("%s\n", sha1)
 	case "commit-tree":
-		sha1 := CommitTree(c, repo, args)
+		sha1 := CommitTree(c, args)
 		fmt.Printf("%s\n", sha1)
 	case "write-tree":
 		sha1 := WriteTree(c, repo)
