@@ -134,7 +134,7 @@ func main() {
 		fmt.Printf("%s\n", sha1)
 		fmt.Printf("%s\n", sha1)
 	case "commit-tree":
-		sha1 := CommitTree(repo, args)
+		sha1 := CommitTree(c, repo, args)
 		fmt.Printf("%s\n", sha1)
 	case "write-tree":
 		sha1 := WriteTree(c, repo)
@@ -149,7 +149,7 @@ func main() {
 	case "clone":
 		Clone(c, repo, args)
 	case "config":
-		Config(repo, args)
+		Config(c, args)
 	case "fetch":
 		Fetch(c, repo, args)
 	case "reset":

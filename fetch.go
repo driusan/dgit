@@ -19,7 +19,7 @@ func Fetch(c *Client, repo *libgit.Repository, args []string) {
 		panic("Couldn't open config\n")
 	}
 	defer file.Close()
-	config := parseConfig(repo, file)
+	config := parseConfig(file)
 	repoid := config.GetConfig("remote." + args[0] + ".url")
 	var ups uploadpack
 	if repoid[0:7] == "http://" || repoid[0:8] == "https://" {

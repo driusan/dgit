@@ -8,9 +8,9 @@ import (
 	"time"
 )
 
-func getAuthor(repo *libgit.Repository) string {
+func (c *Client) GetAuthor() string {
 	configFile, err := os.Open(os.Getenv("HOME") + "/.gitconfig")
-	config := parseConfig(repo, configFile)
+	config := parseConfig(configFile)
 	if err != nil {
 		panic(err)
 	}
@@ -20,7 +20,7 @@ func getAuthor(repo *libgit.Repository) string {
 	return fmt.Sprintf("%s <%s>", name, email)
 
 }
-func CommitTree(repo *libgit.Repository, args []string) string {
+func CommitTree(c *Client, repo *libgit.Repository, args []string) string {
 	content := bytes.NewBuffer(nil)
 
 	var parents []string
@@ -68,7 +68,7 @@ func CommitTree(repo *libgit.Repository, args []string) string {
 		fmt.Fprintf(content, "parent %s\n", val)
 	}
 
-	author := getAuthor(repo)
+	author := c.GetAuthor()
 	t := time.Now()
 	_, tzoff := t.Zone()
 	// for some reason t.Zone() returns the timezone offset in seconds

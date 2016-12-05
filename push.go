@@ -19,7 +19,7 @@ func Push(c *Client, repo *libgit.Repository, args []string) {
 		panic("Couldn't open config\n")
 	}
 	defer file.Close()
-	config := parseConfig(repo, file)
+	config := parseConfig(file)
 	remote := config.GetConfig("branch." + args[0] + ".remote")
 	mergebranch := strings.TrimSpace(config.GetConfig("branch." + args[0] + ".merge"))
 	repoid := config.GetConfig("remote." + remote + ".url")

@@ -2,7 +2,6 @@ package main
 
 import (
 	"fmt"
-	libgit "github.com/driusan/git"
 	"io"
 	"io/ioutil"
 	"os"
@@ -138,7 +137,7 @@ func (s *GitConfigSection) ParseSectionHeader(headerline string) {
 		s.name = headerline
 	}
 }
-func parseConfig(repo *libgit.Repository, configFile io.Reader) GitConfig {
+func parseConfig(configFile io.Reader) GitConfig {
 	rawdata, _ := ioutil.ReadAll(configFile)
 	section := &GitConfigSection{}
 	parsingSectionName := false
@@ -173,7 +172,7 @@ func parseConfig(repo *libgit.Repository, configFile io.Reader) GitConfig {
 	return GitConfig{sections}
 }
 
-func Config(repo *libgit.Repository, args []string) {
+func Config(c *Client, args []string) {
 	if len(args) < 2 {
 		fmt.Fprintf(os.Stderr, "Usage: go-git config [<options>]\n")
 		return
@@ -184,7 +183,7 @@ func Config(repo *libgit.Repository, args []string) {
 		fname = os.Getenv("HOME") + "/.gitconfig"
 		args = args[1:]
 	} else {
-		fname = repo.Path + "/config"
+		fname = c.GitDir.String() + "/config"
 	}
 
 	file, err := os.OpenFile(fname, os.O_RDWR|os.O_CREATE, 0644)
@@ -193,7 +192,7 @@ func Config(repo *libgit.Repository, args []string) {
 	}
 	defer file.Close()
 
-	config := parseConfig(repo, file)
+	config := parseConfig(file)
 	var action string
 	switch args[0] {
 	case "--get":

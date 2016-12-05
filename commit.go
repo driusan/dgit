@@ -27,7 +27,7 @@ func Commit(c *Client, repo *libgit.Repository, args []string) string {
 	commitTreeArgs = append(commitTreeArgs, treeSha1)
 
 	// write the commit tree
-	commitSha1 := CommitTree(repo, commitTreeArgs)
+	commitSha1 := CommitTree(c, repo, commitTreeArgs)
 
 	UpdateRef(repo, []string{"-m", "commit from go-git", "HEAD", commitSha1})
 	return commitSha1
