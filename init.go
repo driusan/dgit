@@ -18,10 +18,10 @@ func Init(c *Client, args []string) *Client {
 			}
 			os.Mkdir(".git", 0755)
 			if c != nil {
-				c.GitDir = GitDir(dir + ".git")
+				c.GitDir = GitDir(dir + "/.git")
 				c.WorkDir = WorkDir(dir)
 			} else {
-				c, err = NewClient(".git", dir)
+				c, err = NewClient("/.git", dir)
 				if err != nil {
 					panic(err)
 				}

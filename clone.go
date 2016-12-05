@@ -7,7 +7,7 @@ import (
 	"strings"
 )
 
-func Clone(c *Client, repo *libgit.Repository, args []string) {
+func Clone(c *Client, args []string) {
 	var repoid string
 	var dirName string
 	// TODO: This argument parsing should be smarter and more
@@ -42,12 +42,11 @@ func Clone(c *Client, repo *libgit.Repository, args []string) {
 		}
 	}
 
-	if repo == nil {
-		repo = &libgit.Repository{}
-	}
-
 	c = Init(c, []string{dirName})
-
+	repo, err := libgit.OpenRepository(c.GitDir.String())
+	if err != nil {
+		panic(err)
+	}
 	Config(c, []string{"--set", "remote.origin.url", repoid})
 	Config(c, []string{"--set", "branch.master.remote", "origin"})
 

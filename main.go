@@ -165,7 +165,7 @@ func main() {
 		val := SymbolicRef(c, args)
 		fmt.Printf("%s\n", val)
 	case "clone":
-		Clone(c, repo, args)
+		Clone(c, args)
 	case "config":
 		Config(c, args)
 	case "fetch":
