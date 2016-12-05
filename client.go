@@ -101,7 +101,7 @@ func (c *Client) GetHeadID() (string, error) {
 
 }
 
-	/*
+/*
 func (c *Client) GetHeadSha1() (Sha1, error) {
 	panic("Not yet reimplemented")
 		if headBranch := getHeadBranch(repo); headBranch != "" {
@@ -109,7 +109,7 @@ func (c *Client) GetHeadSha1() (Sha1, error) {
 		}
 		return "", InvalidHead
 }
-	*/
+*/
 
 func (c *Client) GetBranches() ([]string, error) {
 	panic("Not implemented")
@@ -134,6 +134,15 @@ func (c *Client) GetHeadBranch() string {
 
 }
 
+func (c *Client) HaveObject(idStr string) (found, packed bool, err error) {
+	// As a temporary hack use libgit, because I don't have time to
+	// make sure pack files are looked into properly yet.
+	repo, err := libgit.OpenRepository(c.GitDir.String())
+	if err != nil {
+		return false, false, err
+	}
+	return repo.HaveObject(idStr)
+}
 func (c *Client) CreateBranch(name string, sha1 Sha1) error {
 	panic("Unimplemented")
 }
