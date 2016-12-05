@@ -171,12 +171,12 @@ func (p packfile) ReadEntryDataStream(r io.ReadSeeker) (uncompressed []byte, com
 
 }
 
-func writeObject(repo *libgit.Repository, objType string, rawdata []byte) error {
+func (c *Client) WriteObject(objType string, rawdata []byte) error {
 	obj := []byte(fmt.Sprintf("%s %d\000", objType, len(rawdata)))
 	obj = append(obj, rawdata...)
 	sha := sha1.Sum(obj)
 
-	if have, _, err := repo.HaveObject(fmt.Sprintf("%x", sha)); have == true || err != nil {
+	if have, _, err := c.HaveObject(fmt.Sprintf("%x", sha)); have == true || err != nil {
 		if err != nil {
 			fmt.Fprintf(os.Stderr, "Error: %s\n", err)
 			return err
@@ -190,8 +190,8 @@ func writeObject(repo *libgit.Repository, objType string, rawdata []byte) error 
 	directory := fmt.Sprintf("%x", sha[0:1])
 	file := fmt.Sprintf("%x", sha[1:])
 
-	os.MkdirAll(repo.Path+"/objects/"+directory, os.FileMode(0755))
-	f, err := os.Create(repo.Path + "/objects/" + directory + "/" + file)
+	os.MkdirAll(c.GitDir.String()+"/objects/"+directory, os.FileMode(0755))
+	f, err := c.GitDir.Create(File("objects/" + directory + "/" + file))
 	if err != nil {
 		return err
 	}
@@ -389,7 +389,7 @@ func calculateDelta(repo *libgit.Repository, reference ObjectReference, delta []
 	return 0, nil
 
 }
-func unpack(repo *libgit.Repository, r io.ReadSeeker) {
+func unpack(c *Client, repo *libgit.Repository, r io.ReadSeeker) {
 	var p packfile
 	binary.Read(r, binary.BigEndian, &p)
 	if p.Signature != [4]byte{'P', 'A', 'C', 'K'} {
@@ -403,20 +403,20 @@ func unpack(repo *libgit.Repository, r io.ReadSeeker) {
 		rawdata, _ := p.ReadEntryDataStream(r)
 		switch t {
 		case OBJ_COMMIT:
-			writeObject(repo, "commit", rawdata)
+			c.WriteObject("commit", rawdata)
 		case OBJ_TREE:
-			writeObject(repo, "tree", rawdata)
+			c.WriteObject("tree", rawdata)
 		case OBJ_BLOB:
-			writeObject(repo, "blob", rawdata)
+			c.WriteObject("blob", rawdata)
 		case OBJ_REF_DELTA:
 			t, deltadata := calculateDelta(repo, ref, rawdata)
 			switch t {
 			case OBJ_COMMIT:
-				writeObject(repo, "commit", deltadata)
+				c.WriteObject("commit", deltadata)
 			case OBJ_TREE:
-				writeObject(repo, "tree", deltadata)
+				c.WriteObject("tree", deltadata)
 			case OBJ_BLOB:
-				writeObject(repo, "blob", deltadata)
+				c.WriteObject("blob", deltadata)
 			default:
 				panic("TODO: Unhandled type for REF_DELTA")
 			}

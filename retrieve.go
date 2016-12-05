@@ -10,8 +10,6 @@ import (
 	"os"
 	"strconv"
 	"strings"
-
-	libgit "github.com/driusan/git"
 )
 
 type PktLine string
@@ -60,7 +58,7 @@ type uploadpack interface {
 
 type smartHTTPServerRetriever struct {
 	location string
-	repo     *libgit.Repository
+	c        *Client
 
 	username, password string
 }
@@ -167,7 +165,7 @@ func (s smartHTTPServerRetriever) parseUploadPackInfoRefs(r io.Reader) ([]*Refer
 	wantAtLeastOne := false
 	for _, ref := range references {
 		var line string
-		if have, _, _ := s.repo.HaveObject(ref.Sha1); have == false {
+		if have, _, _ := s.c.HaveObject(ref.Sha1); have == false {
 			line = fmt.Sprintf("want %s", ref.Sha1)
 			wantAtLeastOne = true
 		} else {

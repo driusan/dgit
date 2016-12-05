@@ -24,7 +24,7 @@ func Fetch(c *Client, repo *libgit.Repository, args []string) {
 	var ups uploadpack
 	if repoid[0:7] == "http://" || repoid[0:8] == "https://" {
 		ups = &smartHTTPServerRetriever{location: repoid,
-			repo: repo,
+			c: c,
 		}
 	} else {
 		fmt.Fprintln(os.Stderr, "Unknown protocol.")
@@ -43,7 +43,7 @@ func Fetch(c *Client, repo *libgit.Repository, args []string) {
 	defer os.RemoveAll(pack.Name())
 	pack.Seek(0, 0)
 	fmt.Printf("Unpacking into %s\n", repo.Path)
-	unpack(repo, pack)
+	unpack(c, repo, pack)
 	for _, ref := range refs {
 		if repo.Path != "" {
 			refloc := fmt.Sprintf("%s/%s", repo.Path, strings.TrimSpace(ref.Refname))
