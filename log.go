@@ -20,12 +20,12 @@ func printCommit(c *libgit.Commit) {
 	}
 }
 
-func Log(repo *libgit.Repository, args []string) error {
+func Log(c *Client, repo *libgit.Repository, args []string) error {
 	if len(args) != 0 {
 		fmt.Fprintf(os.Stderr, "Usage: go-git log\nNo options are currently supported.\n")
 		return errors.New("No options are currently supported for log")
 	}
-	head, err := getHeadId(repo)
+	head, err := c.GetHeadID()
 	if err != nil {
 		return err
 	}

@@ -5,6 +5,8 @@ import (
 	"io/ioutil"
 	"os"
 	"strings"
+
+	libgit "github.com/driusan/git"
 )
 
 // A file represents a file (or directory) relative to os.Getwd()
@@ -87,13 +89,16 @@ func NewClient(gitDir, workDir string) (*Client, error) {
 }
 
 func (c *Client) GetHeadID() (string, error) {
-	panic("Not yet reimplemented")
-	/*
-		if headBranch := getHeadBranch(repo); headBranch != "" {
-			return repo.GetCommitIdOfBranch(getHeadBranch(repo))
-		}
-		return "", InvalidHead
-	*/
+	// Temporary hack until libgit is removed.
+	repo, err := libgit.OpenRepository(c.GitDir.String())
+	if err != nil {
+		return "", err
+	}
+	if headBranch := c.GetHeadBranch(); headBranch != "" {
+		return repo.GetCommitIdOfBranch(c.GetHeadBranch())
+	}
+	return "", InvalidHead
+
 }
 
 func (c *Client) GetHeadSha1() (Sha1, error) {

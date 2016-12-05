@@ -8,13 +8,13 @@ import (
 	libgit "github.com/driusan/git"
 )
 
-func Push(repo *libgit.Repository, args []string) {
+func Push(c *Client, repo *libgit.Repository, args []string) {
 	if len(args) < 1 {
 		fmt.Fprintf(os.Stderr, "Missing repository to fetch")
 		return
 	}
 
-	file, err := os.Open(repo.Path + "/config")
+	file, err := c.GitDir.Open("config")
 	if err != nil {
 		panic("Couldn't open config\n")
 	}
@@ -43,12 +43,12 @@ func Push(repo *libgit.Repository, args []string) {
 		trimmed := strings.TrimSuffix(ref.Refname, "\000")
 		trimmed = strings.TrimSpace(trimmed)
 		if trimmed == mergebranch {
-			localSha, err := RevParse(repo, []string{args[0]})
+			localSha, err := RevParse(c, repo, []string{args[0]})
 			if err != nil {
 				panic(err)
 			}
 			fmt.Printf("Refname: %s Remote Sha1: %s Local Sha1: %s\n", ref.Refname, ref.Sha1, localSha[0].Id)
-			objects, err := RevList(repo, []string{"--objects", "--quiet", localSha[0].Id.String(), "^" + ref.Sha1})
+			objects, err := RevList(c, repo, []string{"--objects", "--quiet", localSha[0].Id.String(), "^" + ref.Sha1})
 			if err != nil {
 				panic(err)
 			}

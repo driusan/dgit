@@ -32,7 +32,7 @@ func Reset(c *Client, repo *libgit.Repository, args []string) {
 		// we're in, but if we've already found a path already
 		// then the time for a treeish option is past.
 		if val[0] != '-' && resetPaths == false {
-			commitId = getTreeishId(repo, val)
+			commitId = getTreeishId(c, repo, val)
 		} else {
 			switch val {
 			case "--soft":

@@ -62,7 +62,7 @@ func Status(c *Client, repo *libgit.Repository, args []string) {
 
 	headFiles := make(map[string]Sha1)
 	// This isn't very efficiently implemented, but it works(ish).
-	head, err := expandTreeIntoIndexesById(repo, "HEAD")
+	head, err := expandTreeIntoIndexesById(c, repo, "HEAD")
 	for _, head := range head {
 		headFiles[head.PathName] = Sha1(head.Sha1[:])
 	}

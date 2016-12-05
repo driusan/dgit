@@ -33,12 +33,6 @@ func getHeadBranch(repo *libgit.Repository) string {
 	return ""
 
 }
-func getHeadId(repo *libgit.Repository) (string, error) {
-	if headBranch := getHeadBranch(repo); headBranch != "" {
-		return repo.GetCommitIdOfBranch(getHeadBranch(repo))
-	}
-	return "", InvalidHead
-}
 
 func getBranchId(repo *libgit.Repository, b string) (string, error) {
 	return repo.GetCommitIdOfBranch(b)
@@ -57,9 +51,10 @@ func writeIndex(repo *libgit.Repository, idx *GitIndex, indexName string) error 
 	return nil
 }
 
-func getTreeishId(repo *libgit.Repository, treeish string) string {
+// FIXME: This should be removed. RevParse() is the correct thing to use.
+func getTreeishId(c *Client, repo *libgit.Repository, treeish string) string {
 	if treeish == "HEAD" {
-		if head, err := getHeadId(repo); err == nil {
+		if head, err := c.GetHeadID(); err == nil {
 			return head
 		}
 	}
@@ -148,7 +143,7 @@ func main() {
 	case "init":
 		Init(repo, args)
 	case "branch":
-		Branch(repo, args)
+		Branch(c, repo, args)
 	case "checkout":
 		Checkout(c, repo, args)
 	case "add":
@@ -166,7 +161,7 @@ func main() {
 	case "update-ref":
 		UpdateRef(repo, args)
 	case "log":
-		Log(repo, args)
+		Log(c, repo, args)
 	case "symbolic-ref":
 		val := SymbolicRef(repo, args)
 		fmt.Printf("%s\n", val)
@@ -181,7 +176,7 @@ func main() {
 	case "merge":
 		Merge(c, repo, args)
 	case "rev-parse":
-		commits, err := RevParse(repo, args)
+		commits, err := RevParse(c, repo, args)
 		if err != nil {
 			fmt.Fprintf(os.Stderr, "%v\n", err)
 			os.Exit(4)
@@ -194,15 +189,15 @@ func main() {
 		}
 
 	case "rev-list":
-		RevList(repo, args)
+		RevList(c, repo, args)
 	case "hash-object":
 		HashObject(repo, args)
 	case "status":
 		Status(c, repo, args)
 	case "ls-tree":
-		LsTree(repo, args)
+		LsTree(c, repo, args)
 	case "push":
-		Push(repo, args)
+		Push(c, repo, args)
 	case "pack-objects":
 		PackObjects(repo, os.Stdin, args)
 	case "send-pack":

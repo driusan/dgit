@@ -8,7 +8,7 @@ import (
 	//"strings"
 )
 
-func RevList(repo *libgit.Repository, args []string) ([]Sha1, error) {
+func RevList(c *Client, repo *libgit.Repository, args []string) ([]Sha1, error) {
 	includeObjects := flag.Bool("objects", false, "include non-commit objects in output")
 	quiet := flag.Bool("quiet", false, "prevent printing of revisions")
 	os.Args = append([]string{"git rev-list"}, args...)
@@ -22,7 +22,7 @@ func RevList(repo *libgit.Repository, args []string) ([]Sha1, error) {
 			continue
 		}
 		if rev[0] == '^' && len(rev) > 1 {
-			commits, err := RevParse(repo, []string{rev[1:]})
+			commits, err := RevParse(c, repo, []string{rev[1:]})
 			if err != nil {
 				panic(rev + ":" + err.Error())
 			}
@@ -54,7 +54,7 @@ func RevList(repo *libgit.Repository, args []string) ([]Sha1, error) {
 		if rev[0] == '^' && len(rev) > 1 {
 			continue
 		}
-		commits, err := RevParse(repo, []string{rev})
+		commits, err := RevParse(c, repo, []string{rev})
 		if err != nil {
 			panic(err)
 		}

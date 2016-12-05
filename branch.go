@@ -6,15 +6,15 @@ import (
 	"os"
 )
 
-func Branch(repo *libgit.Repository, args []string) {
+func Branch(c *Client, repo *libgit.Repository, args []string) {
 	switch len(args) {
 	case 0:
-		branches, err := repo.GetBranches()
+		branches, err := c.GetBranches()
 		if err != nil {
 			fmt.Fprintln(os.Stderr, "Could not get list of branches.")
 			return
 		}
-		head := getHeadBranch(repo)
+		head := c.GetHeadBranch()
 		for _, b := range branches {
 			if head == b {
 				fmt.Print("* ")
@@ -24,8 +24,8 @@ func Branch(repo *libgit.Repository, args []string) {
 			fmt.Println(b)
 		}
 	case 1:
-		if head, err := getHeadId(repo); err == nil {
-			if cerr := libgit.CreateBranch(repo.Path, args[0], head); cerr != nil {
+		if head, err := c.GetHeadID(); err == nil {
+			if cerr := libgit.CreateBranch(c.GitDir.String(), args[0], head); cerr != nil {
 				fmt.Fprintf(os.Stderr, "Could not create branch: %s\n", cerr.Error())
 			}
 		} else {

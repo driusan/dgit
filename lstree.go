@@ -7,9 +7,9 @@ import (
 	libgit "github.com/driusan/git"
 )
 
-func LsTree(repo *libgit.Repository, args []string) {
+func LsTree(c *Client, repo *libgit.Repository, args []string) {
 	commitId := args[0]
-	tree, err := expandTreeIntoIndexesById(repo, commitId)
+	tree, err := expandTreeIntoIndexesById(c, repo, commitId)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "%v\n", err)
 		return
@@ -21,8 +21,8 @@ func LsTree(repo *libgit.Repository, args []string) {
 	}
 }
 
-func expandTreeIntoIndexesById(repo *libgit.Repository, treeId string) ([]*GitIndexEntry, error) {
-	expanded := getTreeishId(repo, treeId)
+func expandTreeIntoIndexesById(c *Client, repo *libgit.Repository, treeId string) ([]*GitIndexEntry, error) {
+	expanded := getTreeishId(c, repo, treeId)
 	com, err := repo.GetCommit(expanded)
 	if err != nil {
 		return nil, err

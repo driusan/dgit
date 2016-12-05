@@ -12,9 +12,9 @@ type ParsedRevision struct {
 	Excluded bool
 }
 
-func getBranchSha1(repo *libgit.Repository, branchname string) (Sha1, error) {
+func getBranchSha1(c *Client, repo *libgit.Repository, branchname string) (Sha1, error) {
 	if branchname == "HEAD" {
-		head, err := getHeadId(repo)
+		head, err := c.GetHeadID()
 		if err != nil {
 			return nil, err
 		}
@@ -26,7 +26,7 @@ func getBranchSha1(repo *libgit.Repository, branchname string) (Sha1, error) {
 	}
 	return Sha1FromString(sha)
 }
-func RevParse(repo *libgit.Repository, args []string) (commits []ParsedRevision, err2 error) {
+func RevParse(c *Client, repo *libgit.Repository, args []string) (commits []ParsedRevision, err2 error) {
 	for _, arg := range args {
 		switch arg {
 		case "--git-dir":
@@ -59,7 +59,7 @@ func RevParse(repo *libgit.Repository, args []string) (commits []ParsedRevision,
 					continue
 				}
 
-				comm, err := getBranchSha1(repo, sha)
+				comm, err := getBranchSha1(c, repo, sha)
 				if err != nil {
 					err2 = err
 				} else {
