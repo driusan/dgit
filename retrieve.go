@@ -13,6 +13,17 @@ import (
 )
 
 type PktLine string
+type RefSpec string
+
+func (r RefSpec) String() string {
+	if len(r) < 1 {
+		return ""
+	}
+
+	// This will only trim a single nil byte, but if there's more
+	// than that we're doing something really wrong.
+	return strings.TrimSpace(strings.TrimSuffix(string(r), "\000"))
+}
 
 func PktLineEncode(line []byte) (PktLine, error) {
 	if len(line) > 65535 {
@@ -30,12 +41,12 @@ var NoNewCommits error = errors.New("No new commits")
 
 type Reference struct {
 	Sha1    string
-	Refname string
+	Refname RefSpec
 }
 
 type UpdateReference struct {
 	LocalSha1, RemoteSha1 string
-	Refname               string
+	Refname               RefSpec
 }
 type uploadpack interface {
 	// Retrieves a list of references from the server, using git service
@@ -100,11 +111,11 @@ func (s smartHTTPServerRetriever) RetrieveReferences(service string, r io.Reader
 			}
 			if char == '\000' {
 				nameEnd = idx + 1
-				ret.Refname = s[firstSpace:nameEnd]
+				ret.Refname = RefSpec(s[firstSpace:nameEnd])
 			}
 			if char == '\n' {
 				if ret.Refname == "" {
-					ret.Refname = s[firstSpace:idx]
+					ret.Refname = RefSpec(s[firstSpace:idx])
 				} else {
 					capabilities = strings.Split(s[nameEnd:], " ")
 					return ret
@@ -308,7 +319,8 @@ func (s smartHTTPServerRetriever) NegotiatePack() ([]*Reference, *os.File, error
 
 func (s smartHTTPServerRetriever) SendPack(ref UpdateReference, r io.Reader, size int64) error {
 	var toPost string
-	line, err := PktLineEncode([]byte(fmt.Sprintf("%s %s %s\000 report-status quiet sideband-64k agent=go-git/0.0.1", ref.RemoteSha1, ref.LocalSha1, strings.TrimSpace(ref.Refname))))
+
+	line, err := PktLineEncode([]byte(fmt.Sprintf("%s %s %s\000 report-status quiet sideband-64k agent=go-git/0.0.1", ref.RemoteSha1, ref.LocalSha1, ref.Refname.String())))
 	if err != nil {
 		panic(err)
 	}

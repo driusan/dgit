@@ -40,8 +40,7 @@ func Push(c *Client, repo *libgit.Repository, args []string) {
 		return
 	}
 	for _, ref := range refs {
-		trimmed := strings.TrimSuffix(ref.Refname, "\000")
-		trimmed = strings.TrimSpace(trimmed)
+		trimmed := ref.Refname.String()
 		if trimmed == mergebranch {
 			localSha, err := RevParse(c, repo, []string{args[0]})
 			if err != nil {
