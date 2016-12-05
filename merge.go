@@ -22,7 +22,7 @@ func isAncestor(parent *libgit.Commit, child string) bool {
 	}
 	return false
 }
-func Merge(repo *libgit.Repository, args []string) {
+func Merge(c *Client, repo *libgit.Repository, args []string) {
 	if len(args) != 1 {
 		fmt.Fprintf(os.Stderr, "Usage: go-git merge branchname\n")
 		return
@@ -32,7 +32,7 @@ func Merge(repo *libgit.Repository, args []string) {
 		fmt.Fprintf(os.Stderr, "Invalid branch: %s\n", args[0])
 		return
 	}
-	head, err := getHeadId(repo)
+	head, err := c.GetHeadID()
 	if err != nil {
 		panic(err)
 	}
@@ -52,7 +52,7 @@ func Merge(repo *libgit.Repository, args []string) {
 		newId := fmt.Sprintf("%s", commit.Id)
 
 		ioutil.WriteFile(".git/refs/heads/"+hb, []byte(newId), 0644)
-		resetIndexFromCommit(repo, newId)
+		resetIndexFromCommit(c, repo, newId)
 		fmt.Printf("Hooray! A Fast forward on %s! New should should be %s\n", hb, commit.Id)
 		return
 	}

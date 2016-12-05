@@ -7,19 +7,18 @@ import (
 	"os"
 )
 
-func Checkout(repo *libgit.Repository, args []string) {
+func Checkout(c *Client, repo *libgit.Repository, args []string) {
 	switch len(args) {
 	case 0:
 		fmt.Fprintf(os.Stderr, "Missing argument for checkout")
 		return
 	}
 
-	idx, _ := ReadIndex(repo)
+	idx, _ := ReadIndex(c, repo)
 	for _, file := range args {
 		fmt.Printf("Doing something with %s\n", file)
-		if _, err := os.Stat(file); os.IsNotExist(err) {
-			fmt.Fprintf(os.Stderr, "File %s does not exist.\n")
-			continue
+		f := File(file)
+		if !f.Exists() {
 		}
 		for _, idxFile := range idx.Objects {
 			if idxFile.PathName == file {

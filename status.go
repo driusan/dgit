@@ -52,7 +52,7 @@ func findUntrackedFiles(c *Client, tracked map[string]bool) []string {
 }
 
 func Status(c *Client, repo *libgit.Repository, args []string) {
-	idx, err := ReadIndex(repo)
+	idx, err := ReadIndex(c, repo)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "%v\n", err)
 	}

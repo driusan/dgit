@@ -60,8 +60,8 @@ type fixedIndexEntry struct {
 	Flags uint16 // 74
 }
 
-func ReadIndex(g *libgit.Repository) (*GitIndex, error) {
-	file, err := os.Open(g.Path + "/index")
+func ReadIndex(c *Client, g *libgit.Repository) (*GitIndex, error) {
+	file, err := c.GitDir.Open("index")
 	if err != nil {
 		return &GitIndex{
 			fixedGitIndex{

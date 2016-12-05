@@ -72,10 +72,10 @@ func getTreeishId(repo *libgit.Repository, treeish string) string {
 	panic("TODO: Didn't implement getTreeishId")
 }
 
-func resetIndexFromCommit(repo *libgit.Repository, commitId string) error {
+func resetIndexFromCommit(c *Client, repo *libgit.Repository, commitId string) error {
 	// If the index doesn't exist, idx is a new index, so ignore
 	// the path error that ReadIndex is returning
-	idx, _ := ReadIndex(repo)
+	idx, _ := ReadIndex(c, repo)
 	com, err := repo.GetCommit(commitId)
 	if err != nil {
 		fmt.Printf("%s\n", err)
@@ -91,8 +91,8 @@ func resetIndexFromCommit(repo *libgit.Repository, commitId string) error {
 	return nil
 }
 
-func resetWorkingTree(repo *libgit.Repository) error {
-	idx, err := ReadIndex(repo)
+func resetWorkingTree(c *Client, repo *libgit.Repository) error {
+	idx, err := ReadIndex(c, repo)
 	if err != nil {
 		return err
 	}
@@ -150,18 +150,18 @@ func main() {
 	case "branch":
 		Branch(repo, args)
 	case "checkout":
-		Checkout(repo, args)
+		Checkout(c, repo, args)
 	case "add":
-		Add(repo, args)
+		Add(c, repo, args)
 	case "commit":
-		sha1 := Commit(repo, args)
+		sha1 := Commit(c, repo, args)
 		fmt.Printf("%s\n", sha1)
 		fmt.Printf("%s\n", sha1)
 	case "commit-tree":
 		sha1 := CommitTree(repo, args)
 		fmt.Printf("%s\n", sha1)
 	case "write-tree":
-		sha1 := WriteTree(repo)
+		sha1 := WriteTree(c, repo)
 		fmt.Printf("%s\n", sha1)
 	case "update-ref":
 		UpdateRef(repo, args)
@@ -171,15 +171,15 @@ func main() {
 		val := SymbolicRef(repo, args)
 		fmt.Printf("%s\n", val)
 	case "clone":
-		Clone(repo, args)
+		Clone(c, repo, args)
 	case "config":
 		Config(repo, args)
 	case "fetch":
-		Fetch(repo, args)
+		Fetch(c, repo, args)
 	case "reset":
-		Reset(repo, args)
+		Reset(c, repo, args)
 	case "merge":
-		Merge(repo, args)
+		Merge(c, repo, args)
 	case "rev-parse":
 		commits, err := RevParse(repo, args)
 		if err != nil {

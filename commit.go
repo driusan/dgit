@@ -4,10 +4,10 @@ import (
 	libgit "github.com/driusan/git"
 )
 
-func Commit(repo *libgit.Repository, args []string) string {
+func Commit(c *Client, repo *libgit.Repository, args []string) string {
 	// get the parent commit, if it exists
 	var commitTreeArgs []string
-	if parentCommit, err := getHeadId(repo); err == nil {
+	if parentCommit, err := c.GetHeadID(); err == nil {
 		commitTreeArgs = []string{"-p", parentCommit}
 	}
 
@@ -23,7 +23,7 @@ func Commit(repo *libgit.Repository, args []string) string {
 	commitTreeArgs = append(commitTreeArgs, messages...)
 
 	// write the current index tree and get the SHA1
-	treeSha1 := WriteTree(repo)
+	treeSha1 := WriteTree(c, repo)
 	commitTreeArgs = append(commitTreeArgs, treeSha1)
 
 	// write the commit tree

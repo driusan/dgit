@@ -7,7 +7,7 @@ import (
 	"strings"
 )
 
-func Clone(repo *libgit.Repository, args []string) {
+func Clone(c *Client, repo *libgit.Repository, args []string) {
 	var repoid string
 	var dirName string
 	// TODO: This argument parsing should be smarter and more
@@ -51,6 +51,6 @@ func Clone(repo *libgit.Repository, args []string) {
 	Config(repo, []string{"--set", "remote.origin.url", repoid})
 	Config(repo, []string{"--set", "branch.master.remote", "origin"})
 
-	Fetch(repo, []string{"origin"})
-	Reset(repo, []string{"--hard"})
+	Fetch(c, repo, []string{"origin"})
+	Reset(c, repo, []string{"--hard"})
 }

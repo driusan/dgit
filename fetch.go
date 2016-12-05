@@ -8,13 +8,13 @@ import (
 	"strings"
 )
 
-func Fetch(repo *libgit.Repository, args []string) {
+func Fetch(c *Client, repo *libgit.Repository, args []string) {
 	if len(args) < 1 {
 		fmt.Fprintf(os.Stderr, "Missing repository to fetch")
 		return
 	}
 
-	file, err := os.Open(repo.Path + "/config")
+	file, err := c.GitDir.Open("config")
 	if err != nil {
 		panic("Couldn't open config\n")
 	}

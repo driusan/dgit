@@ -7,8 +7,8 @@ import (
 	"os"
 )
 
-func Reset(repo *libgit.Repository, args []string) {
-	commitId, err := getHeadId(repo)
+func Reset(c *Client, repo *libgit.Repository, args []string) {
+	commitId, err := c.GetHeadID()
 	var resetPaths = false
 	var mode string = "mixed"
 	if err != nil {
@@ -68,12 +68,12 @@ func Reset(repo *libgit.Repository, args []string) {
 			// don't do anything for soft reset other than update
 			// the head reference
 		case "hard":
-			resetIndexFromCommit(repo, commitId)
-			resetWorkingTree(repo)
+			resetIndexFromCommit(c, repo, commitId)
+			resetWorkingTree(c, repo)
 		case "mixed":
 			fallthrough
 		default:
-			resetIndexFromCommit(repo, commitId)
+			resetIndexFromCommit(c, repo, commitId)
 		}
 
 	}
