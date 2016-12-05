@@ -107,22 +107,28 @@ func main() {
 		os.Exit(2)
 	}
 	c, err := NewClient(*gitdir, *workdir)
-	if err != nil {
+	cmd := args[0]
+	if err != nil && cmd != "init" {
 		fmt.Fprintf(os.Stderr, "%v\n", err)
 		os.Exit(3)
 	}
-	if c.GitDir == "" {
+	if c != nil && c.GitDir == "" && cmd != "init" {
 		fmt.Fprintf(os.Stderr, "Could not find .git directory\n", err)
 		os.Exit(4)
 	}
-	cmd := args[0]
-	args = args[1:]
+
+	if len(args) > 1 {
+		args = args[1:]
+	}
 
 	// TODO: Get rid of this. It's only here for a transition.
-	repo, _ := libgit.OpenRepository(c.GitDir.String())
+	var repo *libgit.Repository
+	if c != nil {
+		repo, _ = libgit.OpenRepository(c.GitDir.String())
+	}
 	switch cmd {
 	case "init":
-		Init(repo, args)
+		Init(c, args)
 	case "branch":
 		Branch(c, repo, args)
 	case "checkout":

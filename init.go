@@ -1,12 +1,11 @@
 package main
 
 import (
-	libgit "github.com/driusan/git"
 	"io/ioutil"
 	"os"
 )
 
-func Init(repo *libgit.Repository, args []string) {
+func Init(c *Client, args []string) {
 	if len(args) > 0 {
 		if dir := args[len(args)-1]; dir != "init" {
 			err := os.MkdirAll(dir, 0755)
@@ -17,8 +16,8 @@ func Init(repo *libgit.Repository, args []string) {
 			if err != nil {
 				panic("Couldn't change working directory while initializing git.")
 			}
-			if repo != nil {
-				repo.Path = ".git/"
+			if c != nil {
+				c.GitDir = GitDir(dir + ".git/")
 			}
 		}
 	}
