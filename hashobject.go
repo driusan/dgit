@@ -7,8 +7,6 @@ import (
 	"fmt"
 	"io/ioutil"
 	"os"
-
-	libgit "github.com/driusan/git"
 )
 
 func HashFile(t, filename string) (Sha1, error) {
@@ -20,7 +18,7 @@ func HashFile(t, filename string) (Sha1, error) {
 	fmt.Fprintf(h, "%s %d\000%s", t, len(data), data)
 	return Sha1(h.Sum(nil)), nil
 }
-func HashObject(repo *libgit.Repository, args []string) {
+func HashObject(c *Client, args []string) {
 	var t string
 	var write, stdin, stdinpaths bool
 	flag.StringVar(&t, "t", "blob", "-t object type")

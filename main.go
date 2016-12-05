@@ -172,7 +172,7 @@ func main() {
 	case "rev-list":
 		RevList(c, repo, args)
 	case "hash-object":
-		HashObject(repo, args)
+		HashObject(c, args)
 	case "status":
 		Status(c, repo, args)
 	case "ls-tree":

@@ -45,7 +45,7 @@ func Fetch(c *Client, repo *libgit.Repository, args []string) {
 	fmt.Printf("Unpacking into %s\n", repo.Path)
 	unpack(c, repo, pack)
 	for _, ref := range refs {
-		if repo.Path != "" {
+		if c.GitDir != "" {
 			refloc := fmt.Sprintf("%s/%s", repo.Path, strings.TrimSpace(ref.Refname))
 			refloc = strings.TrimSpace(refloc)
 			fmt.Printf("Creating %s with %s", refloc, ref.Sha1)
