@@ -50,7 +50,7 @@ func Reset(c *Client, repo *libgit.Repository, args []string) {
 		// no paths were found. This is the form
 		//  git reset [mode] commit
 		// First, update the head reference for all modes
-		branchName := getHeadBranch(repo)
+		branchName := c.GetHeadBranch()
 		err := ioutil.WriteFile(repo.Path+"/refs/heads/"+branchName,
 			[]byte(fmt.Sprintf("%s", commitId)),
 			0644,

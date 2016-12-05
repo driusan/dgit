@@ -48,7 +48,7 @@ func Merge(c *Client, repo *libgit.Repository, args []string) {
 
 	// Head is an ancestor of the current branch.
 	if isAncestor(commit, head) {
-		hb := getHeadBranch(repo)
+		hb := c.GetHeadBranch()
 		newId := fmt.Sprintf("%s", commit.Id)
 
 		ioutil.WriteFile(".git/refs/heads/"+hb, []byte(newId), 0644)

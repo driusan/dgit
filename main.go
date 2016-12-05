@@ -15,25 +15,6 @@ import (
 var InvalidHead error = errors.New("Invalid HEAD")
 var InvalidArgument error = errors.New("Invalid argument to function")
 
-func getHeadBranch(repo *libgit.Repository) string {
-	file, _ := os.Open(repo.Path + "/HEAD")
-	value, _ := ioutil.ReadAll(file)
-	if prefix := string(value[0:5]); prefix != "ref: " {
-		panic("Could not understand HEAD pointer.")
-	} else {
-		ref := strings.Split(string(value[5:]), "/")
-		if len(ref) != 3 {
-			panic("Could not parse branch out of HEAD")
-		}
-		if ref[0] != "refs" || ref[1] != "heads" {
-			panic("Unknown HEAD reference")
-		}
-		return strings.TrimSpace(ref[2])
-	}
-	return ""
-
-}
-
 func getBranchId(repo *libgit.Repository, b string) (string, error) {
 	return repo.GetCommitIdOfBranch(b)
 }
