@@ -171,7 +171,7 @@ func (p packfile) ReadEntryDataStream(r io.ReadSeeker) (uncompressed []byte, com
 
 }
 
-func (c *Client) WriteObject(objType string, rawdata []byte) error {
+func (c *Client) WriteObject(objType string, rawdata []byte) (Sha1, error) {
 	obj := []byte(fmt.Sprintf("%s %d\000", objType, len(rawdata)))
 	obj = append(obj, rawdata...)
 	sha := sha1.Sum(obj)
@@ -179,12 +179,12 @@ func (c *Client) WriteObject(objType string, rawdata []byte) error {
 	if have, _, err := c.HaveObject(fmt.Sprintf("%x", sha)); have == true || err != nil {
 		if err != nil {
 			fmt.Fprintf(os.Stderr, "Error: %s\n", err)
-			return err
+			return nil, err
 
 		}
 
 		//fmt.Fprintf(os.Stderr, "Already have object %x\n", sha)
-		return ObjectExists
+		return nil, ObjectExists
 
 	}
 	directory := fmt.Sprintf("%x", sha[0:1])
@@ -193,15 +193,15 @@ func (c *Client) WriteObject(objType string, rawdata []byte) error {
 	os.MkdirAll(c.GitDir.String()+"/objects/"+directory, os.FileMode(0755))
 	f, err := c.GitDir.Create(File("objects/" + directory + "/" + file))
 	if err != nil {
-		return err
+		return nil, err
 	}
 	defer f.Close()
 	w := zlib.NewWriter(f)
 	if _, err := w.Write(obj); err != nil {
-		return err
+		return nil, err
 	}
 	defer w.Close()
-	return nil
+	return Sha1(sha[:]), nil
 }
 
 type VariableLengthInt uint64

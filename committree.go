@@ -78,7 +78,7 @@ func CommitTree(c *Client, repo *libgit.Repository, args []string) string {
 	fmt.Fprintf(content, "committer %s %d %s\n", author, t.Unix(), tzStr)
 	fmt.Fprintf(content, "%s", messageString)
 	fmt.Printf("%s", content.Bytes())
-	sha1, err := repo.StoreObjectLoose(libgit.ObjectCommit, bytes.NewReader(content.Bytes()))
+	sha1, err := c.WriteObject("commit", content.Bytes())
 	if err != nil {
 		return ""
 	}
