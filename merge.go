@@ -52,7 +52,7 @@ func Merge(c *Client, repo *libgit.Repository, args []string) {
 		newId := fmt.Sprintf("%s", commit.Id)
 
 		ioutil.WriteFile(".git/refs/heads/"+hb, []byte(newId), 0644)
-		resetIndexFromCommit(c, repo, newId)
+		resetIndexFromCommit(c, newId)
 		fmt.Printf("Hooray! A Fast forward on %s! New should should be %s\n", hb, commit.Id)
 		return
 	}

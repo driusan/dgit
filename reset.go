@@ -68,12 +68,12 @@ func Reset(c *Client, repo *libgit.Repository, args []string) {
 			// don't do anything for soft reset other than update
 			// the head reference
 		case "hard":
-			resetIndexFromCommit(c, repo, commitId)
+			resetIndexFromCommit(c, commitId)
 			resetWorkingTree(c)
 		case "mixed":
 			fallthrough
 		default:
-			resetIndexFromCommit(c, repo, commitId)
+			resetIndexFromCommit(c, commitId)
 		}
 
 	}

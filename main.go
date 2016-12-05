@@ -48,7 +48,11 @@ func getTreeishId(c *Client, repo *libgit.Repository, treeish string) string {
 	panic("TODO: Didn't implement getTreeishId")
 }
 
-func resetIndexFromCommit(c *Client, repo *libgit.Repository, commitId string) error {
+func resetIndexFromCommit(c *Client, commitId string) error {
+	repo, err := libgit.OpenRepository(c.GitDir.String())
+	if err != nil {
+		return err
+	}
 	// If the index doesn't exist, idx is a new index, so ignore
 	// the path error that ReadIndex is returning
 	idx, _ := c.GitDir.ReadIndex()
