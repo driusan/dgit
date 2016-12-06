@@ -5,8 +5,8 @@ init           HappyPath     git 2.9.2
 branch         HappyPath     git 2.9.2
 checkout       HappyPath     git 2.9.2
 add            HappyPath     git 2.9.2              Needs to be run from root of working directory
-commit         HappyPath     git 2.9.2
-commit-tree    Almost        git 2.9.2              missing -s and and doesn't read from stdin
+commit         HappyPath     git 2.9.2              Most options not implemented
+commit-tree    Almost        git 2.9.2              missing -s to sign commits
 write-tree     Almost        git 2.9.2              Missing --missing-ok and --prefix
 update-ref     HappyPath     git 2.9.2
 log            HappyPath     git 2.9.2

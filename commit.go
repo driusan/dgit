@@ -14,11 +14,23 @@ func Commit(c *Client, repo *libgit.Repository, args []string) (string, error) {
 	// extract the message parameters that get passed directly
 	//to commit-tree
 	var messages []string
+	var msgIncluded bool
 	for idx, val := range args {
 		switch val {
 		case "-m", "-F":
+			msgIncluded = false
 			messages = append(messages, args[idx:idx+2]...)
 		}
+	}
+	if !msgIncluded {
+		s, err := getStatus(c, repo, "#")
+		if err != nil {
+			return "", err
+		}
+
+		c.GitDir.WriteFile("COMMIT_EDITMSG", []byte(s), 0660)
+		c.ExecEditor(c.GitDir.File("COMMIT_EDITMSG"))
+		commitTreeArgs = append(commitTreeArgs, "-F", c.GitDir.File("COMMIT_EDITMSG").String())
 	}
 	commitTreeArgs = append(commitTreeArgs, messages...)
 

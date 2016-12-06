@@ -67,8 +67,17 @@ func CommitTree(c *Client, args []string) (string, error) {
 		messageString = "\n" + string(m)
 	}
 
+	lines := strings.Split(messageString, "\n")
+	var strippedLines []string
+	for _, line := range lines {
+		if len(line) >= 1 && line[0] == '#' {
+			continue
+		}
+		strippedLines = append(strippedLines, line)
+	}
+	messageString = strings.Join(strippedLines, "\n")
 	if strings.TrimSpace(messageString) == "" {
-		return "", fmt.Errorf("No message provided to commit-tree")
+		return "", fmt.Errorf("Aborting due to empty commit message")
 	}
 
 	if tree == "" {
