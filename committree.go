@@ -3,6 +3,7 @@ package main
 import (
 	"bytes"
 	"fmt"
+	"io/ioutil"
 	"os"
 	"time"
 )
@@ -51,12 +52,16 @@ func CommitTree(c *Client, args []string) string {
 	}
 	if messageString == "" {
 		if messageFile != "" {
-			// TODO: READ commit message from messageFile here
+			m, err := ioutil.ReadFile(messageFile)
+			if err != nil {
+				panic(err)
+			}
+			messageString = "\n" + string(m)
 		} else {
 			// If neither messageString nor messageFile are set, read
 			// from STDIN
+			panic("Must provide message with -m parameter to commit-tree")
 		}
-		panic("Must provide message with -m parameter to commit-tree")
 	}
 	if tree == "" {
 		tree = args[len(args)-1]

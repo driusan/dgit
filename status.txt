@@ -6,7 +6,7 @@ branch         HappyPath     git 2.9.2
 checkout       HappyPath     git 2.9.2
 add            HappyPath     git 2.9.2              Needs to be run from root of working directory
 commit         HappyPath     git 2.9.2
-commit-tree    Almost        git 2.9.2              Missing -F and -s and
+commit-tree    Almost        git 2.9.2              missing -s and and doesn't read from stdin
 write-tree     Almost        git 2.9.2              Missing --missing-ok and --prefix
 update-ref     HappyPath     git 2.9.2
 log            HappyPath     git 2.9.2
@@ -19,7 +19,8 @@ merge          HappyPath     git 2.9.2              fast-forward only
 hash-object    Almost        git 2.9.2              missing -w option
 status         HappyPath     git 2.9.2              only long form with no options
 ls-tree        HappyPath     git 2.9.2              always includes -r
-push           None          git 2.9.2              gets refs from server, but doesn't send any packfil
+push           HappyPath     git 2.9.2              must invoke as go-git push Branchname. No options. Https only.
 pack-objects   HappyPath     git 2.9.2
 rev-parse      HappyPath     git 2.9.2
 rev-list       HappyPath     git 2.9.2
+ls-tree	None          git 2.9.2
