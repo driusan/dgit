@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"io/ioutil"
 	"os"
+	"strings"
 	"time"
 )
 
@@ -20,7 +21,7 @@ func (c *Client) GetAuthor() string {
 	return fmt.Sprintf("%s <%s>", name, email)
 
 }
-func CommitTree(c *Client, args []string) string {
+func CommitTree(c *Client, args []string) (string, error) {
 	content := bytes.NewBuffer(nil)
 
 	var parents []string
@@ -50,19 +51,26 @@ func CommitTree(c *Client, args []string) string {
 
 		}
 	}
-	if messageString == "" {
-		if messageFile != "" {
-			m, err := ioutil.ReadFile(messageFile)
-			if err != nil {
-				panic(err)
-			}
-			messageString = "\n" + string(m)
-		} else {
-			// If neither messageString nor messageFile are set, read
-			// from STDIN
-			panic("Must provide message with -m parameter to commit-tree")
+	if messageString == "" && messageFile == "" {
+		// No -m or -F provided, read from STDIN
+		m, err := ioutil.ReadAll(os.Stdin)
+		if err != nil {
+			panic(err)
 		}
+		messageString = "\n" + string(m)
+	} else if messageString == "" && messageFile != "" {
+		// No -m, but -F was provided. Read from file passed.
+		m, err := ioutil.ReadFile(messageFile)
+		if err != nil {
+			panic(err)
+		}
+		messageString = "\n" + string(m)
 	}
+
+	if strings.TrimSpace(messageString) == "" {
+		return "", fmt.Errorf("No message provided to commit-tree")
+	}
+
 	if tree == "" {
 		tree = args[len(args)-1]
 	}
@@ -84,7 +92,7 @@ func CommitTree(c *Client, args []string) string {
 	fmt.Printf("%s", content.Bytes())
 	sha1, err := c.WriteObject("commit", content.Bytes())
 	if err != nil {
-		return ""
+		return "", err
 	}
-	return fmt.Sprintf("%s", sha1)
+	return fmt.Sprintf("%s", sha1), nil
 }

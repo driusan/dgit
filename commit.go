@@ -4,7 +4,7 @@ import (
 	libgit "github.com/driusan/git"
 )
 
-func Commit(c *Client, repo *libgit.Repository, args []string) string {
+func Commit(c *Client, repo *libgit.Repository, args []string) (string, error) {
 	// get the parent commit, if it exists
 	var commitTreeArgs []string
 	if parentCommit, err := c.GetHeadID(); err == nil {
@@ -27,8 +27,11 @@ func Commit(c *Client, repo *libgit.Repository, args []string) string {
 	commitTreeArgs = append(commitTreeArgs, treeSha1)
 
 	// write the commit tree
-	commitSha1 := CommitTree(c, commitTreeArgs)
+	commitSha1, err := CommitTree(c, commitTreeArgs)
+	if err != nil {
+		return "", err
+	}
 
 	UpdateRef(c, []string{"-m", "commit from go-git", "HEAD", commitSha1})
-	return commitSha1
+	return commitSha1, nil
 }
