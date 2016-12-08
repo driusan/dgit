@@ -50,6 +50,10 @@ func Clone(c *Client, args []string) {
 	Config(c, []string{"--set", "remote.origin.url", repoid})
 	Config(c, []string{"--set", "branch.master.remote", "origin"})
 
+	// This should be smarter and try and get the HEAD branch from Fetch.
+	// The HEAD refspec isn't necessarily named refs/heads/master.
+	Config(c, []string{"--set", "branch.master.merge", "refs/heads/master"})
+
 	Fetch(c, repo, []string{"origin"})
 	Reset(c, repo, []string{"--hard"})
 }
