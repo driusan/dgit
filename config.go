@@ -180,7 +180,7 @@ func Config(c *Client, args []string) {
 	var fname string
 
 	if args[0] == "--global" {
-		home = os.Getenv("HOME")
+		home := os.Getenv("HOME")
 		if home == "" {
 			home = os.Getenv("home") // On some OSes, it is home
 		}
