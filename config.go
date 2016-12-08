@@ -180,7 +180,11 @@ func Config(c *Client, args []string) {
 	var fname string
 
 	if args[0] == "--global" {
-		fname = os.Getenv("HOME") + "/.gitconfig"
+		home := os.Getenv("HOME")
+		if home == "" {
+			home = os.Getenv("home") // On some OSes, it is home
+		}
+		fname = home + "/.gitconfig"
 		args = args[1:]
 	} else {
 		fname = c.GitDir.String() + "/config"

@@ -10,7 +10,11 @@ import (
 )
 
 func (c *Client) GetAuthor() string {
-	configFile, err := os.Open(os.Getenv("HOME") + "/.gitconfig")
+	home := os.Getenv("HOME")
+	if home == "" {
+		home = os.Getenv("home") // On some OSes, it is home
+	}
+	configFile, err := os.Open(home + "/.gitconfig")
 	config := parseConfig(configFile)
 	if err != nil {
 		panic(err)

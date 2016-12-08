@@ -21,7 +21,7 @@ func Init(c *Client, args []string) *Client {
 				c.GitDir = GitDir(dir + "/.git")
 				c.WorkDir = WorkDir(dir)
 			} else {
-				c, err = NewClient("/.git", dir)
+				c, err = NewClient(".git", dir)
 				if err != nil {
 					panic(err)
 				}
