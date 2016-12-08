@@ -3,12 +3,18 @@ package main
 import (
 	"bytes"
 	"fmt"
+	"io/ioutil"
 	"os"
+	"strings"
 	"time"
 )
 
 func (c *Client) GetAuthor() string {
-	configFile, err := os.Open(os.Getenv("HOME") + "/.gitconfig")
+	home := os.Getenv("HOME")
+	if home == "" {
+		home = os.Getenv("home") // On some OSes, it is home
+	}
+	configFile, err := os.Open(home + "/.gitconfig")
 	config := parseConfig(configFile)
 	if err != nil {
 		panic(err)
@@ -19,7 +25,7 @@ func (c *Client) GetAuthor() string {
 	return fmt.Sprintf("%s <%s>", name, email)
 
 }
-func CommitTree(c *Client, args []string) string {
+func CommitTree(c *Client, args []string) (string, error) {
 	content := bytes.NewBuffer(nil)
 
 	var parents []string
@@ -49,15 +55,35 @@ func CommitTree(c *Client, args []string) string {
 
 		}
 	}
-	if messageString == "" {
-		if messageFile != "" {
-			// TODO: READ commit message from messageFile here
-		} else {
-			// If neither messageString nor messageFile are set, read
-			// from STDIN
+	if messageString == "" && messageFile == "" {
+		// No -m or -F provided, read from STDIN
+		m, err := ioutil.ReadAll(os.Stdin)
+		if err != nil {
+			panic(err)
 		}
-		panic("Must provide message with -m parameter to commit-tree")
+		messageString = "\n" + string(m)
+	} else if messageString == "" && messageFile != "" {
+		// No -m, but -F was provided. Read from file passed.
+		m, err := ioutil.ReadFile(messageFile)
+		if err != nil {
+			panic(err)
+		}
+		messageString = "\n" + string(m)
 	}
+
+	lines := strings.Split(messageString, "\n")
+	var strippedLines []string
+	for _, line := range lines {
+		if len(line) >= 1 && line[0] == '#' {
+			continue
+		}
+		strippedLines = append(strippedLines, line)
+	}
+	messageString = strings.Join(strippedLines, "\n")
+	if strings.TrimSpace(messageString) == "" {
+		return "", fmt.Errorf("Aborting due to empty commit message")
+	}
+
 	if tree == "" {
 		tree = args[len(args)-1]
 	}
@@ -79,7 +105,7 @@ func CommitTree(c *Client, args []string) string {
 	fmt.Printf("%s", content.Bytes())
 	sha1, err := c.WriteObject("commit", content.Bytes())
 	if err != nil {
-		return ""
+		return "", err
 	}
-	return fmt.Sprintf("%s", sha1)
+	return fmt.Sprintf("%s", sha1), nil
 }

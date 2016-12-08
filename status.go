@@ -51,7 +51,11 @@ func findUntrackedFiles(c *Client, tracked map[string]bool) []string {
 	return findUntrackedFilesFromDir(wd+"/", wd, wd, tracked)
 }
 
-func Status(c *Client, repo *libgit.Repository, args []string) {
+// The standard git "status" command doesn't provide any kind of --prefix, so
+// this does the work of status, and adds a --prefix for commit to share the
+// same code as Status. Status() just parses command line options and calls
+// this.
+func getStatus(c *Client, repo *libgit.Repository, prefix string) (string, error) {
 	idx, err := c.GitDir.ReadIndex()
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "%v\n", err)
@@ -126,31 +130,31 @@ func Status(c *Client, repo *libgit.Repository, args []string) {
 			)
 		}
 	}
+
+	var msg string
+
 	untracked := findUntrackedFiles(c, fileInIndex)
 	if len(stagedFiles) != 0 {
-		fmt.Printf(
-			`Changes to be committed:
-  (use "git reset HEAD <file>..." to unstage)
-
-`)
+		msg += fmt.Sprintf("%sChanges to be committed:\n", prefix)
+		msg += fmt.Sprintf("%s (use \"git reset HEAD <file>...\" to unstage)\n", prefix)
+		msg += fmt.Sprintf("%s\n", prefix)
 		for _, f := range stagedFiles {
 			if f.New {
-				fmt.Printf("\tnew file:\t%s\n", f.Filename)
+				msg += fmt.Sprintf("%s\tnew file:\t%s\n", prefix, f.Filename)
 			} else if f.Removed {
-				fmt.Printf("\tdeleted:\t%s\n", f.Filename)
+				msg += fmt.Sprintf("%s\tdeleted:\t%s\n", prefix, f.Filename)
 			} else {
-				fmt.Printf("\tmodified:\t%s\n", f.Filename)
+				msg += fmt.Sprintf("%s\tmodified:\t%s\n", prefix, f.Filename)
 			}
 		}
 	}
 	if len(unstagedFiles) != 0 {
-		fmt.Printf(
-			`
-Changes not staged for commit:
-  (use "git add <file>..." to update what will be committed)
-  (use "git checkout -- <file>..." to discard changes in working directory)
-
-`)
+		msg += fmt.Sprintf("%s\n", prefix)
+		msg += fmt.Sprintf("%sChanges not staged for commit:\n", prefix)
+		msg += fmt.Sprintf("%s\n", prefix)
+		msg += fmt.Sprintf("%s  (use \"git add <file>...\" to update what will be committed)\n", prefix)
+		msg += fmt.Sprintf("%s  (use \"git checkout -- <file>...\" to discard changes in working directory)", prefix)
+		msg += fmt.Sprintf("%s\n", prefix)
 		for _, f := range unstagedFiles {
 			if f.Removed {
 				fmt.Printf("\tdeleted:\t%s\n", f.Filename)
@@ -161,19 +165,25 @@ Changes not staged for commit:
 	}
 
 	if len(untracked) != 0 {
-		fmt.Printf(
-			`
-Untracked files:
-  (use "git add <file>..." to include in what will be committed)
-
-`)
+		msg += fmt.Sprintf("%s\n", prefix)
+		msg += fmt.Sprintf("%sUntracked files:\n", prefix)
+		msg += fmt.Sprintf("%s  (use \"git add <file>...\" to include in what will be committed)\n", prefix)
+		msg += fmt.Sprintf("%s\n", prefix)
 		for _, f := range untracked {
-			fmt.Printf("\t%s\n", f)
+			msg += fmt.Sprintf("%s\t%s\n", prefix, f)
 		}
 	}
 
 	if len(unstagedFiles) == 0 && len(stagedFiles) == 0 && len(untracked) == 0 {
-		fmt.Println("nothing to commit, working tree clean")
+		return "", fmt.Errorf("nothing to commit, working tree clean")
 	}
-	return
+	return msg, nil
+}
+func Status(c *Client, repo *libgit.Repository, args []string) error {
+	s, err := getStatus(c, repo, "")
+	if err != nil {
+		return err
+	}
+	fmt.Printf("%s", s)
+	return nil
 }

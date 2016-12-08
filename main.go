@@ -148,12 +148,19 @@ func main() {
 	case "add":
 		Add(c, args)
 	case "commit":
-		sha1 := Commit(c, repo, args)
-		fmt.Printf("%s\n", sha1)
-		fmt.Printf("%s\n", sha1)
+		sha1, err := Commit(c, repo, args)
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "%v\n", err)
+		} else {
+			fmt.Printf("%s\n", sha1)
+		}
 	case "commit-tree":
-		sha1 := CommitTree(c, args)
-		fmt.Printf("%s\n", sha1)
+		sha1, err := CommitTree(c, args)
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "%v\n", err)
+		} else {
+			fmt.Printf("%s\n", sha1)
+		}
 	case "write-tree":
 		sha1 := WriteTree(c, repo)
 		fmt.Printf("%s\n", sha1)

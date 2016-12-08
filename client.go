@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"io/ioutil"
 	"os"
+	"os/exec"
 	"strings"
 
 	libgit "github.com/driusan/git"
@@ -32,6 +33,15 @@ func (g GitDir) String() string {
 
 func (g GitDir) Exists() bool {
 	return File(g).Exists()
+}
+
+// Returns a file named f, relative to GitDir
+func (g GitDir) File(f File) File {
+	return File(g) + "/" + f
+}
+
+func (g GitDir) WriteFile(f File, data []byte, perm os.FileMode) error {
+	return ioutil.WriteFile(g.File(f).String(), data, perm)
 }
 
 // WorkDir is the top level of the work directory of the current process, or
@@ -145,6 +155,16 @@ func (c *Client) HaveObject(idStr string) (found, packed bool, err error) {
 }
 func (c *Client) CreateBranch(name string, sha1 Sha1) error {
 	panic("Unimplemented")
+}
+
+func (c *Client) ExecEditor(f File) error {
+	editor := os.Getenv("EDITOR")
+	if editor == "" {
+		fmt.Fprintf(os.Stderr, "Warning: EDITOR environment not set. Falling back on ed...\n")
+		editor = "ed"
+	}
+	cmd := exec.Command(editor, f.String())
+	return cmd.Run()
 }
 
 // Opens a file relative to GitDir. There should not be
