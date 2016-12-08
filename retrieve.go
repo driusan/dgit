@@ -254,12 +254,9 @@ func (s *smartHTTPServerRetriever) getRefs(service, expectedmime string) (io.Rea
 	if err != nil {
 		return nil, err
 	}
-	println("I am now here2")
 	if resp.StatusCode >= 400 {
-		println("I am now here2.5")
 		return nil, errors.New(resp.Status)
 	}
-	println("I am now here3")
 	// It worked, so return the Body reader. It's the callers responsibility
 	// to close it.
 	return resp.Body, nil
@@ -311,7 +308,12 @@ func (s smartHTTPServerRetriever) NegotiatePack() ([]*Reference, *os.File, error
 		panic(response)
 	}
 
-	f, _ := ioutil.TempFile("", "gitpack")
+	// Use a tempfile so that the body is a io.ReadSeeker
+	f, err := ioutil.TempFile("", "gitpack")
+	if err != nil {
+		return refs, f, err
+	}
+
 	io.Copy(f, r2.Body)
 
 	return refs, f, nil
