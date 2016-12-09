@@ -34,11 +34,6 @@ func HashObject(c *Client, args []string) {
 	os.Args = append(fakeargs, args...)
 	flag.Parse()
 
-	if write {
-		fmt.Fprintln(os.Stderr, "-w is not yet implemented")
-		return
-	}
-
 	if stdin && stdinpaths {
 		fmt.Fprintln(os.Stderr, "Can not use both --stdin and --stdin-paths\n")
 		return
@@ -55,6 +50,12 @@ func HashObject(c *Client, args []string) {
 		h := sha1.New()
 		fmt.Fprintf(h, "%s %d\000%s", t, len(data), data)
 		fmt.Printf("%x\n", h.Sum(nil))
+		if write {
+			wsha, err := c.WriteObject(t, data)
+			if err != nil {
+				panic(err)
+			}
+		}
 		return
 	} else if stdinpaths {
 		if err != nil {
@@ -71,6 +72,12 @@ func HashObject(c *Client, args []string) {
 			}
 			fmt.Fprintf(h, "%s %d\000%s", t, len(data), data)
 			fmt.Printf("%x\n", h.Sum(nil))
+			if write {
+				wsha, err := c.WriteObject(t, data)
+				if err != nil {
+					panic(err)
+				}
+			}
 
 		}
 		return
@@ -85,6 +92,13 @@ func HashObject(c *Client, args []string) {
 			}
 			fmt.Fprintf(h, "%s %d\000%s", t, len(data), data)
 			fmt.Printf("%x\n", h.Sum(nil))
+			if write {
+				wsha, err := c.WriteObject(t, data)
+				if err != nil {
+					panic(err)
+				}
+			}
+
 		}
 	}
 }

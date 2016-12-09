@@ -1,2 +1,0 @@
-The git hash-object plumbing command is mostly implemented, but missing
-the -w (write) option.
