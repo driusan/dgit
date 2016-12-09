@@ -55,5 +55,6 @@ func Clone(c *Client, args []string) {
 	Config(c, []string{"--set", "branch.master.merge", "refs/heads/master"})
 
 	Fetch(c, repo, []string{"origin"})
+	SymbolicRef(c, []string{"HEAD", "refs/heads/master"})
 	Reset(c, repo, []string{"--hard"})
 }
