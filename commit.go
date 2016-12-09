@@ -18,7 +18,7 @@ func Commit(c *Client, repo *libgit.Repository, args []string) (string, error) {
 	for idx, val := range args {
 		switch val {
 		case "-m", "-F":
-			msgIncluded = false
+			msgIncluded = true
 			messages = append(messages, args[idx:idx+2]...)
 		}
 	}
