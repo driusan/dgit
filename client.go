@@ -6,8 +6,6 @@ import (
 	"os"
 	"os/exec"
 	"strings"
-
-	libgit "github.com/driusan/git"
 )
 
 // A file represents a file (or directory) relative to os.Getwd()
@@ -98,19 +96,6 @@ func NewClient(gitDir, workDir string) (*Client, error) {
 	return &Client{GitDir(gitdir), WorkDir(workdir)}, nil
 }
 
-func (c *Client) GetHeadID() (string, error) {
-	// Temporary hack until libgit is removed.
-	repo, err := libgit.OpenRepository(c.GitDir.String())
-	if err != nil {
-		return "", err
-	}
-	if headBranch := c.GetHeadBranch(); headBranch != "" {
-		return repo.GetCommitIdOfBranch(c.GetHeadBranch())
-	}
-	return "", InvalidHead
-
-}
-
 /*
 func (c *Client) GetHeadSha1() (Sha1, error) {
 	panic("Not yet reimplemented")
@@ -120,10 +105,6 @@ func (c *Client) GetHeadSha1() (Sha1, error) {
 		return "", InvalidHead
 }
 */
-
-func (c *Client) GetBranches() ([]string, error) {
-	panic("Not implemented")
-}
 
 func (c *Client) GetHeadBranch() string {
 	file, _ := c.GitDir.Open("HEAD")
@@ -142,19 +123,6 @@ func (c *Client) GetHeadBranch() string {
 	}
 	return ""
 
-}
-
-func (c *Client) HaveObject(idStr string) (found, packed bool, err error) {
-	// As a temporary hack use libgit, because I don't have time to
-	// make sure pack files are looked into properly yet.
-	repo, err := libgit.OpenRepository(c.GitDir.String())
-	if err != nil {
-		return false, false, err
-	}
-	return repo.HaveObject(idStr)
-}
-func (c *Client) CreateBranch(name string, sha1 Sha1) error {
-	panic("Unimplemented")
 }
 
 func (c *Client) ExecEditor(f File) error {

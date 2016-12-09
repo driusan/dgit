@@ -120,6 +120,8 @@ func main() {
 	}
 	c, err := NewClient(*gitdir, *workdir)
 	cmd := args[0]
+	args = args[1:]
+
 	if err != nil && requiresGitDir(cmd) {
 		fmt.Fprintf(os.Stderr, "%v\n", err)
 		os.Exit(3)
@@ -129,9 +131,6 @@ func main() {
 		os.Exit(4)
 	}
 
-	if len(args) > 1 {
-		args = args[1:]
-	}
 
 	// TODO: Get rid of this. It's only here for a transition.
 	var repo *libgit.Repository
