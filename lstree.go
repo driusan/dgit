@@ -1,27 +1,70 @@
 package main
 
 import (
+	"flag"
 	"fmt"
 	"os"
 
 	libgit "github.com/driusan/git"
 )
 
-func LsTree(c *Client, repo *libgit.Repository, args []string) {
-	commitId := args[0]
-	tree, err := expandTreeIntoIndexesById(c, repo, commitId)
+func LsTree(c *Client, repo *libgit.Repository, args []string) error {
+	var treeonly, recursepaths, showtrees, endnil bool
+	//var showlong1, showlong2 bool
+	var nameonly, namestatus bool
+	//flag.StringVar(&t, "t", "blob", "-t object type")
+	flag.BoolVar(&treeonly, "d", true, "Show only the named tree, not its children")
+	flag.BoolVar(&recursepaths, "r", false, "Recurse into sub-trees")
+	flag.BoolVar(&showtrees, "t", false, "Show trees even when recursing into them")
+	flag.BoolVar(&endnil, "z", false, "\\0 line termination on output")
+
+	flag.BoolVar(&nameonly, "name-only", false, "Only show the names of the files")
+	flag.BoolVar(&namestatus, "name-status", false, "Only show the names of the files")
+
+	nameonly = nameonly || namestatus
+	//showlong := (showlong1 || showlong2)
+
+	/*
+		flag.BoolVar(&showlong1, "l", false, "Show size of blob entries")
+		flag.BoolVar(&showlong2, "long", false, "Show size of blob entries")
+		//showlong := (showlong1 || showlong2)
+	*/
+	fakeargs := []string{"git-ls-tree"}
+	os.Args = append(fakeargs, args...)
+
+	flag.Parse()
+	args = flag.Args()
+	if len(args) < 1 {
+		flag.Usage()
+		return fmt.Errorf("Missing tree")
+	}
+
+	commitId, err := RevParse(c, repo, []string{args[0]})
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "%v\n", err)
-		return
+		return err
+	}
+
+	tree, err := expandTreeIntoIndexesById(c, repo, commitId[0].Id.String(), recursepaths, showtrees)
+	if err != nil {
+		return err
 	}
 	for _, entry := range tree {
-		// expandTree expands tree-type objects, so we just assume
-		// everything is a blob. ie. This is always ls-tree -r
-		fmt.Printf("%o blob %x\t%s\n", entry.Mode, entry.Sha1, entry.PathName)
+		var lineend string
+		if endnil {
+			lineend = "\000"
+		} else {
+			lineend = "\n"
+		}
+		if !nameonly {
+			fmt.Printf("%0.6o %s %s\t%s%s", entry.Mode, entry.Sha1.Type(c), entry.Sha1, entry.PathName, lineend)
+		} else {
+			fmt.Printf("%s%s", entry.PathName, lineend)
+		}
 	}
+	return nil
 }
 
-func expandTreeIntoIndexesById(c *Client, repo *libgit.Repository, treeId string) ([]*GitIndexEntry, error) {
+func expandTreeIntoIndexesById(c *Client, repo *libgit.Repository, treeId string, recurse, showTreeEntry bool) ([]*GitIndexEntry, error) {
 	expanded := getTreeishId(c, repo, treeId)
 	com, err := repo.GetCommit(expanded)
 	if err != nil {
@@ -32,12 +75,11 @@ func expandTreeIntoIndexesById(c *Client, repo *libgit.Repository, treeId string
 	if tree == nil {
 		panic("Error retriving tree for commit")
 	}
-	return expandGitTreeIntoIndexes(repo, tree, "")
+	return expandGitTreeIntoIndexes(repo, tree, "", recurse, showTreeEntry)
 
 }
-func expandGitTreeIntoIndexes(repo *libgit.Repository, tree *libgit.Tree, prefix string) ([]*GitIndexEntry, error) {
+func expandGitTreeIntoIndexes(repo *libgit.Repository, tree *libgit.Tree, prefix string, recurse bool, showTreeEntry bool) ([]*GitIndexEntry, error) {
 	newEntries := make([]*GitIndexEntry, 0)
-
 	for _, entry := range tree.ListEntries() {
 		var dirname string
 		if prefix == "" {
@@ -45,22 +87,13 @@ func expandGitTreeIntoIndexes(repo *libgit.Repository, tree *libgit.Tree, prefix
 		} else {
 			dirname = prefix + "/" + entry.Name()
 		}
-		switch entry.Type {
-		case libgit.ObjectBlob:
+		if (entry.Type != libgit.ObjectTree) || showTreeEntry || !recurse {
 			newEntry := GitIndexEntry{}
-			newEntry.Sha1 = entry.Id
-			// This isn't right.
-			// This should be:
-			// "32-bit mode, split into:
-			//      4-bit object type: valid values in binary are
-			//          1000 (regular file), 1010 (symbolic link), and
-			//          1110 (gitlink)
-			//      3-bit unused
-			//      9-bit unix permission. Only 0755 and 0644 are valid
-			//          for regular files, symbolic links have 0 in this
-			//          field"
-
-			//go-gits entry mode is an int, but it needs to be a uint32
+			sha, err := Sha1FromString(entry.Id.String())
+			if err != nil {
+				panic(err)
+			}
+			newEntry.Sha1 = sha
 			switch entry.EntryMode() {
 			case libgit.ModeBlob:
 				newEntry.Mode = 0100644
@@ -80,32 +113,20 @@ func expandGitTreeIntoIndexes(repo *libgit.Repository, tree *libgit.Tree, prefix
 			newEntry.Mtime = uint32(modTime.Unix())
 			newEntry.Mtimenano = uint32(modTime.Nanosecond())
 			newEntry.Flags = uint16(len(dirname)) & 0xFFF
-			/* I don't know how git can extract these values
-			   from a tree. For now, leave them empty
-
-			   Ctime     uint32
-			   Ctimenano uint32
-			   Dev uint32
-			   Ino uint32
-			   Uid uint32
-			   Gid uint32
-			*/
 			newEntries = append(newEntries, &newEntry)
-		case libgit.ObjectTree:
-
+		}
+		if entry.Type == libgit.ObjectTree && recurse {
 			subTree, err := tree.SubTree(entry.Name())
 			if err != nil {
 				panic(err)
 			}
-			subindexes, err := expandGitTreeIntoIndexes(repo, subTree, dirname)
+			subindexes, err := expandGitTreeIntoIndexes(repo, subTree, dirname, recurse, showTreeEntry)
 			if err != nil {
 				panic(err)
 			}
 			newEntries = append(newEntries, subindexes...)
-
-		default:
-			fmt.Fprintf(os.Stderr, "Unknown object type: %s\n", entry.Type)
 		}
+
 	}
 	return newEntries, nil
 

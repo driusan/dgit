@@ -66,14 +66,14 @@ func getStatus(c *Client, repo *libgit.Repository, prefix string) (string, error
 
 	headFiles := make(map[string]Sha1)
 	// This isn't very efficiently implemented, but it works(ish).
-	head, err := expandTreeIntoIndexesById(c, repo, "HEAD")
+	head, err := expandTreeIntoIndexesById(c, repo, "HEAD", true, false)
 	for _, head := range head {
 		headFiles[head.PathName] = head.Sha1
 	}
 
 	for _, file := range idx.Objects {
 		fileInIndex[file.PathName] = true
-		idxsha1 := fmt.Sprintf("%x", file.Sha1)
+		idxsha1 := file.Sha1
 
 		fssha1, err := HashFile("blob", file.PathName)
 		if err != nil {
@@ -96,7 +96,7 @@ func getStatus(c *Client, repo *libgit.Repository, prefix string) (string, error
 			)
 			continue
 		}
-		if fssha1.String() != idxsha1 {
+		if fssha1 != idxsha1 {
 			_, err := os.Stat(file.PathName)
 			if os.IsNotExist(err) {
 				unstagedFiles = append(unstagedFiles,
@@ -109,7 +109,7 @@ func getStatus(c *Client, repo *libgit.Repository, prefix string) (string, error
 			}
 
 		}
-		if headSha1.String() != idxsha1 {
+		if headSha1 != idxsha1 {
 			_, err := os.Stat(file.PathName)
 			if os.IsNotExist(err) {
 				stagedFiles = append(stagedFiles,
@@ -153,13 +153,13 @@ func getStatus(c *Client, repo *libgit.Repository, prefix string) (string, error
 		msg += fmt.Sprintf("%sChanges not staged for commit:\n", prefix)
 		msg += fmt.Sprintf("%s\n", prefix)
 		msg += fmt.Sprintf("%s  (use \"git add <file>...\" to update what will be committed)\n", prefix)
-		msg += fmt.Sprintf("%s  (use \"git checkout -- <file>...\" to discard changes in working directory)", prefix)
+		msg += fmt.Sprintf("%s  (use \"git checkout -- <file>...\" to discard changes in working directory)\n", prefix)
 		msg += fmt.Sprintf("%s\n", prefix)
 		for _, f := range unstagedFiles {
 			if f.Removed {
-				fmt.Printf("\tdeleted:\t%s\n", f.Filename)
+				msg += fmt.Sprintf("\tdeleted:\t%s\n", f.Filename)
 			} else {
-				fmt.Printf("\tmodified:\t%s\n", f.Filename)
+				msg += fmt.Sprintf("\tmodified:\t%s\n", f.Filename)
 			}
 		}
 	}

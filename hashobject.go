@@ -51,7 +51,7 @@ func HashObject(c *Client, args []string) {
 		fmt.Fprintf(h, "%s %d\000%s", t, len(data), data)
 		fmt.Printf("%x\n", h.Sum(nil))
 		if write {
-			wsha, err := c.WriteObject(t, data)
+			_, err := c.WriteObject(t, data)
 			if err != nil {
 				panic(err)
 			}
@@ -73,7 +73,7 @@ func HashObject(c *Client, args []string) {
 			fmt.Fprintf(h, "%s %d\000%s", t, len(data), data)
 			fmt.Printf("%x\n", h.Sum(nil))
 			if write {
-				wsha, err := c.WriteObject(t, data)
+				_, err := c.WriteObject(t, data)
 				if err != nil {
 					panic(err)
 				}
@@ -93,7 +93,7 @@ func HashObject(c *Client, args []string) {
 			fmt.Fprintf(h, "%s %d\000%s", t, len(data), data)
 			fmt.Printf("%x\n", h.Sum(nil))
 			if write {
-				wsha, err := c.WriteObject(t, data)
+				_, err := c.WriteObject(t, data)
 				if err != nil {
 					panic(err)
 				}

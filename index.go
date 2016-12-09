@@ -55,7 +55,7 @@ type fixedIndexEntry struct {
 
 	Fsize uint32 // 52
 
-	Sha1 [20]byte // 72
+	Sha1 Sha1 // 72
 
 	Flags uint16 // 74
 }
@@ -435,7 +435,7 @@ func (g GitIndex) WriteTree(repo *libgit.Repository) string {
 }
 
 func (g *GitIndex) ResetIndex(repo *libgit.Repository, tree *libgit.Tree) error {
-	newEntries, err := expandGitTreeIntoIndexes(repo, tree, "")
+	newEntries, err := expandGitTreeIntoIndexes(repo, tree, "", true, false)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "Error resetting index: %s\n", err)
 		return err

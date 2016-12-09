@@ -171,7 +171,11 @@ func main() {
 	case "status":
 		Status(c, repo, args)
 	case "ls-tree":
-		LsTree(c, repo, args)
+		err := LsTree(c, repo, args)
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "%v\n", err)
+			os.Exit(4)
+		}
 	case "push":
 		Push(c, repo, args)
 	case "pack-objects":
