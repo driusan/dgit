@@ -5,6 +5,7 @@ import (
 	"io/ioutil"
 	"os"
 	"os/exec"
+	"path/filepath"
 	"strings"
 )
 
@@ -145,4 +146,26 @@ func (gd GitDir) Open(f File) (*os.File, error) {
 // a leading slash.
 func (gd GitDir) Create(f File) (*os.File, error) {
 	return os.Create(gd.String() + "/" + f.String())
+}
+func (c *Client) ResetWorkTree() error {
+	idx, err := c.GitDir.ReadIndex()
+	if err != nil {
+		return err
+	}
+	for _, indexEntry := range idx.Objects {
+		obj, err := c.GetObject(indexEntry.Sha1)
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "Could not retrieve %x for %s: %s\n", indexEntry.Sha1, indexEntry.PathName, err)
+			continue
+		}
+		if strings.Index(indexEntry.PathName, "/") > 0 {
+			os.MkdirAll(filepath.Dir(indexEntry.PathName), 0755)
+		}
+		err = ioutil.WriteFile(indexEntry.PathName, obj.GetContent(), os.FileMode(indexEntry.Mode))
+		if err != nil {
+			continue
+		}
+		os.Chmod(indexEntry.PathName, os.FileMode(indexEntry.Mode))
+	}
+	return nil
 }

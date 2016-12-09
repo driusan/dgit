@@ -4,12 +4,9 @@ import (
 	"errors"
 	"flag"
 	"fmt"
+	"os"
 
 	libgit "github.com/driusan/git"
-	"io/ioutil"
-	"os"
-	"path/filepath"
-	"strings"
 )
 
 var InvalidHead error = errors.New("Invalid HEAD")
@@ -71,31 +68,6 @@ func resetIndexFromCommit(c *Client, commitId string) error {
 	return nil
 }
 
-func resetWorkingTree(c *Client) error {
-	idx, err := c.GitDir.ReadIndex()
-	if err != nil {
-		return err
-	}
-	for _, indexEntry := range idx.Objects {
-		obj, err := c.GetObject(indexEntry.Sha1)
-		if err != nil {
-			fmt.Fprintf(os.Stderr, "Could not retrieve %x for %s: %s\n", indexEntry.Sha1, indexEntry.PathName, err)
-			continue
-		}
-		if strings.Index(indexEntry.PathName, "/") > 0 {
-			os.MkdirAll(filepath.Dir(indexEntry.PathName), 0755)
-		}
-		err = ioutil.WriteFile(indexEntry.PathName, obj.GetContent(), os.FileMode(indexEntry.Mode))
-		if err != nil {
-
-			continue
-		}
-		os.Chmod(indexEntry.PathName, os.FileMode(indexEntry.Mode))
-
-	}
-	return nil
-}
-
 func requiresGitDir(cmd string) bool {
 	switch cmd {
 	case "init", "clone":
@@ -130,7 +102,6 @@ func main() {
 		fmt.Fprintf(os.Stderr, "Could not find .git directory\n", err)
 		os.Exit(4)
 	}
-
 
 	// TODO: Get rid of this. It's only here for a transition.
 	var repo *libgit.Repository

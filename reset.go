@@ -69,7 +69,11 @@ func Reset(c *Client, repo *libgit.Repository, args []string) {
 			// the head reference
 		case "hard":
 			resetIndexFromCommit(c, commitId)
-			resetWorkingTree(c)
+			err := c.ResetWorkTree()
+			if err != nil {
+				fmt.Fprintf(os.Stderr, "Error updating head reference: %s\n", err)
+
+			}
 		case "mixed":
 			fallthrough
 		default:
