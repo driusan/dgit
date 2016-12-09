@@ -16,7 +16,11 @@ func HashFile(t, filename string) (Sha1, error) {
 	}
 	h := sha1.New()
 	fmt.Fprintf(h, "%s %d\000%s", t, len(data), data)
-	return Sha1(h.Sum(nil)), nil
+	var val Sha1
+	for idx, v := range h.Sum(nil) {
+		val[idx] = v
+	}
+	return val, nil
 }
 func HashObject(c *Client, args []string) {
 	var t string

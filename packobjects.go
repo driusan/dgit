@@ -24,7 +24,11 @@ func PackObjects(repo *libgit.Repository, input io.Reader, args []string) {
 		if err != nil {
 			panic(err)
 		}
-		objects = append(objects, Sha1(b))
+		s, err := Sha1FromSlice(b)
+		if err != nil {
+			panic(err)
+		}
+		objects = append(objects, s)
 	}
 	SendPackfile(repo, f, objects)
 	//SendPackfile(f, []Sha1{})

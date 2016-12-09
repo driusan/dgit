@@ -16,13 +16,13 @@ func getBranchSha1(c *Client, repo *libgit.Repository, branchname string) (Sha1,
 	if branchname == "HEAD" {
 		head, err := c.GetHeadID()
 		if err != nil {
-			return nil, err
+			return Sha1{}, err
 		}
 		return Sha1FromString(head)
 	}
 	sha, err := getBranchId(repo, branchname)
 	if err != nil {
-		return nil, err
+		return Sha1{}, err
 	}
 	return Sha1FromString(sha)
 }

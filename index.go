@@ -174,13 +174,12 @@ func (g *GitIndex) AddFile(c *Client, file *os.File) {
 	if err != nil && err != ObjectExists {
 		fmt.Fprintf(os.Stderr, "Error storing object: %s", err)
 	}
-	sha1 := hash.AsByteArray()
-	fmt.Printf("Sha1: %x\n", sha1)
+	fmt.Printf("Sha1: %x\n", hash)
 	fmt.Printf("Name is %s\n", file.Name())
 	name := getNormalizedName(file)
 	for _, entry := range g.Objects {
 		if entry.PathName == name {
-			entry.Sha1 = sha1
+			entry.Sha1 = hash
 
 			fstat, err := file.Stat()
 			if err != nil {
@@ -256,7 +255,7 @@ func (g *GitIndex) AddFile(c *Client, file *os.File) {
 			0,                    //stat.Uid,             // right?
 			0,                    //stat.Gid,             // right?
 			uint32(fstat.Size()), // right
-			sha1,                 // this is right
+			hash,                 // this is right
 			flags,                // right
 		},
 		name,

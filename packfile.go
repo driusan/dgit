@@ -179,12 +179,12 @@ func (c *Client) WriteObject(objType string, rawdata []byte) (Sha1, error) {
 	if have, _, err := c.HaveObject(fmt.Sprintf("%x", sha)); have == true || err != nil {
 		if err != nil {
 			fmt.Fprintf(os.Stderr, "Error: %s\n", err)
-			return nil, err
+			return Sha1{}, err
 
 		}
 
 		//fmt.Fprintf(os.Stderr, "Already have object %x\n", sha)
-		return Sha1(sha[:]), ObjectExists
+		return Sha1(sha), ObjectExists
 
 	}
 	directory := fmt.Sprintf("%x", sha[0:1])
@@ -193,15 +193,15 @@ func (c *Client) WriteObject(objType string, rawdata []byte) (Sha1, error) {
 	os.MkdirAll(c.GitDir.String()+"/objects/"+directory, os.FileMode(0755))
 	f, err := c.GitDir.Create(File("objects/" + directory + "/" + file))
 	if err != nil {
-		return nil, err
+		return Sha1{}, err
 	}
 	defer f.Close()
 	w := zlib.NewWriter(f)
 	if _, err := w.Write(obj); err != nil {
-		return nil, err
+		return Sha1{}, err
 	}
 	defer w.Close()
-	return Sha1(sha[:]), nil
+	return Sha1(sha), nil
 }
 
 type VariableLengthInt uint64

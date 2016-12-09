@@ -12,7 +12,7 @@ import (
 	//"os"
 )
 
-type Sha1 []byte
+type Sha1 [20]byte
 type CommitID Sha1
 type TreeID Sha1
 type BlobID Sha1
@@ -20,39 +20,33 @@ type BlobID Sha1
 func Sha1FromString(s string) (Sha1, error) {
 	b, err := hex.DecodeString(strings.TrimSpace(s))
 	if err != nil {
-		return nil, err
+		return Sha1{}, err
 	}
-	return Sha1(b), nil
+	return Sha1FromSlice(b)
 }
 
-func (s Sha1) String() string {
-	if s == nil {
-		return ""
-	}
-	return fmt.Sprintf("%x", string(s))
-}
-
-func (s TreeID) String() string {
-	if s == nil {
-		return ""
-	}
-	return fmt.Sprintf("%x", string(s))
-}
-
-// Converts from a slice to an array, mostly for working with indexes.
-func (s Sha1) AsByteArray() (val [20]byte) {
+func Sha1FromSlice(s []byte) (Sha1, error) {
 	if len(s) != 20 {
-		panic(fmt.Sprintf("Invalid Sha1 %x (Size: %d)", s, len(s)))
+		return Sha1{}, fmt.Errorf("Invalid Sha1 %x (Size: %d)", s, len(s))
 	}
+	var val Sha1
 	for i, b := range s {
 		val[i] = b
 	}
-	return
+	return val, nil
+}
+
+func (s Sha1) String() string {
+	return fmt.Sprintf("%x", string(s[:]))
+}
+
+func (s TreeID) String() string {
+	return fmt.Sprintf("%x", string(s[:]))
 }
 
 // Writes the object to w in compressed form
 func (s Sha1) CompressedWriter(repo *libgit.Repository, w io.Writer) error {
-	id, err := libgit.NewId(s)
+	id, err := libgit.NewId(s[:])
 	if err != nil {
 		return err
 	}
@@ -66,7 +60,7 @@ func (s Sha1) CompressedWriter(repo *libgit.Repository, w io.Writer) error {
 }
 
 func (s Sha1) UncompressedSize(repo *libgit.Repository) uint64 {
-	id, err := libgit.NewId(s)
+	id, err := libgit.NewId(s[:])
 	if err != nil {
 		panic(err)
 	}
@@ -78,7 +72,7 @@ func (s Sha1) UncompressedSize(repo *libgit.Repository) uint64 {
 }
 
 func (s Sha1) PackEntryType(repo *libgit.Repository) PackEntryType {
-	id, err := libgit.NewId(s)
+	id, err := libgit.NewId(s[:])
 	if err != nil {
 		panic(err)
 	}
@@ -157,8 +151,8 @@ func (t TreeID) GetAllObjects(repo *libgit.Repository) ([]Sha1, error) {
 func (c CommitID) GetTree(repo *libgit.Repository) (TreeID, error) {
 	commit, err := repo.GetCommit(fmt.Sprintf("%x", c))
 	if err != nil {
-		return nil, err
+		return TreeID{}, err
 	}
-	tid, err := Sha1FromString(commit.Tree.String())
-	return TreeID(tid), err
+	s, err := Sha1FromString(commit.Tree.String())
+	return TreeID(s), err
 }

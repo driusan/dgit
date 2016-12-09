@@ -34,7 +34,14 @@ func (b GitBlobObject) GetContent() []byte {
 func (b GitBlobObject) GetSize() int {
 	return b.size
 }
-func (c *Client) GetObject(sha1 [20]byte) (GitObject, error) {
+func (c *Client) GetObject(sha1 Sha1) (GitObject, error) {
+	_, packed, err := c.HaveObject(sha1.String())
+	if packed == true {
+		return nil, fmt.Errorf("GetObject does not yet support packed objects")
+	}
+	if err != nil {
+		panic(err)
+	}
 	objectname := fmt.Sprintf("%s/objects/%x/%x", c.GitDir, sha1[0:1], sha1[1:])
 	fmt.Printf("File: %s\n", objectname)
 	f, err := os.Open(objectname)

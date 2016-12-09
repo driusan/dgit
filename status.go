@@ -68,7 +68,7 @@ func getStatus(c *Client, repo *libgit.Repository, prefix string) (string, error
 	// This isn't very efficiently implemented, but it works(ish).
 	head, err := expandTreeIntoIndexesById(c, repo, "HEAD")
 	for _, head := range head {
-		headFiles[head.PathName] = Sha1(head.Sha1[:])
+		headFiles[head.PathName] = head.Sha1
 	}
 
 	for _, file := range idx.Objects {
