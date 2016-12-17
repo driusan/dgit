@@ -15,12 +15,16 @@ func (c *Client) GetBranches() ([]string, error) {
 	return repo.GetBranches()
 }
 
-func (c *Client) CreateBranch(name string, sha1 Sha1) error {
+func (c *Client) CreateBranch(name string, commit Commitish) error {
 	repo, err := libgit.OpenRepository(c.GitDir.String())
 	if err != nil {
 		return err
 	}
-	return repo.CreateBranch(name, sha1.String())
+	id, err := commit.CommitID(c)
+	if err != nil {
+		return err
+	}
+	return repo.CreateBranch(name, id.String())
 }
 
 func (c *Client) HaveObject(idStr string) (found, packed bool, err error) {

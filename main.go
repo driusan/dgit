@@ -56,7 +56,7 @@ func main() {
 	case "init":
 		Init(c, args)
 	case "branch":
-		Branch(c, repo, args)
+		Branch(c, args)
 	case "checkout":
 		Checkout(c, args)
 	case "add":

@@ -2,11 +2,10 @@ package main
 
 import (
 	"fmt"
-	libgit "github.com/driusan/git"
 	"os"
 )
 
-func Branch(c *Client, repo *libgit.Repository, args []string) {
+func Branch(c *Client, args []string) {
 	switch len(args) {
 	case 0:
 		branches, err := c.GetBranches()
@@ -24,11 +23,12 @@ func Branch(c *Client, repo *libgit.Repository, args []string) {
 			fmt.Println(b)
 		}
 	case 1:
-		if head, err := c.GetHeadID(); err == nil {
-			if cerr := libgit.CreateBranch(c.GitDir.String(), args[0], head); cerr != nil {
-				fmt.Fprintf(os.Stderr, "Could not create branch: %s\n", cerr.Error())
-			}
-		} else {
+		head, err := c.GetSymbolicRefCommit("HEAD")
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "Could not create branch: %s\n", err.Error())
+			return
+		}
+		if err := c.CreateBranch(args[0], head); err != nil {
 			fmt.Fprintf(os.Stderr, "Could not create branch: %s\n", err.Error())
 		}
 	default:

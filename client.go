@@ -97,16 +97,6 @@ func NewClient(gitDir, workDir string) (*Client, error) {
 	return &Client{GitDir(gitdir), WorkDir(workdir)}, nil
 }
 
-/*
-func (c *Client) GetHeadSha1() (Sha1, error) {
-	panic("Not yet reimplemented")
-		if headBranch := getHeadBranch(repo); headBranch != "" {
-			return repo.GetCommitIdOfBranch(getHeadBranch(repo))
-		}
-		return "", InvalidHead
-}
-*/
-
 func (c *Client) GetHeadBranch() string {
 	file, _ := c.GitDir.Open("HEAD")
 	value, _ := ioutil.ReadAll(file)
