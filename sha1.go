@@ -130,7 +130,6 @@ func (s CommitID) Ancestors(c *Client) (commits []CommitID) {
 	// TODO: Replace this with Parent(n) which returns the nth parent,
 	// then improve the efficiency of everywhere that uses this. For now
 	// we still depend on libgit. :(
-
 	repo, err := libgit.OpenRepository(c.GitDir.String())
 	if err != nil {
 		return nil
@@ -168,21 +167,33 @@ func (s CommitID) NearestCommonParent(c *Client, other CommitID) (CommitID, erro
 	return CommitID{}, nil
 }
 
-func (c CommitID) GetAllObjects(repo *libgit.Repository) ([]Sha1, error) {
+func (c CommitID) GetAllObjects(cl *Client) ([]Sha1, error) {
+	// TODO: Move this to client_hacks, or fix it to not depend on libgit
+	repo, err := libgit.OpenRepository(cl.GitDir.String())
+	if err != nil {
+		return nil, err
+	}
+
 	var objects []Sha1
 	tree, err := c.GetTree(repo)
 	if err != nil {
 		return nil, err
 	}
 	objects = append(objects, Sha1(tree))
-	children, err := tree.GetAllObjects(repo)
+	children, err := tree.GetAllObjects(cl)
 	if err != nil {
 		return nil, err
 	}
 	objects = append(objects, children...)
 	return objects, nil
 }
-func (t TreeID) GetAllObjects(repo *libgit.Repository) ([]Sha1, error) {
+func (t TreeID) GetAllObjects(cl *Client) ([]Sha1, error) {
+	// TODO: Move this to client_hacks, or fix it to not depend on libgit
+	repo, err := libgit.OpenRepository(cl.GitDir.String())
+	if err != nil {
+		return nil, err
+	}
+
 	var objects []Sha1
 	tree, err := repo.GetTree(t.String())
 	if err != nil {

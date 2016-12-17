@@ -47,7 +47,7 @@ func Push(c *Client, repo *libgit.Repository, args []string) {
 				panic(err)
 			}
 			fmt.Printf("Refname: %s Remote Sha1: %s Local Sha1: %s\n", ref.Refname, ref.Sha1, localSha[0].Id)
-			objects, err := RevList(c, repo, []string{"--objects", "--quiet", localSha[0].Id.String(), "^" + ref.Sha1})
+			objects, err := RevList(c, []string{"--objects", "--quiet", localSha[0].Id.String(), "^" + ref.Sha1})
 			if err != nil {
 				panic(err)
 			}

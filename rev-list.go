@@ -3,12 +3,10 @@ package main
 import (
 	"flag"
 	"fmt"
-	libgit "github.com/driusan/git"
 	"os"
-	//"strings"
 )
 
-func RevList(c *Client, repo *libgit.Repository, args []string) ([]Sha1, error) {
+func RevList(c *Client, args []string) ([]Sha1, error) {
 	includeObjects := flag.Bool("objects", false, "include non-commit objects in output")
 	quiet := flag.Bool("quiet", false, "prevent printing of revisions")
 	os.Args = append([]string{"git rev-list"}, args...)
@@ -31,7 +29,7 @@ func RevList(c *Client, repo *libgit.Repository, args []string) ([]Sha1, error) 
 				for _, allC := range ancestors {
 					excludeList[Sha1(allC).String()] = true
 					if *includeObjects {
-						objs, err := allC.GetAllObjects(repo)
+						objs, err := allC.GetAllObjects(c)
 						if err != nil {
 							panic(err)
 						}
@@ -67,7 +65,7 @@ func RevList(c *Client, repo *libgit.Repository, args []string) ([]Sha1, error) 
 				}
 				objs = append(objs, Sha1(allC))
 				if *includeObjects {
-					objs2, err := allC.GetAllObjects(repo)
+					objs2, err := allC.GetAllObjects(c)
 					if err != nil {
 						panic(err)
 					}
