@@ -7,7 +7,7 @@ import (
 	"strings"
 )
 
-func getSymbolicRef(c *Client, symname string) string {
+func getSymbolicRef(c *Client, symname string) RefSpec {
 	file, err := c.GitDir.Open(File(symname))
 	if err != nil {
 		return ""
@@ -21,11 +21,11 @@ func getSymbolicRef(c *Client, symname string) string {
 	if prefix := string(value[0:5]); prefix != "ref: " {
 		return ""
 	}
-	return strings.TrimSpace(string(value[5:]))
+	return RefSpec(strings.TrimSpace(string(value[5:])))
 
 }
 
-func updateSymbolicRef(c *Client, symname, refvalue string) string {
+func updateSymbolicRef(c *Client, symname, refvalue string) RefSpec {
 	if len(refvalue) < 5 || refvalue[0:5] != "refs/" {
 		fmt.Fprintf(os.Stderr, "fatal: Refusing to point "+symname+" outside of refs/")
 		return ""
@@ -39,7 +39,7 @@ func updateSymbolicRef(c *Client, symname, refvalue string) string {
 	return ""
 }
 
-func SymbolicRef(c *Client, args []string) string {
+func SymbolicRef(c *Client, args []string) RefSpec {
 	var startAt int
 	var skipNext bool
 	//	var reason string

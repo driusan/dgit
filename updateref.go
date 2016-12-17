@@ -26,7 +26,7 @@ func UpdateRef(c *Client, args []string) {
 	args = args[startAt:]
 	//	var oldRef string
 	var newValue string
-	var ref string
+	var ref RefSpec
 	switch len(args) {
 	case 0, 1:
 		panic("Need at least 2 arguments to update-ref")

@@ -2,7 +2,6 @@ package main
 
 import (
 	"fmt"
-	libgit "github.com/driusan/git"
 	"os"
 	"strings"
 )
@@ -12,8 +11,8 @@ type ParsedRevision struct {
 	Excluded bool
 }
 
-func (pr ParsedRevision) IsAncestor(repo *libgit.Repository, child ParsedRevision) bool {
-	return pr.Id.IsAncestor(repo, child.Id)
+func (pr ParsedRevision) IsAncestor(c *Client, child ParsedRevision) bool {
+	return pr.Id.IsAncestor(c, child.Id)
 }
 func RevParse(c *Client, args []string) (commits []ParsedRevision, err2 error) {
 	for _, arg := range args {
@@ -39,12 +38,23 @@ func RevParse(c *Client, args []string) (commits []ParsedRevision, err2 error) {
 					sha = arg
 					exclude = false
 				}
+
 				if len(sha) == 40 {
 					comm, err := Sha1FromString(sha)
 					if err != nil {
 						panic(err)
 					}
 					commits = append(commits, ParsedRevision{CommitID(comm), exclude})
+					continue
+				}
+
+				if r := getSymbolicRef(c, sha); r != "" {
+					comm, err := c.GetSymbolicRefCommit(r)
+					if err != nil {
+						err2 = err
+					} else {
+						commits = append(commits, ParsedRevision{CommitID(comm), exclude})
+					}
 					continue
 				}
 

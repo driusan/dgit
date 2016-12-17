@@ -152,7 +152,7 @@ func main() {
 			os.Exit(2)
 		}
 	case "merge-base":
-		switch c, err := MergeBase(c, repo, args); err {
+		switch c, err := MergeBase(c, args); err {
 		case Ancestor:
 			os.Exit(0)
 		case NonAncestor:

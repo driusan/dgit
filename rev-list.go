@@ -27,7 +27,7 @@ func RevList(c *Client, repo *libgit.Repository, args []string) ([]Sha1, error) 
 				panic(rev + ":" + err.Error())
 			}
 			for _, commit := range commits {
-				ancestors := commit.Id.Ancestors(repo)
+				ancestors := commit.Id.Ancestors(c)
 				for _, allC := range ancestors {
 					excludeList[Sha1(allC).String()] = true
 					if *includeObjects {
@@ -59,7 +59,7 @@ func RevList(c *Client, repo *libgit.Repository, args []string) ([]Sha1, error) 
 			panic(err)
 		}
 		com := commits[0]
-		ancestors := com.Id.Ancestors(repo)
+		ancestors := com.Id.Ancestors(c)
 		for _, allC := range ancestors {
 			if _, ok := excludeList[Sha1(allC).String()]; !ok {
 				if !*quiet {

@@ -116,8 +116,8 @@ func (s Sha1) Type(c *Client) string {
 	}
 }
 
-func (child CommitID) IsAncestor(repo *libgit.Repository, parent CommitID) bool {
-	ancestors := parent.Ancestors(repo)
+func (child CommitID) IsAncestor(c *Client, parent CommitID) bool {
+	ancestors := parent.Ancestors(c)
 	for _, c := range ancestors {
 		if c == child {
 			return true
@@ -126,7 +126,16 @@ func (child CommitID) IsAncestor(repo *libgit.Repository, parent CommitID) bool 
 	return false
 }
 
-func (s CommitID) Ancestors(repo *libgit.Repository) (commits []CommitID) {
+func (s CommitID) Ancestors(c *Client) (commits []CommitID) {
+	// TODO: Replace this with Parent(n) which returns the nth parent,
+	// then improve the efficiency of everywhere that uses this. For now
+	// we still depend on libgit. :(
+
+	repo, err := libgit.OpenRepository(c.GitDir.String())
+	if err != nil {
+		return nil
+	}
+
 	lgCommits, err := repo.CommitsBefore(s.String())
 	if err != nil {
 		return nil
@@ -146,11 +155,11 @@ func (s CommitID) Ancestors(repo *libgit.Repository) (commits []CommitID) {
 	return
 }
 
-func (s CommitID) NearestCommonParent(repo *libgit.Repository, other CommitID) (CommitID, error) {
-	ancestors := s.Ancestors(repo)
+func (s CommitID) NearestCommonParent(c *Client, other CommitID) (CommitID, error) {
+	ancestors := s.Ancestors(c)
 	for _, commit := range ancestors {
 		// This is a horrible algorithm. TODO: Do something better than O(n^3)
-		if commit.IsAncestor(repo, other) {
+		if commit.IsAncestor(c, other) {
 			return commit, nil
 		}
 	}

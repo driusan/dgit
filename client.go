@@ -170,6 +170,18 @@ func (c *Client) ResetWorkTree() error {
 	return nil
 }
 
+func (c *Client) GetSymbolicRefCommit(r RefSpec) (CommitID, error) {
+	file, err := c.GitDir.Open(File(r))
+	if err != nil {
+		return CommitID{}, err
+	}
+	data, err := ioutil.ReadAll(file)
+	if err != nil {
+		return CommitID{}, err
+	}
+	sha, err := Sha1FromString(string(data))
+	return CommitID(sha), err
+}
 func (c *Client) GetBranchCommit(b string) (CommitID, error) {
 	file, err := c.GitDir.Open(File("refs/heads/" + b))
 	if err != nil {
