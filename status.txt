@@ -25,3 +25,4 @@ push           HappyPath     git 2.9.2              must invoke as go-git push B
 pack-objects   HappyPath     git 2.9.2
 rev-parse      HappyPath     git 2.9.2
 rev-list       HappyPath     git 2.9.2
+read-tree      HappyPath     git 2.9.2              only --index-output option, no merging

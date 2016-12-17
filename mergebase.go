@@ -26,7 +26,7 @@ func MergeBase(c *Client, args []string) (CommitID, error) {
 		if err != nil {
 			return CommitID{}, err
 		}
-		if commits[1].Id.IsAncestor(c, commits[0].Id) {
+		if commits[1].IsAncestor(c, commits[0]) {
 			return CommitID{}, Ancestor
 		}
 		return CommitID{}, NonAncestor
@@ -35,15 +35,15 @@ func MergeBase(c *Client, args []string) (CommitID, error) {
 		if err != nil {
 			return CommitID{}, err
 		}
-		bestSoFar := commits[0].Id
+		var bestSoFar Commitish = commits[0]
 		for _, commit := range commits[1:] {
-			closest, err := bestSoFar.NearestCommonParent(c, commit.Id)
+			closest, err := NearestCommonParent(c, bestSoFar, commit)
 			if err != nil {
 				return CommitID{}, err
 			}
 			bestSoFar = closest
 		}
-		return bestSoFar, nil
+		return bestSoFar.CommitID(c)
 	} else {
 		panic("Only octopus and is-ancestor are currently supported")
 	}

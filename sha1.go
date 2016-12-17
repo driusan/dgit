@@ -17,6 +17,14 @@ type CommitID Sha1
 type TreeID Sha1
 type BlobID Sha1
 
+type Treeish interface {
+	TreeID(c *Client) (TreeID, error)
+}
+
+type Commitish interface {
+	CommitID(c *Client) (CommitID, error)
+}
+
 func Sha1FromString(s string) (Sha1, error) {
 	b, err := hex.DecodeString(strings.TrimSpace(s))
 	if err != nil {
@@ -46,6 +54,10 @@ func (s TreeID) String() string {
 
 func (s CommitID) String() string {
 	return fmt.Sprintf("%x", string(s[:]))
+}
+
+func (s CommitID) CommitID(c *Client) (CommitID, error) {
+	return s, nil
 }
 
 // Writes the object to w in compressed form
@@ -116,8 +128,12 @@ func (s Sha1) Type(c *Client) string {
 	}
 }
 
-func (child CommitID) IsAncestor(c *Client, parent CommitID) bool {
-	ancestors := parent.Ancestors(c)
+func (child CommitID) IsAncestor(c *Client, parent Commitish) bool {
+	p, err := parent.CommitID(c)
+	if err != nil {
+		return false
+	}
+	ancestors := p.Ancestors(c)
 	for _, c := range ancestors {
 		if c == child {
 			return true
@@ -154,7 +170,11 @@ func (s CommitID) Ancestors(c *Client) (commits []CommitID) {
 	return
 }
 
-func (s CommitID) NearestCommonParent(c *Client, other CommitID) (CommitID, error) {
+func NearestCommonParent(c *Client, com, other Commitish) (CommitID, error) {
+	s, err := com.CommitID(c)
+	if err != nil {
+		return CommitID{}, err
+	}
 	ancestors := s.Ancestors(c)
 	for _, commit := range ancestors {
 		// This is a horrible algorithm. TODO: Do something better than O(n^3)
@@ -168,14 +188,8 @@ func (s CommitID) NearestCommonParent(c *Client, other CommitID) (CommitID, erro
 }
 
 func (c CommitID) GetAllObjects(cl *Client) ([]Sha1, error) {
-	// TODO: Move this to client_hacks, or fix it to not depend on libgit
-	repo, err := libgit.OpenRepository(cl.GitDir.String())
-	if err != nil {
-		return nil, err
-	}
-
 	var objects []Sha1
-	tree, err := c.GetTree(repo)
+	tree, err := c.TreeID(cl)
 	if err != nil {
 		return nil, err
 	}
@@ -219,7 +233,14 @@ func (t TreeID) GetAllObjects(cl *Client) ([]Sha1, error) {
 	}
 	return objects, nil
 }
-func (c CommitID) GetTree(repo *libgit.Repository) (TreeID, error) {
+
+func (c CommitID) TreeID(cl *Client) (TreeID, error) {
+	// TODO: Move this to client_hacks, or fix it to not depend on libgit
+	repo, err := libgit.OpenRepository(cl.GitDir.String())
+	if err != nil {
+		return TreeID{}, err
+	}
+
 	commit, err := repo.GetCommit(fmt.Sprintf("%s", c))
 	if err != nil {
 		return TreeID{}, err

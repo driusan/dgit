@@ -7,13 +7,43 @@ import (
 )
 
 type ParsedRevision struct {
-	Id       CommitID
+	Id       Sha1
 	Excluded bool
 }
 
-func (pr ParsedRevision) IsAncestor(c *Client, child ParsedRevision) bool {
-	return pr.Id.IsAncestor(c, child.Id)
+func (pr ParsedRevision) CommitID(c *Client) (CommitID, error) {
+	if pr.Id.Type(c) != "commit" {
+		return CommitID{}, fmt.Errorf("Invalid revision commit")
+	}
+	return CommitID(pr.Id), nil
 }
+
+func (pr ParsedRevision) TreeID(c *Client) (TreeID, error) {
+	if pr.Id.Type(c) != "commit" {
+		return TreeID{}, fmt.Errorf("Invalid revision commit")
+	}
+	return CommitID(pr.Id).TreeID(c)
+}
+
+func (pr ParsedRevision) IsAncestor(c *Client, parent Commitish) bool {
+	if pr.Id.Type(c) != "commit" {
+		return false
+	}
+	com, err := pr.CommitID(c)
+	if err != nil {
+		return false
+	}
+	return com.IsAncestor(c, parent)
+}
+
+func (pr ParsedRevision) Ancestors(c *Client) []CommitID {
+	comm, err := pr.CommitID(c)
+	if err != nil {
+		return nil
+	}
+	return comm.Ancestors(c)
+}
+
 func RevParse(c *Client, args []string) (commits []ParsedRevision, err2 error) {
 	for _, arg := range args {
 		switch arg {
@@ -44,7 +74,7 @@ func RevParse(c *Client, args []string) (commits []ParsedRevision, err2 error) {
 					if err != nil {
 						panic(err)
 					}
-					commits = append(commits, ParsedRevision{CommitID(comm), exclude})
+					commits = append(commits, ParsedRevision{comm, exclude})
 					continue
 				}
 
@@ -53,7 +83,7 @@ func RevParse(c *Client, args []string) (commits []ParsedRevision, err2 error) {
 					if err != nil {
 						err2 = err
 					} else {
-						commits = append(commits, ParsedRevision{CommitID(comm), exclude})
+						commits = append(commits, ParsedRevision{Sha1(comm), exclude})
 					}
 					continue
 				}
@@ -62,7 +92,7 @@ func RevParse(c *Client, args []string) (commits []ParsedRevision, err2 error) {
 				if err != nil {
 					err2 = err
 				} else {
-					commits = append(commits, ParsedRevision{CommitID(comm), exclude})
+					commits = append(commits, ParsedRevision{Sha1(comm), exclude})
 				}
 			}
 

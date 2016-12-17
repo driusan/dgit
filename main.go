@@ -12,20 +12,6 @@ import (
 var InvalidHead error = errors.New("Invalid HEAD")
 var InvalidArgument error = errors.New("Invalid argument to function")
 
-func writeIndex(c *Client, idx *GitIndex, indexName string) error {
-	if indexName == "" {
-		return InvalidArgument
-	}
-	file, err := c.GitDir.Create(File(indexName))
-	if err != nil {
-		fmt.Fprintln(os.Stderr, "Could not write index")
-		return err
-	}
-	defer file.Close()
-	idx.WriteIndex(file)
-	return nil
-}
-
 // FIXME: This should be removed. RevParse() is the correct thing to use.
 func getTreeishId(c *Client, repo *libgit.Repository, treeish string) string {
 	if treeish == "HEAD" {
@@ -40,29 +26,6 @@ func getTreeishId(c *Client, repo *libgit.Repository, treeish string) string {
 		return treeish
 	}
 	panic("TODO: Didn't implement getTreeishId")
-}
-
-func resetIndexFromCommit(c *Client, commitId string) error {
-	repo, err := libgit.OpenRepository(c.GitDir.String())
-	if err != nil {
-		return err
-	}
-	// If the index doesn't exist, idx is a new index, so ignore
-	// the path error that ReadIndex is returning
-	idx, _ := c.GitDir.ReadIndex()
-	com, err := repo.GetCommit(commitId)
-	if err != nil {
-		fmt.Printf("%s\n", err)
-		return err
-	}
-	treeId := com.TreeId()
-	tree := libgit.NewTree(repo, treeId)
-	if tree == nil {
-		panic("Error retriving tree for commit")
-	}
-	idx.ResetIndex(repo, tree)
-	writeIndex(c, idx, "index")
-	return nil
 }
 
 func requiresGitDir(cmd string) bool {
@@ -195,6 +158,8 @@ func main() {
 		PackObjects(repo, os.Stdin, args)
 	case "send-pack":
 		SendPack(repo, args)
+	case "read-tree":
+		ReadTree(c, args)
 	default:
 		fmt.Fprintf(os.Stderr, "Unknown git command %s.\n", cmd)
 	}

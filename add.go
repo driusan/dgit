@@ -5,7 +5,7 @@ import (
 	"os"
 )
 
-func Add(c *Client, args []string) {
+func Add(c *Client, args []string) error {
 	gindex, _ := c.GitDir.ReadIndex()
 	for _, arg := range args {
 		f := File(arg)
@@ -18,6 +18,10 @@ func Add(c *Client, args []string) {
 			gindex.AddFile(c, file)
 		}
 	}
-	writeIndex(c, gindex, "index")
-
+	f, err := c.GitDir.Create(File("index"))
+	if err != nil {
+		return err
+	}
+	defer f.Close()
+	return gindex.WriteIndex(f)
 }

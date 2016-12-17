@@ -284,7 +284,7 @@ func getNormalizedName(file *os.File) string {
 // 2. Write g.fixedGitIndex to w
 // 3. for each entry in g.Objects, write it to w.
 // 4. Write the Sha1 of the contents of what was written
-func (g GitIndex) WriteIndex(file io.Writer) {
+func (g GitIndex) WriteIndex(file io.Writer) error {
 	sort.Sort(ByPath(g.Objects))
 	s := sha1.New()
 	w := io.MultiWriter(file, s)
@@ -297,7 +297,7 @@ func (g GitIndex) WriteIndex(file io.Writer) {
 		binary.Write(w, binary.BigEndian, p)
 	}
 	binary.Write(w, binary.BigEndian, s.Sum(nil))
-
+	return nil
 }
 
 // Implement the sort interface on *GitIndexEntry, so that
@@ -434,8 +434,28 @@ func (g GitIndex) WriteTree(repo *libgit.Repository) string {
 	return fmt.Sprintf("%x", sha1)
 }
 
-func (g *GitIndex) ResetIndex(repo *libgit.Repository, tree *libgit.Tree) error {
-	newEntries, err := expandGitTreeIntoIndexes(repo, tree, "", true, false)
+func (g *GitIndex) ResetIndex(c *Client, tree Treeish) error {
+	// TODO: Fix this or move it to client_hacks.go
+	repo, err := libgit.OpenRepository(c.GitDir.String())
+	if err != nil {
+		return err
+	}
+
+	treeId, err := tree.TreeID(c)
+	if err != nil {
+		return err
+	}
+	sha, err := libgit.NewId(treeId[:])
+	if err != nil {
+		return err
+	}
+
+	t := libgit.NewTree(repo, sha)
+	if tree == nil {
+		panic("Error retriving tree for commit")
+	}
+
+	newEntries, err := expandGitTreeIntoIndexes(repo, t, "", true, false)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "Error resetting index: %s\n", err)
 		return err
