@@ -75,7 +75,7 @@ func getStatus(c *Client, repo *libgit.Repository, prefix string) (string, error
 		fileInIndex[file.PathName] = true
 		idxsha1 := file.Sha1
 
-		fssha1, err := HashFile("blob", file.PathName)
+		fssha1, _, err := HashFile("blob", file.PathName)
 		if err != nil {
 			if os.IsNotExist(err) {
 				fssha1 = Sha1{}
