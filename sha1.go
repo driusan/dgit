@@ -167,6 +167,9 @@ func (c CommitID) GetAllObjects(repo *libgit.Repository) ([]Sha1, error) {
 	}
 	objects = append(objects, Sha1(tree))
 	children, err := tree.GetAllObjects(repo)
+	if err != nil {
+		return nil, err
+	}
 	objects = append(objects, children...)
 	return objects, nil
 }
@@ -197,7 +200,7 @@ func (t TreeID) GetAllObjects(repo *libgit.Repository) ([]Sha1, error) {
 	return objects, nil
 }
 func (c CommitID) GetTree(repo *libgit.Repository) (TreeID, error) {
-	commit, err := repo.GetCommit(fmt.Sprintf("%x", c))
+	commit, err := repo.GetCommit(fmt.Sprintf("%s", c))
 	if err != nil {
 		return TreeID{}, err
 	}
