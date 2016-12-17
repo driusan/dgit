@@ -150,7 +150,23 @@ func main() {
 	case "reset":
 		Reset(c, repo, args)
 	case "merge":
-		Merge(c, repo, args)
+		if err := Merge(c, repo, args); err != nil {
+			fmt.Fprintf(os.Stderr, "%v\n", err)
+			os.Exit(2)
+		}
+	case "merge-base":
+		switch c, err := MergeBase(c, repo, args); err {
+		case Ancestor:
+			os.Exit(0)
+		case NonAncestor:
+			os.Exit(1)
+		default:
+			if err != nil {
+				fmt.Fprintf(os.Stderr, "%v\n", err)
+				os.Exit(2)
+			}
+			fmt.Printf("%v\n", c)
+		}
 	case "rev-parse":
 		commits, err := RevParse(c, repo, args)
 		if err != nil {

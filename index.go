@@ -174,7 +174,7 @@ func (g *GitIndex) AddFile(c *Client, file *os.File) {
 	if err != nil && err != ObjectExists {
 		fmt.Fprintf(os.Stderr, "Error storing object: %s", err)
 	}
-	fmt.Printf("Sha1: %x\n", hash)
+	fmt.Printf("Sha1: %s\n", hash)
 	fmt.Printf("Name is %s\n", file.Name())
 	name := getNormalizedName(file)
 	for _, entry := range g.Objects {

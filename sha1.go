@@ -44,6 +44,10 @@ func (s TreeID) String() string {
 	return fmt.Sprintf("%x", string(s[:]))
 }
 
+func (s CommitID) String() string {
+	return fmt.Sprintf("%x", string(s[:]))
+}
+
 // Writes the object to w in compressed form
 func (s Sha1) CompressedWriter(repo *libgit.Repository, w io.Writer) error {
 	id, err := libgit.NewId(s[:])
@@ -112,7 +116,17 @@ func (s Sha1) Type(c *Client) string {
 	}
 }
 
-func (s Sha1) Ancestors(repo *libgit.Repository) (commits []CommitID) {
+func (child CommitID) IsAncestor(repo *libgit.Repository, parent CommitID) bool {
+	ancestors := parent.Ancestors(repo)
+	for _, c := range ancestors {
+		if c == child {
+			return true
+		}
+	}
+	return false
+}
+
+func (s CommitID) Ancestors(repo *libgit.Repository) (commits []CommitID) {
 	lgCommits, err := repo.CommitsBefore(s.String())
 	if err != nil {
 		return nil
@@ -130,6 +144,19 @@ func (s Sha1) Ancestors(repo *libgit.Repository) (commits []CommitID) {
 		}
 	}
 	return
+}
+
+func (s CommitID) NearestCommonParent(repo *libgit.Repository, other CommitID) (CommitID, error) {
+	ancestors := s.Ancestors(repo)
+	for _, commit := range ancestors {
+		// This is a horrible algorithm. TODO: Do something better than O(n^3)
+		if commit.IsAncestor(repo, other) {
+			return commit, nil
+		}
+	}
+	// Nothing in common isn't an error, it just means the nearest common parent
+	// is 0 (the empty commit)
+	return CommitID{}, nil
 }
 
 func (c CommitID) GetAllObjects(repo *libgit.Repository) ([]Sha1, error) {

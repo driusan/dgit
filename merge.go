@@ -4,7 +4,6 @@ import (
 	"fmt"
 	libgit "github.com/driusan/git"
 	"io/ioutil"
-	"os"
 )
 
 func isAncestor(parent *libgit.Commit, child string) bool {
@@ -22,15 +21,13 @@ func isAncestor(parent *libgit.Commit, child string) bool {
 	}
 	return false
 }
-func Merge(c *Client, repo *libgit.Repository, args []string) {
+func Merge(c *Client, repo *libgit.Repository, args []string) error {
 	if len(args) != 1 {
-		fmt.Fprintf(os.Stderr, "Usage: go-git merge branchname\n")
-		return
+		return fmt.Errorf("Usage: go-git merge branchname")
 	}
 	commit, err := repo.GetCommitOfBranch(args[0])
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "Invalid branch: %s\n", args[0])
-		return
+		return fmt.Errorf("Invalid branch: %s", args[0])
 	}
 	head, err := c.GetHeadID()
 	if err != nil {
@@ -41,8 +38,7 @@ func Merge(c *Client, repo *libgit.Repository, args []string) {
 	// is a fast-forward.
 	if headCom, err := repo.GetCommit(head); err == nil {
 		if isAncestor(headCom, fmt.Sprintf("%s", commit.Id)) {
-			fmt.Fprintf(os.Stderr, "Already up-to-date.\n")
-			return
+			return fmt.Errorf("Already up-to-date.")
 		}
 	}
 
@@ -54,7 +50,7 @@ func Merge(c *Client, repo *libgit.Repository, args []string) {
 		ioutil.WriteFile(".git/refs/heads/"+hb, []byte(newId), 0644)
 		resetIndexFromCommit(c, newId)
 		fmt.Printf("Hooray! A Fast forward on %s! New should should be %s\n", hb, commit.Id)
-		return
+		return nil
 	}
 
 	panic("Only fast forward commits are currently supported.")

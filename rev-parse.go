@@ -8,10 +8,13 @@ import (
 )
 
 type ParsedRevision struct {
-	Id       Sha1
+	Id       CommitID
 	Excluded bool
 }
 
+func (pr ParsedRevision) IsAncestor(repo *libgit.Repository, child ParsedRevision) bool {
+	return pr.Id.IsAncestor(repo, child.Id)
+}
 func getBranchSha1(c *Client, repo *libgit.Repository, branchname string) (Sha1, error) {
 	if branchname == "HEAD" {
 		head, err := c.GetHeadID()
@@ -32,9 +35,9 @@ func RevParse(c *Client, repo *libgit.Repository, args []string) (commits []Pars
 		case "--git-dir":
 			wd, err := os.Getwd()
 			if err == nil {
-				fmt.Printf("%s\n", strings.TrimPrefix(repo.Path, wd+"/"))
+				fmt.Printf("%s\n", strings.TrimPrefix(c.GitDir.String(), wd+"/"))
 			} else {
-				fmt.Printf("%s\n", repo.Path)
+				fmt.Printf("%s\n", c.GitDir)
 			}
 		default:
 			if len(arg) > 0 && arg[0] == '-' {
@@ -55,7 +58,7 @@ func RevParse(c *Client, repo *libgit.Repository, args []string) (commits []Pars
 					if err != nil {
 						panic(err)
 					}
-					commits = append(commits, ParsedRevision{comm, exclude})
+					commits = append(commits, ParsedRevision{CommitID(comm), exclude})
 					continue
 				}
 
@@ -63,7 +66,7 @@ func RevParse(c *Client, repo *libgit.Repository, args []string) (commits []Pars
 				if err != nil {
 					err2 = err
 				} else {
-					commits = append(commits, ParsedRevision{comm, exclude})
+					commits = append(commits, ParsedRevision{CommitID(comm), exclude})
 				}
 			}
 

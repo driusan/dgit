@@ -16,6 +16,7 @@ config         HappyPath     git 2.9.2
 fetch          HappyPath     git 2.9.2
 reset          HappyPath     git 2.9.2              soft/mixed/hard implemented, missing "-- pathspec"
 merge          HappyPath     git 2.9.2              fast-forward only
+mergebase      HappyPath     git 2.9.2              only --octopus and --is-ancestor options
 hash-object    Almost        git 2.9.2              --literally and --no-filters are implied
 status         HappyPath     git 2.9.2              only long form with no options
 ls-tree        Almost        git 2.9.2              missing --full-name, --full-tree, and not context sensitive wrt the current working directory.
