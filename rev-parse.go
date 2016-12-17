@@ -15,21 +15,7 @@ type ParsedRevision struct {
 func (pr ParsedRevision) IsAncestor(repo *libgit.Repository, child ParsedRevision) bool {
 	return pr.Id.IsAncestor(repo, child.Id)
 }
-func getBranchSha1(c *Client, repo *libgit.Repository, branchname string) (Sha1, error) {
-	if branchname == "HEAD" {
-		head, err := c.GetHeadID()
-		if err != nil {
-			return Sha1{}, err
-		}
-		return Sha1FromString(head)
-	}
-	sha, err := getBranchId(repo, branchname)
-	if err != nil {
-		return Sha1{}, err
-	}
-	return Sha1FromString(sha)
-}
-func RevParse(c *Client, repo *libgit.Repository, args []string) (commits []ParsedRevision, err2 error) {
+func RevParse(c *Client, args []string) (commits []ParsedRevision, err2 error) {
 	for _, arg := range args {
 		switch arg {
 		case "--git-dir":
@@ -62,7 +48,7 @@ func RevParse(c *Client, repo *libgit.Repository, args []string) (commits []Pars
 					continue
 				}
 
-				comm, err := getBranchSha1(c, repo, sha)
+				comm, err := c.GetBranchCommit(sha)
 				if err != nil {
 					err2 = err
 				} else {

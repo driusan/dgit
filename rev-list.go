@@ -22,7 +22,7 @@ func RevList(c *Client, repo *libgit.Repository, args []string) ([]Sha1, error) 
 			continue
 		}
 		if rev[0] == '^' && len(rev) > 1 {
-			commits, err := RevParse(c, repo, []string{rev[1:]})
+			commits, err := RevParse(c, []string{rev[1:]})
 			if err != nil {
 				panic(rev + ":" + err.Error())
 			}
@@ -54,7 +54,7 @@ func RevList(c *Client, repo *libgit.Repository, args []string) ([]Sha1, error) 
 		if rev[0] == '^' && len(rev) > 1 {
 			continue
 		}
-		commits, err := RevParse(c, repo, []string{rev})
+		commits, err := RevParse(c, []string{rev})
 		if err != nil {
 			panic(err)
 		}

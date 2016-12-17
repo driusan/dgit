@@ -12,9 +12,6 @@ import (
 var InvalidHead error = errors.New("Invalid HEAD")
 var InvalidArgument error = errors.New("Invalid argument to function")
 
-func getBranchId(repo *libgit.Repository, b string) (string, error) {
-	return repo.GetCommitIdOfBranch(b)
-}
 func writeIndex(c *Client, idx *GitIndex, indexName string) error {
 	if indexName == "" {
 		return InvalidArgument
@@ -168,7 +165,7 @@ func main() {
 			fmt.Printf("%v\n", c)
 		}
 	case "rev-parse":
-		commits, err := RevParse(c, repo, args)
+		commits, err := RevParse(c, args)
 		if err != nil {
 			fmt.Fprintf(os.Stderr, "%v\n", err)
 			os.Exit(4)

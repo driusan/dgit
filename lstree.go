@@ -39,7 +39,7 @@ func LsTree(c *Client, repo *libgit.Repository, args []string) error {
 		return fmt.Errorf("Missing tree")
 	}
 
-	commitId, err := RevParse(c, repo, []string{args[0]})
+	commitId, err := RevParse(c, []string{args[0]})
 	if err != nil {
 		return err
 	}

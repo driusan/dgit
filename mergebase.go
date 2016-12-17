@@ -23,7 +23,7 @@ func MergeBase(c *Client, repo *libgit.Repository, args []string) (CommitID, err
 		return CommitID{}, fmt.Errorf("Invalid usage of merge-base")
 	}
 	if *ancestor {
-		commits, err := RevParse(c, repo, args)
+		commits, err := RevParse(c, args)
 		if err != nil {
 			return CommitID{}, err
 		}
@@ -32,7 +32,7 @@ func MergeBase(c *Client, repo *libgit.Repository, args []string) (CommitID, err
 		}
 		return CommitID{}, NonAncestor
 	} else if *octopus {
-		commits, err := RevParse(c, repo, args)
+		commits, err := RevParse(c, args)
 		if err != nil {
 			return CommitID{}, err
 		}
