@@ -12,22 +12,6 @@ import (
 var InvalidHead error = errors.New("Invalid HEAD")
 var InvalidArgument error = errors.New("Invalid argument to function")
 
-// FIXME: This should be removed. RevParse() is the correct thing to use.
-func getTreeishId(c *Client, repo *libgit.Repository, treeish string) string {
-	if treeish == "HEAD" {
-		if head, err := c.GetHeadID(); err == nil {
-			return head
-		}
-	}
-	if branchId, err := repo.GetCommitIdOfBranch(treeish); err == nil {
-		return branchId
-	}
-	if len(treeish) == 40 {
-		return treeish
-	}
-	panic("TODO: Didn't implement getTreeishId")
-}
-
 func requiresGitDir(cmd string) bool {
 	switch cmd {
 	case "init", "clone":
@@ -108,9 +92,9 @@ func main() {
 	case "fetch":
 		Fetch(c, repo, args)
 	case "reset":
-		Reset(c, repo, args)
+		Reset(c, args)
 	case "merge":
-		if err := Merge(c, repo, args); err != nil {
+		if err := Merge(c, args); err != nil {
 			fmt.Fprintf(os.Stderr, "%v\n", err)
 			os.Exit(2)
 		}

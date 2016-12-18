@@ -65,8 +65,11 @@ func LsTree(c *Client, repo *libgit.Repository, args []string) error {
 }
 
 func expandTreeIntoIndexesById(c *Client, repo *libgit.Repository, treeId string, recurse, showTreeEntry bool) ([]*GitIndexEntry, error) {
-	expanded := getTreeishId(c, repo, treeId)
-	com, err := repo.GetCommit(expanded)
+	expanded, err := RevParse(c, []string{treeId})
+	if err != nil {
+		return nil, err
+	}
+	com, err := repo.GetCommit(expanded[0].Id.String())
 	if err != nil {
 		return nil, err
 	}

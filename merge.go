@@ -2,13 +2,12 @@ package main
 
 import (
 	"fmt"
-	libgit "github.com/driusan/git"
 	//"io/ioutil"
 	"flag"
 	"os"
 )
 
-func Merge(c *Client, repo *libgit.Repository, args []string) error {
+func Merge(c *Client, args []string) error {
 	os.Args = append([]string{"git merge"}, args...)
 	ffonly := flag.Bool("ff-only", false, "Only allow fast-forward merges")
 	flag.Parse()
@@ -79,7 +78,8 @@ func Merge(c *Client, repo *libgit.Repository, args []string) error {
 		ReadTree(c, []string{"HEAD"})
 
 		// then update the the working directory.
-		Checkout(c, []string{"HEAD"})
+		// FIXME: This should be Checkout or CheckoutIndex instead.
+		Reset(c, []string{"HEAD", "--hard"})
 		return nil
 	}
 	if *ffonly {

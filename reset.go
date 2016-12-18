@@ -2,12 +2,10 @@ package main
 
 import (
 	"fmt"
-	libgit "github.com/driusan/git"
-	"io/ioutil"
 	"os"
 )
 
-func Reset(c *Client, repo *libgit.Repository, args []string) {
+func Reset(c *Client, args []string) {
 	commitId, err := c.GetHeadID()
 	var resetPaths = false
 	var mode string = "mixed"
@@ -32,7 +30,12 @@ func Reset(c *Client, repo *libgit.Repository, args []string) {
 		// we're in, but if we've already found a path already
 		// then the time for a treeish option is past.
 		if val[0] != '-' && resetPaths == false {
-			commitId = getTreeishId(c, repo, val)
+			commits, err := RevParse(c, []string{val})
+			if err != nil || len(commits) < 1 {
+				fmt.Fprintf(os.Stderr, "Can not find commit %s\n", val)
+				return
+			}
+			commitId = commits[0].Id.String()
 		} else {
 			switch val {
 			case "--soft":
@@ -51,7 +54,7 @@ func Reset(c *Client, repo *libgit.Repository, args []string) {
 		//  git reset [mode] commit
 		// First, update the head reference for all modes
 		branchName := c.GetHeadBranch()
-		err := ioutil.WriteFile(c.GitDir.String()+"/refs/heads/"+branchName,
+		err := c.GitDir.WriteFile(File("refs/heads/"+branchName),
 			[]byte(fmt.Sprintf("%s", commitId)),
 			0644,
 		)

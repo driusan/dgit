@@ -56,5 +56,5 @@ func Clone(c *Client, args []string) {
 
 	Fetch(c, repo, []string{"origin"})
 	SymbolicRef(c, []string{"HEAD", "refs/heads/master"})
-	Reset(c, repo, []string{"--hard"})
+	Reset(c, []string{"--hard"})
 }
