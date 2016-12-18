@@ -1,11 +1,9 @@
 package main
 
-import (
-	libgit "github.com/driusan/git"
-)
-
-func WriteTree(c *Client, repo *libgit.Repository) string {
+// WriteTree implements the git write-tree command on the Git repository
+// pointed to by c.
+func WriteTree(c *Client) string {
 	idx, _ := c.GitDir.ReadIndex()
-	sha1 := idx.WriteTree(repo)
+	sha1 := idx.WriteTree(c)
 	return sha1
 }

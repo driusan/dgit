@@ -22,6 +22,7 @@ func requiresGitDir(cmd string) bool {
 }
 
 var subcommand, subcommandUsage string
+
 func main() {
 	workdir := flag.String("work-tree", "", "specify the working directory of git")
 	gitdir := flag.String("git-dir", "", "specify the repository of git")
@@ -70,7 +71,7 @@ func main() {
 	case "add":
 		Add(c, args)
 	case "commit":
-		sha1, err := Commit(c, repo, args)
+		sha1, err := Commit(c, args)
 		if err != nil {
 			fmt.Fprintf(os.Stderr, "%v\n", err)
 		} else {
@@ -84,7 +85,7 @@ func main() {
 			fmt.Printf("%s\n", sha1)
 		}
 	case "write-tree":
-		sha1 := WriteTree(c, repo)
+		sha1 := WriteTree(c)
 		fmt.Printf("%s\n", sha1)
 	case "update-ref":
 		UpdateRef(c, args)

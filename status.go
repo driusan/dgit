@@ -55,7 +55,12 @@ func findUntrackedFiles(c *Client, tracked map[string]bool) []string {
 // this does the work of status, and adds a --prefix for commit to share the
 // same code as Status. Status() just parses command line options and calls
 // this.
-func getStatus(c *Client, repo *libgit.Repository, prefix string) (string, error) {
+func getStatus(c *Client, prefix string) (string, error) {
+	repo, err := libgit.OpenRepository(c.GitDir.String())
+	if err != nil {
+		return "", err
+	}
+
 	idx, err := c.GitDir.ReadIndex()
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "%v\n", err)
@@ -179,8 +184,8 @@ func getStatus(c *Client, repo *libgit.Repository, prefix string) (string, error
 	}
 	return msg, nil
 }
-func Status(c *Client, repo *libgit.Repository, args []string) error {
-	s, err := getStatus(c, repo, "")
+func Status(c *Client, args []string) error {
+	s, err := getStatus(c, "")
 	if err != nil {
 		return err
 	}

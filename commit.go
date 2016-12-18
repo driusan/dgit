@@ -1,10 +1,8 @@
 package main
 
-import (
-	libgit "github.com/driusan/git"
-)
-
-func Commit(c *Client, repo *libgit.Repository, args []string) (string, error) {
+// Commit implements the command "git commit" in the repository pointed
+// to by c.
+func Commit(c *Client, args []string) (string, error) {
 	// get the parent commit, if it exists
 	var commitTreeArgs []string
 	if parentCommit, err := c.GetHeadID(); err == nil {
@@ -23,7 +21,7 @@ func Commit(c *Client, repo *libgit.Repository, args []string) (string, error) {
 		}
 	}
 	if !msgIncluded {
-		s, err := getStatus(c, repo, "#")
+		s, err := getStatus(c, "# ")
 		if err != nil {
 			return "", err
 		}
@@ -35,7 +33,7 @@ func Commit(c *Client, repo *libgit.Repository, args []string) (string, error) {
 	commitTreeArgs = append(commitTreeArgs, messages...)
 
 	// write the current index tree and get the SHA1
-	treeSha1 := WriteTree(c, repo)
+	treeSha1 := WriteTree(c)
 	commitTreeArgs = append(commitTreeArgs, treeSha1)
 
 	// write the commit tree

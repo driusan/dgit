@@ -22,6 +22,7 @@ func MergeBaseOctopus(c *Client, commits []Commitish) (CommitID, error) {
 	return bestSoFar.CommitID(c)
 
 }
+
 func MergeBase(c *Client, args []string) (CommitID, error) {
 	os.Args = append([]string{"git merge-base"}, args...)
 	octopus := flag.Bool("octopus", false, "Compute the common ancestor of all supplied commits")
