@@ -184,3 +184,23 @@ func (c *Client) GetBranchCommit(b string) (CommitID, error) {
 	sha, err := Sha1FromString(string(data))
 	return CommitID(sha), err
 }
+
+func (c *Client) GetBranches() (branches []string, err error) {
+	files, err := ioutil.ReadDir(c.GitDir.String() + "/refs/heads")
+	if err != nil {
+		return nil, err
+	}
+	for _, f := range files {
+		branches = append(branches, f.Name())
+	}
+	return
+}
+
+func (c *Client) CreateBranch(name string, commit Commitish) error {
+	id, err := commit.CommitID(c)
+	if err != nil {
+		return err
+	}
+
+	return c.GitDir.WriteFile(File("refs/heads/"+name), []byte(id.String()), 0644)
+}

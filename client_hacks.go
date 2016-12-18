@@ -7,26 +7,6 @@ import (
 	libgit "github.com/driusan/git"
 )
 
-func (c *Client) GetBranches() ([]string, error) {
-	repo, err := libgit.OpenRepository(c.GitDir.String())
-	if err != nil {
-		return nil, err
-	}
-	return repo.GetBranches()
-}
-
-func (c *Client) CreateBranch(name string, commit Commitish) error {
-	repo, err := libgit.OpenRepository(c.GitDir.String())
-	if err != nil {
-		return err
-	}
-	id, err := commit.CommitID(c)
-	if err != nil {
-		return err
-	}
-	return repo.CreateBranch(name, id.String())
-}
-
 func (c *Client) HaveObject(idStr string) (found, packed bool, err error) {
 	// As a temporary hack use libgit, because I don't have time to
 	// make sure pack files are looked into properly yet.
