@@ -5,8 +5,6 @@ import (
 	"flag"
 	"fmt"
 	"os"
-
-	libgit "github.com/driusan/git"
 )
 
 var InvalidHead error = errors.New("Invalid HEAD")
@@ -56,11 +54,6 @@ func main() {
 		os.Exit(4)
 	}
 
-	// TODO: Get rid of this. It's only here for a transition.
-	var repo *libgit.Repository
-	if c != nil {
-		repo, _ = libgit.OpenRepository(c.GitDir.String())
-	}
 	switch subcommand {
 	case "init":
 		Init(c, args)
@@ -90,7 +83,7 @@ func main() {
 	case "update-ref":
 		UpdateRef(c, args)
 	case "log":
-		Log(c, repo, args)
+		Log(c, args)
 	case "symbolic-ref":
 		val := SymbolicRef(c, args)
 		fmt.Printf("%s\n", val)
@@ -99,7 +92,7 @@ func main() {
 	case "config":
 		Config(c, args)
 	case "fetch":
-		Fetch(c, repo, args)
+		Fetch(c, args)
 	case "reset":
 		Reset(c, args)
 	case "merge":
@@ -138,19 +131,19 @@ func main() {
 	case "hash-object":
 		HashObject(c, args)
 	case "status":
-		Status(c, repo, args)
+		Status(c, args)
 	case "ls-tree":
-		err := LsTree(c, repo, args)
+		err := LsTree(c, args)
 		if err != nil {
 			fmt.Fprintf(os.Stderr, "%v\n", err)
 			os.Exit(4)
 		}
 	case "push":
-		Push(c, repo, args)
+		Push(c, args)
 	case "pack-objects":
-		PackObjects(repo, os.Stdin, args)
+		PackObjects(c, os.Stdin, args)
 	case "send-pack":
-		SendPack(repo, args)
+		SendPack(c, args)
 	case "read-tree":
 		ReadTree(c, args)
 	default:

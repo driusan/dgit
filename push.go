@@ -4,11 +4,9 @@ import (
 	"fmt"
 	"os"
 	"strings"
-
-	libgit "github.com/driusan/git"
 )
 
-func Push(c *Client, repo *libgit.Repository, args []string) {
+func Push(c *Client, args []string) {
 	if len(args) < 1 {
 		fmt.Fprintf(os.Stderr, "Missing repository to fetch")
 		return
@@ -56,7 +54,7 @@ func Push(c *Client, repo *libgit.Repository, args []string) {
 				lines = fmt.Sprintf("%s%s\n", lines, o.String())
 			}
 
-			PackObjects(repo, strings.NewReader(lines), []string{"foo"})
+			PackObjects(c, strings.NewReader(lines), []string{"foo"})
 			f, err := os.Open("foo.pack")
 			if err != nil {
 				panic(err)

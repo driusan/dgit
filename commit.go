@@ -26,7 +26,7 @@ func Commit(c *Client, args []string) (string, error) {
 			return "", err
 		}
 
-		c.GitDir.WriteFile("COMMIT_EDITMSG", []byte(s), 0660)
+		c.GitDir.WriteFile("COMMIT_EDITMSG", []byte("\n\n"+s), 0660)
 		c.ExecEditor(c.GitDir.File("COMMIT_EDITMSG"))
 		commitTreeArgs = append(commitTreeArgs, "-F", c.GitDir.File("COMMIT_EDITMSG").String())
 	}

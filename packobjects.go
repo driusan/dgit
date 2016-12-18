@@ -4,12 +4,11 @@ import (
 	"bufio"
 	"encoding/hex"
 	"fmt"
-	libgit "github.com/driusan/git"
 	"io"
 	"os"
 )
 
-func PackObjects(repo *libgit.Repository, input io.Reader, args []string) {
+func PackObjects(c *Client, input io.Reader, args []string) {
 	if len(args) != 1 {
 		fmt.Fprintf(os.Stderr, "Usage: %s pack-objects basename\n", os.Args[0])
 		return
@@ -30,6 +29,5 @@ func PackObjects(repo *libgit.Repository, input io.Reader, args []string) {
 		}
 		objects = append(objects, s)
 	}
-	SendPackfile(repo, f, objects)
-	//SendPackfile(f, []Sha1{})
+	SendPackfile(c, f, objects)
 }

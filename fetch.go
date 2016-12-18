@@ -7,9 +7,14 @@ import (
 	"os"
 )
 
-func Fetch(c *Client, repo *libgit.Repository, args []string) {
+func Fetch(c *Client, args []string) {
 	if len(args) < 1 {
 		fmt.Fprintf(os.Stderr, "Missing repository to fetch")
+		return
+	}
+
+	repo, err := libgit.OpenRepository(c.GitDir.String())
+	if err != nil {
 		return
 	}
 

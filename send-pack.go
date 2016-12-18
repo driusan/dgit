@@ -1,14 +1,13 @@
 package main
 
 import (
-	//"flag"
-	//"fmt"
-	libgit "github.com/driusan/git"
-	//"os"
-	//"strings"
+//"flag"
+//"fmt"
+//"os"
+//"strings"
 )
 
-func SendPack(repo *libgit.Repository, args []string) {
+func SendPack(c *Client, args []string) {
 	/*
 		if toPost == "" {
 			fmt.Fprintf(os.Stderr, "Already up to date\n")

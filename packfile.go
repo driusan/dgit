@@ -36,7 +36,12 @@ const (
 	OBJ_REF_DELTA PackEntryType = 7
 )
 
-func SendPackfile(repo *libgit.Repository, w io.Writer, objects []Sha1) error {
+func SendPackfile(c *Client, w io.Writer, objects []Sha1) error {
+	repo, err := libgit.OpenRepository(c.GitDir.String())
+	if err != nil {
+		return err
+	}
+
 	sha := sha1.New()
 	w = io.MultiWriter(w, sha)
 	n, err := w.Write([]byte{'P', 'A', 'C', 'K'})

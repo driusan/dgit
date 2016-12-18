@@ -2,7 +2,6 @@ package main
 
 import (
 	"fmt"
-	libgit "github.com/driusan/git"
 	"os"
 	"strings"
 )
@@ -43,10 +42,7 @@ func Clone(c *Client, args []string) {
 	}
 
 	c = Init(c, []string{dirName})
-	repo, err := libgit.OpenRepository(c.GitDir.String())
-	if err != nil {
-		panic(err)
-	}
+
 	Config(c, []string{"--set", "remote.origin.url", repoid})
 	Config(c, []string{"--set", "branch.master.remote", "origin"})
 
@@ -54,7 +50,7 @@ func Clone(c *Client, args []string) {
 	// The HEAD refspec isn't necessarily named refs/heads/master.
 	Config(c, []string{"--set", "branch.master.merge", "refs/heads/master"})
 
-	Fetch(c, repo, []string{"origin"})
+	Fetch(c, []string{"origin"})
 	SymbolicRef(c, []string{"HEAD", "refs/heads/master"})
 	Reset(c, []string{"--hard"})
 }

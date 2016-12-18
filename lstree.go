@@ -8,7 +8,7 @@ import (
 	libgit "github.com/driusan/git"
 )
 
-func LsTree(c *Client, repo *libgit.Repository, args []string) error {
+func LsTree(c *Client, args []string) error {
 	var treeonly, recursepaths, showtrees, endnil bool
 	//var showlong1, showlong2 bool
 	var nameonly, namestatus bool
@@ -22,13 +22,6 @@ func LsTree(c *Client, repo *libgit.Repository, args []string) error {
 	flag.BoolVar(&namestatus, "name-status", false, "Only show the names of the files")
 
 	nameonly = nameonly || namestatus
-	//showlong := (showlong1 || showlong2)
-
-	/*
-		flag.BoolVar(&showlong1, "l", false, "Show size of blob entries")
-		flag.BoolVar(&showlong2, "long", false, "Show size of blob entries")
-		//showlong := (showlong1 || showlong2)
-	*/
 	fakeargs := []string{"git-ls-tree"}
 	os.Args = append(fakeargs, args...)
 
@@ -40,6 +33,11 @@ func LsTree(c *Client, repo *libgit.Repository, args []string) error {
 	}
 
 	commitId, err := RevParse(c, []string{args[0]})
+	if err != nil {
+		return err
+	}
+
+	repo, err := libgit.OpenRepository(c.GitDir.String())
 	if err != nil {
 		return err
 	}
