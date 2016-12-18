@@ -20,11 +20,19 @@ func requiresGitDir(cmd string) bool {
 		return true
 	}
 }
+
+var subcommand, subcommandUsage string
 func main() {
 	workdir := flag.String("work-tree", "", "specify the working directory of git")
 	gitdir := flag.String("git-dir", "", "specify the repository of git")
 	flag.Usage = func() {
-		fmt.Fprintf(os.Stderr, "Usage: %s [global options] subcommand [options]\n", os.Args[0])
+		if subcommand == "" {
+			subcommand = "subcommand"
+		}
+		if subcommandUsage == "" {
+			subcommandUsage = fmt.Sprintf("%s [global options] %s [options]\n", os.Args[0], subcommand)
+		}
+		fmt.Fprintf(os.Stderr, "Usage: %s\n", subcommandUsage)
 		fmt.Fprintf(os.Stderr, "\nGlobal options:\n\n")
 		flag.PrintDefaults()
 	}
@@ -35,14 +43,14 @@ func main() {
 		os.Exit(2)
 	}
 	c, err := NewClient(*gitdir, *workdir)
-	cmd := args[0]
+	subcommand = args[0]
 	args = args[1:]
 
-	if err != nil && requiresGitDir(cmd) {
+	if err != nil && requiresGitDir(subcommand) {
 		fmt.Fprintf(os.Stderr, "%v\n", err)
 		os.Exit(3)
 	}
-	if c != nil && c.GitDir == "" && requiresGitDir(cmd) {
+	if c != nil && c.GitDir == "" && requiresGitDir(subcommand) {
 		fmt.Fprintf(os.Stderr, "Could not find .git directory\n", err)
 		os.Exit(4)
 	}
@@ -52,7 +60,7 @@ func main() {
 	if c != nil {
 		repo, _ = libgit.OpenRepository(c.GitDir.String())
 	}
-	switch cmd {
+	switch subcommand {
 	case "init":
 		Init(c, args)
 	case "branch":
@@ -145,6 +153,6 @@ func main() {
 	case "read-tree":
 		ReadTree(c, args)
 	default:
-		fmt.Fprintf(os.Stderr, "Unknown git command %s.\n", cmd)
+		fmt.Fprintf(os.Stderr, "Unknown git command %s.\n", subcommand)
 	}
 }

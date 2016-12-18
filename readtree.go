@@ -23,13 +23,20 @@ func (c *Client) ResetIndex(tree Treeish, indexname string) error {
 }
 
 func ReadTree(c *Client, args []string) error {
-	os.Args = append([]string{"git read-tree"}, args...)
-	indexName := flag.String("index-output", "index", "Name of the file to read the tree into")
-	flag.Parse()
-	args = flag.Args()
+	flags := flag.NewFlagSet("read-tree", flag.ExitOnError)
+	indexName := flags.String("index-output", "index", "Name of the file to read the tree into")
+	flags.Parse(args)
+	args = flags.Args()
 	fmt.Printf("%v into %v\n", args, *indexName)
-	if len(args) != 1 {
+	flags.Usage = func() {
+		subcommandUsage = fmt.Sprintf("%s [global options] %s [options] <treeish>\n", os.Args[0], subcommand)
+
 		flag.Usage()
+		fmt.Fprintf(os.Stderr, "\nread-tree options:\n\n")
+		flags.PrintDefaults()
+	}
+	if len(args) != 1 {
+		flags.Usage()
 		return fmt.Errorf("Invalid usage")
 	}
 
