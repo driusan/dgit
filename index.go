@@ -6,7 +6,6 @@ import (
 	"encoding/binary"
 	"errors"
 	"fmt"
-	libgit "github.com/driusan/git"
 	"io"
 	"io/ioutil"
 	"os"
@@ -308,7 +307,7 @@ func (g ByPath) Len() int           { return len(g) }
 func (g ByPath) Swap(i, j int)      { g[i], g[j] = g[j], g[i] }
 func (g ByPath) Less(i, j int) bool { return g[i].PathName < g[j].PathName }
 
-func writeIndexSubtree(repo *libgit.Repository, prefix string, entries []*GitIndexEntry) ([20]byte, error) {
+func writeIndexSubtree(c *Client, prefix string, entries []*GitIndexEntry) (Sha1, error) {
 	content := bytes.NewBuffer(nil)
 	// [mode] [file/folder name]\0[SHA-1 of referencing blob or tree as [20]byte]
 
@@ -331,8 +330,8 @@ func writeIndexSubtree(repo *libgit.Repository, prefix string, entries []*GitInd
 			} else {
 				islice = entries[firstIdxForTree:idx]
 			}
-			subsha1, err := writeIndexSubtree(repo, newPrefix, islice)
-			if err != nil {
+			subsha1, err := writeIndexSubtree(c, newPrefix, islice)
+			if err != nil && err != ObjectExists {
 				panic(err)
 			}
 
@@ -342,8 +341,8 @@ func writeIndexSubtree(repo *libgit.Repository, prefix string, entries []*GitInd
 
 			if idx == len(entries)-1 && lastname != nameBits[0] {
 				newPrefix := prefix + "/" + nameBits[0]
-				subsha1, err := writeIndexSubtree(repo, newPrefix, entries[len(entries)-1:])
-				if err != nil {
+				subsha1, err := writeIndexSubtree(c, newPrefix, entries[len(entries)-1:])
+				if err != nil && err != ObjectExists {
 					panic(err)
 				}
 
@@ -371,10 +370,9 @@ func writeIndexSubtree(repo *libgit.Repository, prefix string, entries []*GitInd
 		}
 	}
 
-	sha1, err := repo.StoreObjectLoose(libgit.ObjectTree, bytes.NewReader(content.Bytes()))
-	return sha1, err
+	return c.WriteObject("tree", content.Bytes())
 }
-func writeIndexEntries(repo *libgit.Repository, prefix string, entries []*GitIndexEntry) ([20]byte, error) {
+func writeIndexEntries(c *Client, prefix string, entries []*GitIndexEntry) (Sha1, error) {
 	content := bytes.NewBuffer(nil)
 	// [mode] [file/folder name]\0[SHA-1 of referencing blob or tree as [20]byte]
 
@@ -393,8 +391,8 @@ func writeIndexEntries(repo *libgit.Repository, prefix string, entries []*GitInd
 			} else {
 				islice = entries[firstIdxForTree:idx]
 			}
-			subsha1, err := writeIndexSubtree(repo, lastname, islice)
-			if err != nil {
+			subsha1, err := writeIndexSubtree(c, lastname, islice)
+			if err != nil && err != ObjectExists {
 				panic(err)
 			}
 			// Write the object
@@ -418,53 +416,16 @@ func writeIndexEntries(repo *libgit.Repository, prefix string, entries []*GitInd
 		}
 	}
 
-	sha1, err := repo.StoreObjectLoose(libgit.ObjectTree, bytes.NewReader(content.Bytes()))
-	return [20]byte(sha1), err
+	return c.WriteObject("tree", content.Bytes())
 }
 
 // WriteTree writes the current index to a tree object.
 // It returns the sha1 of the written tree, or an empty string
 // if there was an error
 func (g GitIndex) WriteTree(c *Client) string {
-	repo, err := libgit.OpenRepository(c.GitDir.String())
+	sha1, err := writeIndexEntries(c, "", g.Objects)
 	if err != nil {
 		return ""
 	}
-	sha1, err := writeIndexEntries(repo, "", g.Objects)
-	if err != nil {
-		return ""
-	}
-	return fmt.Sprintf("%x", sha1)
-}
-
-func (g *GitIndex) ResetIndex(c *Client, tree Treeish) error {
-	// TODO: Fix this or move it to client_hacks.go
-	repo, err := libgit.OpenRepository(c.GitDir.String())
-	if err != nil {
-		return err
-	}
-
-	treeId, err := tree.TreeID(c)
-	if err != nil {
-		return err
-	}
-	sha, err := libgit.NewId(treeId[:])
-	if err != nil {
-		return err
-	}
-
-	t := libgit.NewTree(repo, sha)
-	if tree == nil {
-		panic("Error retriving tree for commit")
-	}
-
-	newEntries, err := expandGitTreeIntoIndexes(repo, t, "", true, false)
-	if err != nil {
-		fmt.Fprintf(os.Stderr, "Error resetting index: %s\n", err)
-		return err
-	}
-	fmt.Printf("%s", newEntries)
-	g.NumberIndexEntries = uint32(len(newEntries))
-	g.Objects = newEntries
-	return nil
+	return sha1.String()
 }

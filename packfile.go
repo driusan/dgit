@@ -183,12 +183,10 @@ func (c *Client) WriteObject(objType string, rawdata []byte) (Sha1, error) {
 
 	if have, _, err := c.HaveObject(fmt.Sprintf("%x", sha)); have == true || err != nil {
 		if err != nil {
-			fmt.Fprintf(os.Stderr, "Error: %s\n", err)
 			return Sha1{}, err
 
 		}
 
-		//fmt.Fprintf(os.Stderr, "Already have object %x\n", sha)
 		return Sha1(sha), ObjectExists
 
 	}
