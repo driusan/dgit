@@ -9,7 +9,6 @@ import (
 
 	libgit "github.com/driusan/git"
 	"github.com/driusan/go-git/zlib"
-	//"os"
 )
 
 type Sha1 [20]byte
@@ -229,6 +228,15 @@ func (t TreeID) GetAllObjects(cl *Client) ([]Sha1, error) {
 				panic(err)
 			}
 			objects = append(objects, sha)
+			subtree := TreeID(sha)
+			subobjects, err := subtree.GetAllObjects(cl)
+			if err != nil {
+				return nil, err
+			}
+			if len(subobjects) == 0 {
+				fmt.Printf("WARNING: TREE MISSING SUBOBJECTS\n")
+			}
+			objects = append(objects, subobjects...)
 		}
 	}
 	return objects, nil

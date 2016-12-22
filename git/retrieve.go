@@ -327,22 +327,10 @@ func (s SmartHTTPServerRetriever) SendPack(ref UpdateReference, r io.Reader, siz
 		panic(err)
 	}
 	toPost += line.String()
-	/*line, err = PktLineEncode([]byte(fmt.Sprintf("%.40d %s %s", 0, ref.RemoteSha1, "test")))
-	if err != nil {
-		panic(err)
-	}
-	toPost += line.String()
-	*/
 	toPost += "0000"
 
 	body := io.MultiReader(strings.NewReader(toPost), r, strings.NewReader("0000"))
 
-	/*
-		bytes, _ := ioutil.ReadAll(body)
-		ioutil.WriteFile("tmp.post", bytes, 0664)
-
-		return nil
-	*/
 	req, err := http.NewRequest("POST", s.Location+"/git-receive-pack", body)
 	if err != nil {
 		return err
@@ -350,7 +338,6 @@ func (s SmartHTTPServerRetriever) SendPack(ref UpdateReference, r io.Reader, siz
 	req.Header.Set("User-Agent", "go-git/0.0.1")
 
 	req.ContentLength = int64(len(toPost)) + size + 4
-	//req.Body = body
 	req.Header.Set("Content-Type", "application/x-git-receive-pack-request")
 	if s.username != "" || s.password != "" {
 		req.SetBasicAuth(s.username, s.password)
