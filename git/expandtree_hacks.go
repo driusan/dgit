@@ -12,11 +12,11 @@ func ExpandTreeIntoIndexesById(c *Client, treeId string, recurse, showTreeEntry 
 		return nil, err
 	}
 
-	expanded, err := RevParse(c, RevParseOptions{}, []string{treeId})
+	sha1, _, err := RevParseCommit(c, &RevParseOptions{}, treeId)
 	if err != nil {
 		return nil, err
 	}
-	com, err := repo.GetCommit(expanded[0].Id.String())
+	com, err := repo.GetCommit(sha1.String())
 	if err != nil {
 		return nil, err
 	}

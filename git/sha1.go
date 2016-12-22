@@ -193,25 +193,28 @@ func (c CommitID) GetAllObjects(cl *Client) ([]Sha1, error) {
 		return nil, err
 	}
 	objects = append(objects, Sha1(tree))
-	children, err := tree.GetAllObjects(cl)
+	children, err := tree.GetAllObjects(cl, "")
 	if err != nil {
 		return nil, err
 	}
-	objects = append(objects, children...)
+	for _, s := range children {
+		objects = append(objects, s)
+	}
 	return objects, nil
 }
-func (t TreeID) GetAllObjects(cl *Client) ([]Sha1, error) {
+func (t TreeID) GetAllObjects(cl *Client, prefix IndexPath) (map[IndexPath]Sha1, error) {
 	// TODO: Move this to client_hacks, or fix it to not depend on libgit
 	repo, err := libgit.OpenRepository(cl.GitDir.String())
 	if err != nil {
 		return nil, err
 	}
 
-	var objects []Sha1
 	tree, err := repo.GetTree(t.String())
 	if err != nil {
 		return nil, err
 	}
+
+	val := make(map[IndexPath]Sha1)
 
 	entries := tree.ListEntries()
 	for _, o := range entries {
@@ -221,25 +224,33 @@ func (t TreeID) GetAllObjects(cl *Client) ([]Sha1, error) {
 			if err != nil {
 				panic(err)
 			}
-			objects = append(objects, sha)
+			name := prefix + IndexPath(o.Name())
+
+			val[name] = sha
 		case libgit.ObjectTree:
 			sha, err := Sha1FromString(o.Id.String())
 			if err != nil {
 				panic(err)
 			}
-			objects = append(objects, sha)
+
+			name := prefix + IndexPath(o.Name())
+			val[name] = sha
+
 			subtree := TreeID(sha)
-			subobjects, err := subtree.GetAllObjects(cl)
+
+			subobjects, err := subtree.GetAllObjects(cl, name+"/")
 			if err != nil {
 				return nil, err
 			}
 			if len(subobjects) == 0 {
 				fmt.Printf("WARNING: TREE MISSING SUBOBJECTS\n")
 			}
-			objects = append(objects, subobjects...)
+			for name, sha := range subobjects {
+				val[name] = sha
+			}
 		}
 	}
-	return objects, nil
+	return val, nil
 }
 
 func (c CommitID) TreeID(cl *Client) (TreeID, error) {

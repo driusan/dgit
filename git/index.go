@@ -301,6 +301,17 @@ func (g Index) WriteIndex(file io.Writer) error {
 	return nil
 }
 
+// Looks up the Sha1 of path currently stored in the index.
+// Will return the 0 Sha1 if not found.
+func (g Index) GetSha1(path IndexPath) Sha1 {
+	for _, entry := range g.Objects {
+		if entry.PathName == path {
+			return entry.Sha1
+		}
+	}
+	return Sha1{}
+}
+
 // Implement the sort interface on *GitIndexEntry, so that
 // it's easy to sort by name.
 type ByPath []*IndexEntry

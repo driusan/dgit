@@ -124,7 +124,7 @@ Command	Status	Reference git version  Notes
 -------        ------        ---------------------  -----
 cat-file       None
 diff-files     None
-diff-index     None
+diff-index     HappyPath     git 2.9.2              (53) only the happies of happy paths. Do not depend on this.
 diff-tree      None
 for-each-ref   None
 ls-files       None

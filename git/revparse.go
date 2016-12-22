@@ -101,6 +101,37 @@ type RevParseOptions struct {
 	After, Before time.Time
 }
 
+// RevParse will parse a single revision into a Commit object. If it's a parameter to
+// rev-parse such as --git-dir, it will return the value of "other" and an empty
+// sha1 instead. excluded will be true if it was parsed in a way that it should
+// be excluded (ie. the revision started with a ^)
+func RevParseCommit(c *Client, opt *RevParseOptions, arg string) (sha1 CommitID, excluded bool, err error) {
+	var sha string
+	if arg[0] == '^' {
+		sha = arg[1:]
+		excluded = true
+	} else {
+		sha = arg
+		excluded = false
+	}
+	if len(sha) == 40 {
+		comm, serr := Sha1FromString(sha)
+		err = serr
+		sha1 = CommitID(comm)
+		return
+	}
+	if r := SymbolicRefGet(c, sha); r != "" {
+		comm, serr := c.GetSymbolicRefCommit(r)
+		err = serr
+		sha1 = comm
+		return
+	}
+	sha1, err = c.GetBranchCommit(sha)
+	return
+}
+
+// Implements "git rev-prse". This should be refactored in terms of RevParseCommit and cleaned up.
+// (clean up a lot.)
 func RevParse(c *Client, opt RevParseOptions, args []string) (commits []ParsedRevision, err2 error) {
 	for _, arg := range args {
 		switch arg {
@@ -125,7 +156,6 @@ func RevParse(c *Client, opt RevParseOptions, args []string) (commits []ParsedRe
 					sha = arg
 					exclude = false
 				}
-
 				if len(sha) == 40 {
 					comm, err := Sha1FromString(sha)
 					if err != nil {
@@ -134,7 +164,6 @@ func RevParse(c *Client, opt RevParseOptions, args []string) (commits []ParsedRe
 					commits = append(commits, ParsedRevision{comm, exclude})
 					continue
 				}
-
 				if r := SymbolicRefGet(c, sha); r != "" {
 					comm, err := c.GetSymbolicRefCommit(r)
 					if err != nil {
@@ -144,7 +173,6 @@ func RevParse(c *Client, opt RevParseOptions, args []string) (commits []ParsedRe
 					}
 					continue
 				}
-
 				comm, err := c.GetBranchCommit(sha)
 				if err != nil {
 					err2 = err
@@ -152,9 +180,7 @@ func RevParse(c *Client, opt RevParseOptions, args []string) (commits []ParsedRe
 					commits = append(commits, ParsedRevision{Sha1(comm), exclude})
 				}
 			}
-
 		}
-
 	}
 	return
 }

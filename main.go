@@ -152,6 +152,11 @@ func main() {
 		cmd.SendPack(c, args)
 	case "read-tree":
 		cmd.ReadTree(c, args)
+	case "diff-index":
+		if err := cmd.DiffIndex(c, args); err != nil {
+			fmt.Fprintf(os.Stderr, "%v\n", err)
+			os.Exit(4)
+		}
 	default:
 		fmt.Fprintf(os.Stderr, "Unknown git command %s.\n", subcommand)
 	}
