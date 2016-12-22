@@ -23,6 +23,23 @@ func (f IndexPath) String() string {
 	return string(f)
 }
 
+// Returns the IndexPath as a filename relative to Getwd, in order to convert
+// from Indexes to Working directory paths.
+func (f IndexPath) FilePath(c *Client) (File, error) {
+	cwd, err := os.Getwd()
+	if err != nil {
+		return "", err
+	}
+
+	file := c.WorkDir.String() + "/" + f.String()
+
+	rel, err := filepath.Rel(cwd, file)
+	if err != nil {
+		return "", err
+	}
+	return File(rel), err
+}
+
 func (f File) Exists() bool {
 	if _, err := os.Stat(string(f)); os.IsNotExist(err) {
 		return false
@@ -42,7 +59,8 @@ func (f File) IndexPath(c *Client) (IndexPath, error) {
 	if err != nil {
 		return "", err
 	}
-
+	// BUG(driusan): This should verify that there is a prefix and return
+	// an error if it's outside of the tree.
 	return IndexPath(strings.TrimPrefix(p, string(c.WorkDir)+"/")), nil
 }
 
@@ -72,6 +90,10 @@ func (g GitDir) WriteFile(f File, data []byte, perm os.FileMode) error {
 // WorkDir is the top level of the work directory of the current process, or
 // the empty string if the --bare option is provided
 type WorkDir File
+
+func (f WorkDir) String() string {
+	return string(f)
+}
 
 type Client struct {
 	GitDir  GitDir
@@ -174,14 +196,14 @@ func (c *Client) ResetWorkTree() error {
 			fmt.Fprintf(os.Stderr, "Could not retrieve %x for %s: %s\n", indexEntry.Sha1, indexEntry.PathName, err)
 			continue
 		}
-		if strings.Index(indexEntry.PathName, "/") > 0 {
-			os.MkdirAll(filepath.Dir(indexEntry.PathName), 0755)
+		if strings.Index(indexEntry.PathName.String(), "/") > 0 {
+			os.MkdirAll(filepath.Dir(indexEntry.PathName.String()), 0755)
 		}
-		err = ioutil.WriteFile(indexEntry.PathName, obj.GetContent(), os.FileMode(indexEntry.Mode))
+		err = ioutil.WriteFile(indexEntry.PathName.String(), obj.GetContent(), os.FileMode(indexEntry.Mode))
 		if err != nil {
 			continue
 		}
-		os.Chmod(indexEntry.PathName, os.FileMode(indexEntry.Mode))
+		os.Chmod(indexEntry.PathName.String(), os.FileMode(indexEntry.Mode))
 	}
 	return nil
 }

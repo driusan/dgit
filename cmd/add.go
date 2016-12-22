@@ -1,7 +1,7 @@
 package cmd
 
 import (
-	//"fmt"
+	"fmt"
 	"github.com/driusan/go-git/git"
 	"os"
 )
@@ -10,8 +10,14 @@ func Add(c *git.Client, args []string) error {
 	gindex, _ := c.GitDir.ReadIndex()
 	for _, arg := range args {
 		f := git.File(arg)
+		ipath, err := f.IndexPath(c)
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "%v\n", err)
+			continue
+		}
+
 		if !f.Exists() {
-			gindex.RemoveFile(arg)
+			gindex.RemoveFile(ipath)
 			continue
 		}
 		if file, err := os.Open(arg); err == nil {

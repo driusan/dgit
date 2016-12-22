@@ -56,7 +56,7 @@ func expandGitTreeIntoIndexes(repo *libgit.Repository, tree *libgit.Tree, prefix
 			case libgit.ModeTree:
 				newEntry.Mode = 0040000
 			}
-			newEntry.PathName = dirname
+			newEntry.PathName = IndexPath(dirname)
 			newEntry.Fsize = uint32(entry.Size())
 
 			modTime := entry.ModTime()

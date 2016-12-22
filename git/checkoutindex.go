@@ -45,7 +45,7 @@ func CheckoutIndex(c *Client, opts CheckoutIndexOptions, files []string) error {
 	}
 	if opts.All {
 		for _, entry := range idx.Objects {
-			files = append(files, entry.PathName)
+			files = append(files, entry.PathName.String())
 		}
 	}
 
@@ -60,7 +60,7 @@ func CheckoutIndex(c *Client, opts CheckoutIndexOptions, files []string) error {
 
 			}
 
-			if entry.PathName != indexpath.String() {
+			if entry.PathName != indexpath {
 				continue
 			}
 

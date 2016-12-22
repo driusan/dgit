@@ -9,18 +9,13 @@ import (
 	"github.com/driusan/go-git/git"
 )
 
-// Gets a list of all filenames in the working tree
-func getWorkTreeFiles() []string {
-	return nil
-}
-
 type stagedFile struct {
-	Filename string
+	Filename git.IndexPath
 	New      bool
 	Removed  bool
 }
 
-func findUntrackedFilesFromDir(root, parent, dir string, tracked map[string]bool) (untracked []string) {
+func findUntrackedFilesFromDir(c *git.Client, root, parent, dir string, tracked map[git.IndexPath]bool) (untracked []git.File) {
 	files, err := ioutil.ReadDir(dir)
 	if err != nil {
 		return nil
@@ -31,24 +26,28 @@ func findUntrackedFilesFromDir(root, parent, dir string, tracked map[string]bool
 			if fi.Name() == ".git" {
 				continue
 			}
-			recurseFiles := findUntrackedFilesFromDir(root, parent+"/"+fi.Name(), dir+"/"+fi.Name(), tracked)
+			recurseFiles := findUntrackedFilesFromDir(c, root, parent+"/"+fi.Name(), dir+"/"+fi.Name(), tracked)
 			untracked = append(untracked, recurseFiles...)
 		} else {
-			relFile := strings.TrimPrefix(parent+"/"+fi.Name(), root)
-			if _, ok := tracked[relFile]; !ok {
-				untracked = append(untracked, relFile)
+			indexPath := git.IndexPath(strings.TrimPrefix(parent+"/"+fi.Name(), root))
+			if _, ok := tracked[indexPath]; !ok {
+				rel, err := indexPath.FilePath(c)
+				if err != nil {
+					panic(err)
+				}
+				untracked = append(untracked, rel)
 			}
 		}
 	}
 	return
 
 }
-func findUntrackedFiles(c *git.Client, tracked map[string]bool) []string {
+func findUntrackedFiles(c *git.Client, tracked map[git.IndexPath]bool) []git.File {
 	if c.WorkDir == "" {
 		return nil
 	}
 	wd := string(c.WorkDir)
-	return findUntrackedFilesFromDir(wd+"/", wd, wd, tracked)
+	return findUntrackedFilesFromDir(c, wd+"/", wd, wd, tracked)
 }
 
 // The standard git "status" command doesn't provide any kind of --prefix, so
@@ -61,11 +60,11 @@ func getStatus(c *git.Client, prefix string) (string, error) {
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "%v\n", err)
 	}
-	fileInIndex := make(map[string]bool)
+	fileInIndex := make(map[git.IndexPath]bool)
 	stagedFiles := make([]stagedFile, 0)
 	unstagedFiles := make([]stagedFile, 0)
 
-	headFiles := make(map[string]git.Sha1)
+	headFiles := make(map[git.IndexPath]git.Sha1)
 	// This isn't very efficiently implemented, but it works(ish).
 	head, err := git.ExpandTreeIntoIndexesById(c, "HEAD", true, false)
 	for _, head := range head {
@@ -76,7 +75,11 @@ func getStatus(c *git.Client, prefix string) (string, error) {
 		fileInIndex[file.PathName] = true
 		idxsha1 := file.Sha1
 
-		fssha1, _, err := git.HashFile("blob", file.PathName)
+		relname, err := file.PathName.FilePath(c)
+		if err != nil {
+			panic(err)
+		}
+		fssha1, _, err := git.HashFile("blob", relname.String())
 		if err != nil {
 			if os.IsNotExist(err) {
 				fssha1 = git.Sha1{}
@@ -98,7 +101,7 @@ func getStatus(c *git.Client, prefix string) (string, error) {
 			continue
 		}
 		if fssha1 != idxsha1 {
-			_, err := os.Stat(file.PathName)
+			_, err := os.Stat(relname.String())
 			if os.IsNotExist(err) {
 				unstagedFiles = append(unstagedFiles,
 					stagedFile{file.PathName, false, true},
@@ -111,7 +114,7 @@ func getStatus(c *git.Client, prefix string) (string, error) {
 
 		}
 		if headSha1 != idxsha1 {
-			_, err := os.Stat(file.PathName)
+			_, err := os.Stat(relname.String())
 			if os.IsNotExist(err) {
 				stagedFiles = append(stagedFiles,
 					stagedFile{file.PathName, false, true},
@@ -140,12 +143,16 @@ func getStatus(c *git.Client, prefix string) (string, error) {
 		msg += fmt.Sprintf("%s (use \"git reset HEAD <file>...\" to unstage)\n", prefix)
 		msg += fmt.Sprintf("%s\n", prefix)
 		for _, f := range stagedFiles {
+			file, err := f.Filename.FilePath(c)
+			if err != nil {
+				panic(err)
+			}
 			if f.New {
-				msg += fmt.Sprintf("%s\tnew file:\t%s\n", prefix, f.Filename)
+				msg += fmt.Sprintf("%s\tnew file:\t%s\n", prefix, file)
 			} else if f.Removed {
-				msg += fmt.Sprintf("%s\tdeleted:\t%s\n", prefix, f.Filename)
+				msg += fmt.Sprintf("%s\tdeleted:\t%s\n", prefix, file)
 			} else {
-				msg += fmt.Sprintf("%s\tmodified:\t%s\n", prefix, f.Filename)
+				msg += fmt.Sprintf("%s\tmodified:\t%s\n", prefix, file)
 			}
 		}
 	}
@@ -157,10 +164,15 @@ func getStatus(c *git.Client, prefix string) (string, error) {
 		msg += fmt.Sprintf("%s  (use \"git checkout -- <file>...\" to discard changes in working directory)\n", prefix)
 		msg += fmt.Sprintf("%s\n", prefix)
 		for _, f := range unstagedFiles {
+			file, err := f.Filename.FilePath(c)
+			if err != nil {
+				panic(err)
+			}
+
 			if f.Removed {
-				msg += fmt.Sprintf("\tdeleted:\t%s\n", f.Filename)
+				msg += fmt.Sprintf("\tdeleted:\t%s\n", file)
 			} else {
-				msg += fmt.Sprintf("\tmodified:\t%s\n", f.Filename)
+				msg += fmt.Sprintf("\tmodified:\t%s\n", file)
 			}
 		}
 	}

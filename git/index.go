@@ -34,7 +34,7 @@ type Index struct {
 type IndexEntry struct {
 	fixedIndexEntry
 
-	PathName string
+	PathName IndexPath
 }
 
 type fixedIndexEntry struct {
@@ -149,7 +149,7 @@ func ReadIndexEntry(file *os.File) (*IndexEntry, error) {
 	} else {
 		panic("TODO: I can't handle such long names yet")
 	}
-	return &IndexEntry{f, string(name)}, nil
+	return &IndexEntry{f, IndexPath(name)}, nil
 }
 
 // Adds a file to the index, without writing it to disk.
@@ -164,18 +164,20 @@ func ReadIndexEntry(file *os.File) (*IndexEntry, error) {
 // 	else
 // 		add new GitIndexEntry if not found
 //
-func (g *Index) AddFile(c *Client, file *os.File) {
+func (g *Index) AddFile(c *Client, file *os.File) error {
 	contents, err := ioutil.ReadAll(file)
 	if err != nil {
-		panic(err)
+		return err
 	}
 	hash, err := c.WriteObject("blob", contents)
 	if err != nil && err != ObjectExists {
 		fmt.Fprintf(os.Stderr, "Error storing object: %s", err)
+		return err
 	}
-	fmt.Printf("Sha1: %s\n", hash)
-	fmt.Printf("Name is %s\n", file.Name())
-	name := getNormalizedName(file)
+	name, err := File(file.Name()).IndexPath(c)
+	if err != nil {
+		return err
+	}
 	for _, entry := range g.Objects {
 		if entry.PathName == name {
 			entry.Sha1 = hash
@@ -188,12 +190,16 @@ func (g *Index) AddFile(c *Client, file *os.File) {
 			entry.Mtime = uint32(modTime.Unix())
 			entry.Mtimenano = uint32(modTime.Nanosecond())
 			entry.Fsize = uint32(fstat.Size())
-			return
+
+			// We found and updated the entry, no need to continue
+			return nil
 		}
 	}
+
+	// It's a new file.
 	fstat, err := file.Stat()
 	if err != nil {
-		panic(err)
+		return err
 	}
 	modTime := fstat.ModTime()
 	//stat := fstat.Sys().(*syscall.Stat_t)
@@ -261,10 +267,10 @@ func (g *Index) AddFile(c *Client, file *os.File) {
 	})
 	g.NumberIndexEntries += 1
 	sort.Sort(ByPath(g.Objects))
-	return
+	return nil
 }
 
-func (g *Index) RemoveFile(file string) {
+func (g *Index) RemoveFile(file IndexPath) {
 	for i, entry := range g.Objects {
 		if entry.PathName == file {
 			//println("Should remove ", i)
@@ -272,10 +278,6 @@ func (g *Index) RemoveFile(file string) {
 			g.NumberIndexEntries -= 1
 		}
 	}
-}
-
-func getNormalizedName(file *os.File) string {
-	return file.Name()
 }
 
 // This will write a new index file to w by doing the following:
@@ -315,7 +317,7 @@ func writeIndexSubtree(c *Client, prefix string, entries []*IndexEntry) (Sha1, e
 	firstIdxForTree := -1
 
 	for idx, obj := range entries {
-		relativename := strings.TrimPrefix(obj.PathName, prefix+"/")
+		relativename := strings.TrimPrefix(obj.PathName.String(), prefix+"/")
 		//	fmt.Printf("This name: %s\n", relativename)
 		nameBits := strings.Split(relativename, "/")
 
@@ -380,7 +382,7 @@ func writeIndexEntries(c *Client, prefix string, entries []*IndexEntry) (Sha1, e
 	firstIdxForTree := -1
 
 	for idx, obj := range entries {
-		nameBits := strings.Split(obj.PathName, "/")
+		nameBits := strings.Split(obj.PathName.String(), "/")
 
 		// Either it's the last entry and we haven't written a tree yet, or it's not the last
 		// entry but the directory changed

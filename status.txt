@@ -10,7 +10,7 @@ Status:
 Main Porcelain Commands:
 Command	Status	Reference git version  Notes
 -------        ------        ---------------------  -----
-add            HappyPath     git 2.9.2              (13) Needs to be run from root of working directory
+add            HappyPath     git 2.9.2              (13) Can not add directories, only files
 am             None
 archive        None
 branch         HappyPath     git 2.9.2
