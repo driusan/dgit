@@ -47,7 +47,7 @@ type fixedIndexEntry struct {
 	Dev uint32 // 32
 	Ino uint32 // 36
 
-	Mode uint32 // 40
+	Mode EntryMode // 40
 
 	Uid uint32 // 44
 	Gid uint32 // 48
@@ -205,13 +205,13 @@ func (g *Index) AddFile(c *Client, file *os.File) error {
 	//stat := fstat.Sys().(*syscall.Stat_t)
 	//csec, cnano := stat.Ctim.Unix()
 
-	var mode uint32
+	var mode EntryMode
 	if fstat.IsDir() {
 		// This should really recursively call add for each file in the directory.
 		panic("Add can't handle directories. yet.")
 	} else {
 		// if it's a regular file, just assume it's 0644 for now
-		mode = 0x81A4
+		mode = ModeBlob
 
 	}
 	// mode is

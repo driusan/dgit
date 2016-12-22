@@ -64,22 +64,42 @@ type DiffIndexOptions struct {
 // A HashDiff represents a single line in a git diff-index type output.
 type HashDiff struct {
 	Name     IndexPath
-	Src, Dst Sha1
+	Src, Dst TreeEntry
 }
 
 func (h HashDiff) String() string {
-	if h.Src == h.Dst {
-		return ""
+	var status string = "?"
+
+	empty := Sha1{}
+	if h.Src.Sha1 == empty && h.Dst.Sha1 != empty {
+		status = "A"
+	} else if h.Src.Sha1 != empty && h.Dst.Sha1 == empty {
+		if h.Dst.FileMode == 0 {
+			status = "D"
+		} else {
+			status = "M"
+		}
+	} else {
+		status = "M"
 	}
-	return fmt.Sprintf(":%v %v %v %v %v	%v", 0, 0, h.Src, h.Dst, "?", h.Name)
+	return fmt.Sprintf(":%0.6o %0.6o %v %v %v	%v", h.Src.FileMode, h.Dst.FileMode, h.Src.Sha1, h.Dst.Sha1, status, h.Name)
 }
+
+// Implement the sort interface on *GitIndexEntry, so that
+// it's easy to sort by name.
+type ByName []HashDiff
+
+func (g ByName) Len() int           { return len(g) }
+func (g ByName) Swap(i, j int)      { g[i], g[j] = g[j], g[i] }
+func (g ByName) Less(i, j int) bool { return g[i].Name < g[j].Name }
+
 func DiffIndex(c *Client, opt *DiffIndexOptions, tree Treeish, paths []string) ([]HashDiff, error) {
 	t, err := tree.TreeID(c)
 	if err != nil {
 		return nil, err
 	}
 
-	treeObjects, err := t.GetAllObjects(c, "")
+	treeObjects, err := t.GetAllObjects(c, "", true, true)
 	if err != nil {
 		return nil, err
 	}
@@ -88,14 +108,24 @@ func DiffIndex(c *Client, opt *DiffIndexOptions, tree Treeish, paths []string) (
 	index, _ := c.GitDir.ReadIndex()
 
 	for _, entry := range index.Objects {
-		if entry.Sha1 != treeObjects[entry.PathName] {
-			val = append(val, HashDiff{entry.PathName, treeObjects[entry.PathName], entry.Sha1})
+		f, err := entry.PathName.FilePath(c)
+		treeSha, ok := treeObjects[entry.PathName]
+		fssha, _, err := HashFile("blob", f.String())
+		if err != nil {
+			return nil, err
+		}
+
+		if entry.Sha1 != fssha {
+			val = append(val, HashDiff{entry.PathName, treeObjects[entry.PathName], TreeEntry{Sha1: Sha1{}, FileMode: ModeBlob}})
+		} else if !ok {
+			val = append(val, HashDiff{entry.PathName, TreeEntry{}, TreeEntry{Sha1: entry.Sha1, FileMode: entry.Mode}})
+		} else if entry.Sha1 != treeSha.Sha1 {
+			val = append(val, HashDiff{entry.PathName, treeObjects[entry.PathName], TreeEntry{Sha1: entry.Sha1, FileMode: entry.Mode}})
+		} else {
+			if err != nil {
+				return nil, err
+			}
 		}
 	}
-	/*for name, o := range treeObjects {
-		i := index.GetSha1(name)
-		if i != o {
-		}
-	}*/
 	return val, nil
 }

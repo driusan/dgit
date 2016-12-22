@@ -193,16 +193,26 @@ func (c CommitID) GetAllObjects(cl *Client) ([]Sha1, error) {
 		return nil, err
 	}
 	objects = append(objects, Sha1(tree))
-	children, err := tree.GetAllObjects(cl, "")
+	children, err := tree.GetAllObjects(cl, "", true, false)
 	if err != nil {
 		return nil, err
 	}
 	for _, s := range children {
-		objects = append(objects, s)
+		objects = append(objects, s.Sha1)
 	}
 	return objects, nil
 }
-func (t TreeID) GetAllObjects(cl *Client, prefix IndexPath) (map[IndexPath]Sha1, error) {
+
+// A TreeEntry represents an entry inside of a Treeish.
+type TreeEntry struct {
+	Sha1     Sha1
+	FileMode EntryMode
+}
+
+// Returns a map of all paths in the Tree. If recurse is true, it will recurse
+// into subtrees. If excludeself is true, it will *not* include it's own Sha1.
+// (Only really meaningful with recurse)
+func (t TreeID) GetAllObjects(cl *Client, prefix IndexPath, recurse, excludeself bool) (map[IndexPath]TreeEntry, error) {
 	// TODO: Move this to client_hacks, or fix it to not depend on libgit
 	repo, err := libgit.OpenRepository(cl.GitDir.String())
 	if err != nil {
@@ -214,7 +224,7 @@ func (t TreeID) GetAllObjects(cl *Client, prefix IndexPath) (map[IndexPath]Sha1,
 		return nil, err
 	}
 
-	val := make(map[IndexPath]Sha1)
+	val := make(map[IndexPath]TreeEntry)
 
 	entries := tree.ListEntries()
 	for _, o := range entries {
@@ -226,7 +236,7 @@ func (t TreeID) GetAllObjects(cl *Client, prefix IndexPath) (map[IndexPath]Sha1,
 			}
 			name := prefix + IndexPath(o.Name())
 
-			val[name] = sha
+			val[name] = TreeEntry{sha, EntryMode(o.EntryMode())}
 		case libgit.ObjectTree:
 			sha, err := Sha1FromString(o.Id.String())
 			if err != nil {
@@ -234,19 +244,22 @@ func (t TreeID) GetAllObjects(cl *Client, prefix IndexPath) (map[IndexPath]Sha1,
 			}
 
 			name := prefix + IndexPath(o.Name())
-			val[name] = sha
-
-			subtree := TreeID(sha)
-
-			subobjects, err := subtree.GetAllObjects(cl, name+"/")
-			if err != nil {
-				return nil, err
+			if !excludeself {
+				val[name] = TreeEntry{sha, EntryMode(o.EntryMode())}
 			}
-			if len(subobjects) == 0 {
-				fmt.Printf("WARNING: TREE MISSING SUBOBJECTS\n")
-			}
-			for name, sha := range subobjects {
-				val[name] = sha
+			if recurse {
+				subtree := TreeID(sha)
+
+				subobjects, err := subtree.GetAllObjects(cl, name+"/", recurse, excludeself)
+				if err != nil {
+					return nil, err
+				}
+				if len(subobjects) == 0 {
+					fmt.Printf("WARNING: TREE MISSING SUBOBJECTS\n")
+				}
+				for name, entry := range subobjects {
+					val[name] = entry
+				}
 			}
 		}
 	}
