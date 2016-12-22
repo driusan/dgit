@@ -4,10 +4,11 @@ import (
 	"errors"
 	"flag"
 	"fmt"
+	"github.com/driusan/go-git/cmd"
+	"github.com/driusan/go-git/git"
 	"os"
 )
 
-var InvalidHead error = errors.New("Invalid HEAD")
 var InvalidArgument error = errors.New("Invalid argument to function")
 
 func requiresGitDir(cmd string) bool {
@@ -41,7 +42,7 @@ func main() {
 		flag.Usage()
 		os.Exit(2)
 	}
-	c, err := NewClient(*gitdir, *workdir)
+	c, err := git.NewClient(*gitdir, *workdir)
 	subcommand = args[0]
 	args = args[1:]
 
@@ -56,61 +57,61 @@ func main() {
 
 	switch subcommand {
 	case "init":
-		Init(c, args)
+		cmd.Init(c, args)
 	case "branch":
-		Branch(c, args)
+		cmd.Branch(c, args)
 	case "checkout":
-		Checkout(c, args)
+		cmd.Checkout(c, args)
 	case "checkout-index":
-		if err := CheckoutIndexCmd(c, args); err != nil {
+		if err := cmd.CheckoutIndexCmd(c, args); err != nil {
 			fmt.Fprintf(os.Stderr, "%v\n", err)
 			os.Exit(4)
 		}
 
 	case "add":
-		Add(c, args)
+		cmd.Add(c, args)
 	case "commit":
-		sha1, err := Commit(c, args)
+		sha1, err := cmd.Commit(c, args)
 		if err != nil {
 			fmt.Fprintf(os.Stderr, "%v\n", err)
 		} else {
 			fmt.Printf("%s\n", sha1)
 		}
 	case "commit-tree":
-		sha1, err := CommitTree(c, args)
+		sha1, err := cmd.CommitTree(c, args)
 		if err != nil {
 			fmt.Fprintf(os.Stderr, "%v\n", err)
 		} else {
 			fmt.Printf("%s\n", sha1)
 		}
 	case "write-tree":
-		sha1 := WriteTree(c)
+		sha1 := cmd.WriteTree(c)
 		fmt.Printf("%s\n", sha1)
 	case "update-ref":
-		UpdateRef(c, args)
+		cmd.UpdateRef(c, args)
 	case "log":
-		Log(c, args)
+		cmd.Log(c, args)
 	case "symbolic-ref":
-		val := SymbolicRef(c, args)
+		val := cmd.SymbolicRef(c, args)
 		fmt.Printf("%s\n", val)
 	case "clone":
-		Clone(c, args)
+		cmd.Clone(c, args)
 	case "config":
-		Config(c, args)
+		cmd.Config(c, args)
 	case "fetch":
-		Fetch(c, args)
+		cmd.Fetch(c, args)
 	case "reset":
-		Reset(c, args)
+		cmd.Reset(c, args)
 	case "merge":
-		if err := Merge(c, args); err != nil {
+		if err := cmd.Merge(c, args); err != nil {
 			fmt.Fprintf(os.Stderr, "%v\n", err)
 			os.Exit(2)
 		}
 	case "merge-base":
-		switch c, err := MergeBase(c, args); err {
-		case Ancestor:
+		switch c, err := cmd.MergeBase(c, args); err {
+		case cmd.Ancestor:
 			os.Exit(0)
-		case NonAncestor:
+		case cmd.NonAncestor:
 			os.Exit(1)
 		default:
 			if err != nil {
@@ -120,7 +121,7 @@ func main() {
 			fmt.Printf("%v\n", c)
 		}
 	case "rev-parse":
-		commits, err := RevParse(c, args)
+		commits, err := cmd.RevParse(c, args)
 		if err != nil {
 			fmt.Fprintf(os.Stderr, "%v\n", err)
 			os.Exit(4)
@@ -133,25 +134,24 @@ func main() {
 		}
 
 	case "rev-list":
-		RevList(c, args)
+		cmd.RevList(c, args)
 	case "hash-object":
-		HashObject(c, args)
+		cmd.HashObject(c, args)
 	case "status":
-		Status(c, args)
+		cmd.Status(c, args)
 	case "ls-tree":
-		err := LsTree(c, args)
-		if err != nil {
+		if err := cmd.LsTree(c, args); err != nil {
 			fmt.Fprintf(os.Stderr, "%v\n", err)
 			os.Exit(4)
 		}
 	case "push":
-		Push(c, args)
+		cmd.Push(c, args)
 	case "pack-objects":
-		PackObjects(c, os.Stdin, args)
+		cmd.PackObjects(c, os.Stdin, args)
 	case "send-pack":
-		SendPack(c, args)
+		cmd.SendPack(c, args)
 	case "read-tree":
-		ReadTree(c, args)
+		cmd.ReadTree(c, args)
 	default:
 		fmt.Fprintf(os.Stderr, "Unknown git command %s.\n", subcommand)
 	}
