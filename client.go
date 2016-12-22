@@ -12,6 +12,14 @@ import (
 // A file represents a file (or directory) relative to os.Getwd()
 type File string
 
+// An IndexPath represents a file in the index. ie. a File path relative
+// to the Git WorkDir, not the current working directory.
+type IndexPath string
+
+func (f IndexPath) String() string {
+	return string(f)
+}
+
 func (f File) Exists() bool {
 	if _, err := os.Stat(string(f)); os.IsNotExist(err) {
 		return false
@@ -23,7 +31,22 @@ func (f File) String() string {
 	return string(f)
 }
 
-// GitDir is the .git directory of the current process.
+// Normalizes the file name that's relative to the current working directory
+// to be relative to the workdir root. Ie. convert it from a file system
+// path to an index path.
+func (f File) IndexPath(c *Client) (IndexPath, error) {
+	p, err := filepath.Abs(f.String())
+	if err != nil {
+		return "", err
+	}
+
+	return IndexPath(strings.TrimPrefix(p, string(c.WorkDir)+"/")), nil
+}
+
+func (f File) Stat() (os.FileInfo, error) {
+	return os.Stat(f.String())
+}
+
 type GitDir File
 
 func (g GitDir) String() string {

@@ -61,6 +61,12 @@ func main() {
 		Branch(c, args)
 	case "checkout":
 		Checkout(c, args)
+	case "checkout-index":
+		if err := CheckoutIndexCmd(c, args); err != nil {
+			fmt.Fprintf(os.Stderr, "%v\n", err)
+			os.Exit(4)
+		}
+
 	case "add":
 		Add(c, args)
 	case "commit":
