@@ -37,6 +37,17 @@ type IndexEntry struct {
 	PathName IndexPath
 }
 
+func NewIndex() *Index {
+	return &Index{
+		fixedGitIndex: fixedGitIndex{
+			Signature:          [4]byte{'D', 'I', 'R', 'C'},
+			Version:            2,
+			NumberIndexEntries: 0,
+		},
+		Objects: make([]*IndexEntry, 0),
+	}
+}
+
 type fixedIndexEntry struct {
 	Ctime     uint32 // 16
 	Ctimenano uint32 // 20
@@ -268,6 +279,14 @@ func (g *Index) AddFile(c *Client, file *os.File) error {
 	g.NumberIndexEntries += 1
 	sort.Sort(ByPath(g.Objects))
 	return nil
+}
+
+func (i *Index) GetMap() map[IndexPath]*IndexEntry {
+	r := make(map[IndexPath]*IndexEntry)
+	for _, entry := range i.Objects {
+		r[entry.PathName] = entry
+	}
+	return r
 }
 
 func (g *Index) RemoveFile(file IndexPath) {

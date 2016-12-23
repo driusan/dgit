@@ -351,3 +351,18 @@ func (c *Client) WriteObject(objType string, rawdata []byte) (Sha1, error) {
 	defer w.Close()
 	return Sha1(sha), nil
 }
+
+// Returns true if the file on the filesystem hashes to Sha1, (which is usually
+// the hash from the index) to determine if the file is clean.
+func (f IndexPath) IsClean(c *Client, s Sha1) bool {
+	fi, err := f.FilePath(c)
+	if err != nil {
+		panic(err)
+		// return false instead?
+	}
+	fs, _, err := HashFile("blob", fi.String())
+	if err != nil {
+		panic(err)
+	}
+	return fs == s
+}

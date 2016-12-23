@@ -27,6 +27,7 @@ func ReadTree(c *git.Client, args []string) error {
 
 	flags.StringVar(&options.IndexOutput, "index-output", "index", "Name of the file to read the tree into")
 	flags.BoolVar(&options.NoSparseCheckout, "no-sparse-checkout", false, "Disable sparse checkout")
+	flags.BoolVar(&options.Verbose, "v", false, "Be verbose about updatig files.")
 
 	flags.BoolVar(&options.Empty, "empty", false, "Instead of reading the treeish into the index, empty it")
 

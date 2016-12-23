@@ -2,11 +2,13 @@ package git
 
 import (
 	"fmt"
-	"os"
 
 	libgit "github.com/driusan/git"
 )
 
+// Replaces the index of Client with the the tree from the provided Treeish.
+// if PreserveStatInfo is true, the stat information in the index won't be
+// modified for existing entries.
 func (g *Index) ResetIndex(c *Client, tree Treeish) error {
 	// TODO: Fix this or move it to client_hacks.go
 	repo, err := libgit.OpenRepository(c.GitDir.String())
@@ -30,7 +32,6 @@ func (g *Index) ResetIndex(c *Client, tree Treeish) error {
 
 	newEntries, err := expandGitTreeIntoIndexes(repo, t, "", true, false)
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "Error resetting index: %s\n", err)
 		return err
 	}
 	fmt.Printf("%s", newEntries)

@@ -12,20 +12,20 @@ func ExpandTreeIntoIndexesById(c *Client, treeId string, recurse, showTreeEntry 
 		return nil, err
 	}
 
-	sha1, err := RevParseCommit(c, &RevParseOptions{}, treeId)
+	sha1, err := RevParseTreeish(c, &RevParseOptions{}, treeId)
 	if err != nil {
 		return nil, err
 	}
-	com, err := repo.GetCommit(sha1.String())
+	tree, err := sha1.TreeID(c)
 	if err != nil {
 		return nil, err
 	}
-	tId := com.TreeId()
-	tree := libgit.NewTree(repo, tId)
-	if tree == nil {
-		panic("Error retriving tree for commit")
+
+	libgittree, err := repo.GetTree(tree.String())
+	if err != nil {
+		return nil, err
 	}
-	return expandGitTreeIntoIndexes(repo, tree, "", recurse, showTreeEntry)
+	return expandGitTreeIntoIndexes(repo, libgittree, "", recurse, showTreeEntry)
 
 }
 func expandGitTreeIntoIndexes(repo *libgit.Repository, tree *libgit.Tree, prefix string, recurse bool, showTreeEntry bool) ([]*IndexEntry, error) {
