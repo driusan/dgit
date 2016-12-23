@@ -280,3 +280,12 @@ func (c CommitID) TreeID(cl *Client) (TreeID, error) {
 	s, err := Sha1FromString(commit.Tree.String())
 	return TreeID(s), err
 }
+
+// Ensures the Tree implements Treeish
+func (t TreeID) TreeID(cl *Client) (TreeID, error) {
+	// Validate that it's a tree
+	if Sha1(t).Type(cl) != "tree" {
+		return TreeID{}, fmt.Errorf("Invalid tree")
+	}
+	return t, nil
+}

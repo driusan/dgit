@@ -138,7 +138,10 @@ func main() {
 	case "hash-object":
 		cmd.HashObject(c, args)
 	case "status":
-		cmd.Status(c, args)
+		if err := cmd.Status(c, args); err != nil {
+			fmt.Fprintf(os.Stderr, "%v\n", err)
+			os.Exit(4)
+		}
 	case "ls-tree":
 		if err := cmd.LsTree(c, args); err != nil {
 			fmt.Fprintf(os.Stderr, "%v\n", err)
@@ -151,7 +154,10 @@ func main() {
 	case "send-pack":
 		cmd.SendPack(c, args)
 	case "read-tree":
-		cmd.ReadTree(c, args)
+		if err := cmd.ReadTree(c, args); err != nil {
+			fmt.Fprintf(os.Stderr, "%v\n", err)
+			os.Exit(4)
+		}
 	case "diff-index":
 		if err := cmd.DiffIndex(c, args); err != nil {
 			fmt.Fprintf(os.Stderr, "%v\n", err)

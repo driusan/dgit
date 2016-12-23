@@ -101,33 +101,40 @@ type RevParseOptions struct {
 	After, Before time.Time
 }
 
-// RevParse will parse a single revision into a Commit object. If it's a parameter to
-// rev-parse such as --git-dir, it will return the value of "other" and an empty
-// sha1 instead. excluded will be true if it was parsed in a way that it should
+// RevParseTreeish will parse a single revision into a Treeish structure.
+func RevParseTreeish(c *Client, opt *RevParseOptions, arg string) (Treeish, error) {
+	if len(arg) == 40 {
+		comm, err := Sha1FromString(arg)
+		if err != nil {
+			return nil, err
+		}
+		switch comm.Type(c) {
+		case "tree":
+			return TreeID(comm), nil
+		case "commit":
+			return CommitID(comm), nil
+		default:
+			return nil, fmt.Errorf("%s is not a tree-ish", arg)
+		}
+	}
+	if r := SymbolicRefGet(c, arg); r != "" {
+		return c.GetSymbolicRefCommit(r)
+	}
+	return c.GetBranchCommit(arg)
+}
+
+// RevParse will parse a single revision into a Commit object.
+// excluded will be true if it was parsed in a way that it should
 // be excluded (ie. the revision started with a ^)
-func RevParseCommit(c *Client, opt *RevParseOptions, arg string) (sha1 CommitID, excluded bool, err error) {
-	var sha string
-	if arg[0] == '^' {
-		sha = arg[1:]
-		excluded = true
-	} else {
-		sha = arg
-		excluded = false
+func RevParseCommit(c *Client, opt *RevParseOptions, arg string) (CommitID, error) {
+	if len(arg) == 40 {
+		sha1, err := Sha1FromString(arg)
+		return CommitID(sha1), err
 	}
-	if len(sha) == 40 {
-		comm, serr := Sha1FromString(sha)
-		err = serr
-		sha1 = CommitID(comm)
-		return
+	if r := SymbolicRefGet(c, arg); r != "" {
+		return c.GetSymbolicRefCommit(r)
 	}
-	if r := SymbolicRefGet(c, sha); r != "" {
-		comm, serr := c.GetSymbolicRefCommit(r)
-		err = serr
-		sha1 = comm
-		return
-	}
-	sha1, err = c.GetBranchCommit(sha)
-	return
+	return c.GetBranchCommit(arg)
 }
 
 // Implements "git rev-prse". This should be refactored in terms of RevParseCommit and cleaned up.

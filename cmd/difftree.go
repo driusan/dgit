@@ -48,8 +48,8 @@ func DiffTree(c *git.Client, args []string) error {
 		flags.Usage()
 		return fmt.Errorf("Must provide two <tree-ish>es. (One not yet supported)")
 	}
-	treeish, _, err := git.RevParseCommit(c, &git.RevParseOptions{}, args[0])
-	treeish2, _, err := git.RevParseCommit(c, &git.RevParseOptions{}, args[1])
+	treeish, err := git.RevParseTreeish(c, &git.RevParseOptions{}, args[0])
+	treeish2, err := git.RevParseTreeish(c, &git.RevParseOptions{}, args[1])
 	if err != nil {
 		return err
 	}

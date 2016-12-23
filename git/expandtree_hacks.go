@@ -12,7 +12,7 @@ func ExpandTreeIntoIndexesById(c *Client, treeId string, recurse, showTreeEntry 
 		return nil, err
 	}
 
-	sha1, _, err := RevParseCommit(c, &RevParseOptions{}, treeId)
+	sha1, err := RevParseCommit(c, &RevParseOptions{}, treeId)
 	if err != nil {
 		return nil, err
 	}

@@ -47,7 +47,7 @@ func DiffIndex(c *git.Client, args []string) error {
 		flags.Usage()
 		return fmt.Errorf("Must provide <tree-ish>")
 	}
-	treeish, _, err := git.RevParseCommit(c, &git.RevParseOptions{}, args[0])
+	treeish, err := git.RevParseCommit(c, &git.RevParseOptions{}, args[0])
 	if err != nil {
 		return err
 	}

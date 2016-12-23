@@ -66,6 +66,9 @@ func getStatus(c *git.Client, prefix string) (string, error) {
 	headFiles := make(map[git.IndexPath]git.Sha1)
 	// This isn't very efficiently implemented, but it works(ish).
 	head, err := git.ExpandTreeIntoIndexesById(c, "HEAD", true, false)
+	if err != nil {
+		return "", err
+	}
 	for _, head := range head {
 		headFiles[head.PathName] = head.Sha1
 	}
