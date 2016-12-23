@@ -40,7 +40,6 @@ func findUntrackedFilesFromDir(c *git.Client, root, parent, dir string, tracked 
 		}
 	}
 	return
-
 }
 func findUntrackedFiles(c *git.Client, tracked map[git.IndexPath]bool) []git.File {
 	if c.WorkDir == "" {

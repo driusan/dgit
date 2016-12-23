@@ -162,6 +162,11 @@ func main() {
 			fmt.Fprintf(os.Stderr, "%v\n", err)
 			os.Exit(4)
 		}
+	case "ls-files":
+		if err := cmd.LsFiles(c, args); err != nil {
+			fmt.Fprintf(os.Stderr, "%v\n", err)
+			os.Exit(4)
+		}
 	default:
 		fmt.Fprintf(os.Stderr, "Unknown git command %s.\n", subcommand)
 	}

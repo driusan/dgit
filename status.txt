@@ -127,7 +127,7 @@ diff-files     None
 diff-index     HappyPath     git 2.9.2              (53) no options, but basic behaviour should match real git.
 diff-tree      HappyPath     git 2.9.2              (~53) Only -r option is implemented
 for-each-ref   None
-ls-files       None
+ls-files       Happy Path    git 2.9.2              (19) Only --cached, --deleted, --modified and --others implemented
 ls-remote      None
 ls-tree        Almost        git 2.9.2              missing --full-name, --full-tree, and not context sensitive wrt the current working directory.
 merge-base     HappyPath     git 2.9.2              only --octopus and --is-ancestor options
