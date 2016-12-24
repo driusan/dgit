@@ -33,16 +33,12 @@ type CheckoutIndexOptions struct {
 	NullTerminate bool
 }
 
-// Implements the "git checkout-index" subcommand.
-func CheckoutIndex(c *Client, opts CheckoutIndexOptions, files []string) error {
-	if len(files) != 0 && opts.All {
-		return fmt.Errorf("Can not mix --all and named files")
-	}
-
-	idx, err := c.GitDir.ReadIndex()
-	if err != nil {
-		return err
-	}
+// Same as "git checkout-index", except the Index is passed as a parameter (and
+// may not have been written to disk yet). You likely want CheckoutIndex instead.
+//
+// (This is primarily for read-tree to be able to update the filesystem with the
+// -u parameter.)
+func CheckoutIndexUncommited(c *Client, idx *Index, opts CheckoutIndexOptions, files []string) error {
 	if opts.All {
 		for _, entry := range idx.Objects {
 			files = append(files, entry.PathName.String())
@@ -115,4 +111,17 @@ func CheckoutIndex(c *Client, opts CheckoutIndexOptions, files []string) error {
 
 	}
 	return nil
+}
+
+// Implements the "git checkout-index" subcommand of git.
+func CheckoutIndex(c *Client, opts CheckoutIndexOptions, files []string) error {
+	if len(files) != 0 && opts.All {
+		return fmt.Errorf("Can not mix --all and named files")
+	}
+
+	idx, err := c.GitDir.ReadIndex()
+	if err != nil {
+		return err
+	}
+	return CheckoutIndexUncommited(c, idx, opts, files)
 }

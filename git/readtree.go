@@ -55,6 +55,14 @@ func ReadTreeMerge(c *Client, opt ReadTreeOptions, stage1, stage2, stage3 Treeis
 // from parent to dst. Local modifications to the work tree will be preserved.
 // If options.DryRun is not false, it will also be written to the Client's index file.
 func ReadTreeFastForward(c *Client, opt ReadTreeOptions, parent, dst Treeish) (*Index, error) {
+	// First do some sanity checks
+	if opt.Update && opt.Prefix == "" && !opt.Merge && !opt.Reset {
+		return nil, fmt.Errorf("-u is meaningless without -m, --reset or --prefix")
+	}
+	if opt.Prefix != "" {
+		return nil, fmt.Errorf("--prefix is not yet implemented")
+	}
+
 	// This is the table of how fast-forward merges work from git-read-tree(1)
 	// I == Index, H == parent, and M == dst in their terminology. (ie. It's a
 	// fast-forward from H to M while the index is in state I.)
@@ -196,6 +204,9 @@ func ReadTreeFastForward(c *Client, opt ReadTreeOptions, parent, dst Treeish) (*
 	// We need to make sure the number of index entries stays is correct,
 	// it's going to be an invalid index..
 	newidx.NumberIndexEntries = uint32(len(newidx.Objects))
+	if err := checkMergeAndUpdate(c, opt, I, newidx); err != nil {
+		return nil, err
+	}
 
 	return newidx, readtreeSaveIndex(c, opt, newidx)
 }
@@ -220,25 +231,66 @@ func readtreeSaveIndex(c *Client, opt ReadTreeOptions, i *Index) error {
 // Reads a tree into the index. If DryRun is not false, it will also be written
 // to disk.
 func ReadTree(c *Client, opt ReadTreeOptions, tree Treeish) (*Index, error) {
-	if opt.Merge || opt.Reset {
-		return nil, fmt.Errorf("Must call ReadTreeFastForward or ReadTreeMerge for --merge and --reset options")
-	}
-	if opt.Update && opt.Prefix == "" {
-		return nil, fmt.Errorf("-u is meaningless without -m, --reset or --prefix")
-	}
 	if opt.Prefix != "" {
 		return nil, fmt.Errorf("--prefix is not yet implemented")
 	}
 	idx, _ := c.GitDir.ReadIndex()
-
+	// Convert to a new map before doing anything, so that checkMergeAndUpdate
+	// can compare the original update after we reset.
+	origMap := idx.GetMap()
 	if opt.Empty {
 		idx.NumberIndexEntries = 0
 		idx.Objects = make([]*IndexEntry, 0)
+		if err := checkMergeAndUpdate(c, opt, origMap, idx); err != nil {
+			return nil, err
+		}
 		return idx, readtreeSaveIndex(c, opt, idx)
 	}
 	err := idx.ResetIndex(c, tree)
 	if err != nil {
 		return nil, err
 	}
+
+	if err := checkMergeAndUpdate(c, opt, origMap, idx); err != nil {
+		return nil, err
+	}
 	return idx, readtreeSaveIndex(c, opt, idx)
+}
+
+// Check if the merge would overwrite any modified files and return an error if so (unless --reset),
+// then update the file system.
+func checkMergeAndUpdate(c *Client, opt ReadTreeOptions, origidx map[IndexPath]*IndexEntry, newidx *Index) error {
+	if opt.Update && opt.Prefix == "" && !opt.Merge && !opt.Reset {
+		return fmt.Errorf("-u is meaningless without -m, --reset or --prefix")
+	}
+
+	// Verify that merge won't overwrite anything that's been modified locally.
+	for _, entry := range newidx.Objects {
+		orig, ok := origidx[entry.PathName]
+		if !ok {
+			// If it wasn't in the original index, it's fine
+			continue
+		}
+
+		if orig.Sha1 == entry.Sha1 {
+			// Nothing was modified, so don't bother checking anything
+			continue
+		}
+		if entry.PathName.IsClean(c, orig.Sha1) {
+			// it hasn't been modified locally, so we're good.
+			continue
+		} else {
+			// There are local unmodified changes on the filesystem
+			// from the original that would be lost by -u, so return
+			// an error unless --reset is specified.
+			if !opt.Reset {
+				return fmt.Errorf("%s has local changes. Can not merge.", entry.PathName)
+			}
+		}
+	}
+
+	if opt.Update || opt.Reset {
+		return CheckoutIndexUncommited(c, newidx, CheckoutIndexOptions{All: true, Force: opt.Reset}, nil)
+	}
+	return nil
 }
