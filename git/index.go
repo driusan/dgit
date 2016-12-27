@@ -166,7 +166,7 @@ func ReadIndexEntry(file *os.File) (*IndexEntry, error) {
 	return &IndexEntry{f, IndexPath(name)}, nil
 }
 
-// A Stage represents a git merge stage in the index. 
+// A Stage represents a git merge stage in the index.
 type Stage uint8
 
 // Valid merge stages.
@@ -176,6 +176,7 @@ const (
 	Stage2
 	Stage3
 )
+
 // Adds an entry to the index with Sha1 s and stage stage during a merge.
 // If an entry already exists for this pathname/stage, it will be overwritten,
 // otherwise it will be added.
@@ -230,11 +231,11 @@ func (g *Index) AddStage(c *Client, path IndexPath, s Sha1, stage Stage, mtime, 
 			0, //uint32(cnano),
 			mtime,
 			mtimenano,
-			0, //uint32(stat.Dev),
-			0, //uint32(stat.Ino),
+			0,        //uint32(stat.Dev),
+			0,        //uint32(stat.Ino),
 			ModeBlob, // Directories are never added, only their files, so assume blob
-			0, //stat.Uid,
-			0, //stat.Gid,
+			0,        //stat.Uid,
+			0,        //stat.Gid,
 			size,
 			s,
 			flags,
@@ -254,7 +255,7 @@ func (g *Index) RemoveUnmergedStages(c *Client, path IndexPath) error {
 	for _, entry := range g.Objects {
 		stage := entry.Stage()
 		if entry.PathName == path && stage == Stage0 {
-				newobjects = append(newobjects, entry)
+			newobjects = append(newobjects, entry)
 		} else if entry.PathName == path && stage != Stage0 {
 			// do not add it, it's the wrong stage.
 		} else {

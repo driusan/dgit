@@ -44,11 +44,73 @@ type ReadTreeOptions struct {
 	NoSparseCheckout bool
 }
 
-// ReadTreeFastForward will return a new GitIndex with parent fast-forwarded to
-// from parent to to. If options.DryRun is not false, it will also be written to
-// the Client's index file.
+// ReadTreeMerge will perform a three-way merge on the trees stage1, stage2, and stage3.
+// In a normal merge, stage1 is the common ancestor, stage2 is "our" changes, and
+// stage3 is "their" changes. See git-read-tree(1) for details.
+//
+// If options.DryRun is not false, it will also be written to the Client's index file.
 func ReadTreeMerge(c *Client, opt ReadTreeOptions, stage1, stage2, stage3 Treeish) (*Index, error) {
-	return nil, fmt.Errorf("ReadTreeMerge not yet implemented")
+	idx, err := c.GitDir.ReadIndex()
+	if err != nil {
+		return nil, err
+	}
+	origMap := idx.GetMap()
+
+	base, err := GetIndexMap(c, stage1)
+	if err != nil {
+		return nil, err
+	}
+
+	ours, err := GetIndexMap(c, stage2)
+	if err != nil {
+		return nil, err
+	}
+
+	theirs, err := GetIndexMap(c, stage3)
+	if err != nil {
+		return nil, err
+	}
+
+	objects := idx.Objects
+	for _, entry := range objects {
+		path := entry.PathName
+
+		// All three trees are the same, don't do anything to the index.
+		if base[path].Sha1 == ours[path].Sha1 && base[path].Sha1 == theirs[path].Sha1 {
+			continue
+		}
+
+		// If both stage2 and stage3 are the same, the work has been done in
+		// both branches, so collapse to stage0 (use our changes)
+		if ours[path].Sha1 == theirs[path].Sha1 {
+			idx.AddStage(c, path, ours[path].Sha1, Stage0, ours[path].Mtime, ours[path].Mtimenano, ours[path].Fsize)
+			continue
+		}
+
+		// If stage1 and stage2 are the same, our branch didn't do anything,
+		// but theirs did, so take their changes.
+		if base[path].Sha1 == ours[path].Sha1 {
+			idx.AddStage(c, path, theirs[path].Sha1, Stage0, theirs[path].Mtime, theirs[path].Mtimenano, theirs[path].Fsize)
+			continue
+		}
+
+		// If stage1 and stage3 are the same, we did something but they didn't,
+		// so take our changes
+		if base[path].Sha1 == theirs[path].Sha1 {
+			idx.AddStage(c, path, ours[path].Sha1, Stage0, ours[path].Mtime, ours[path].Mtimenano, ours[path].Fsize)
+			continue
+		}
+
+		// We couldn't short-circuit out, so add all three stages.
+		idx.AddStage(c, path, base[path].Sha1, Stage1, base[path].Mtime, base[path].Mtimenano, base[path].Fsize)
+		idx.AddStage(c, path, ours[path].Sha1, Stage2, ours[path].Mtime, ours[path].Mtimenano, ours[path].Fsize)
+		idx.AddStage(c, path, theirs[path].Sha1, Stage3, theirs[path].Mtime, theirs[path].Mtimenano, theirs[path].Fsize)
+	}
+	if err := checkMergeAndUpdate(c, opt, origMap, idx); err != nil {
+		return nil, err
+	}
+
+	return idx, readtreeSaveIndex(c, opt, idx)
 }
 
 // ReadTreeFastForward will return a new Index with parent fast-forwarded to
