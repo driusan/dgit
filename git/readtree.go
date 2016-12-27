@@ -263,6 +263,11 @@ func checkMergeAndUpdate(c *Client, opt ReadTreeOptions, origidx map[IndexPath]*
 	if opt.Update && opt.Prefix == "" && !opt.Merge && !opt.Reset {
 		return fmt.Errorf("-u is meaningless without -m, --reset or --prefix")
 	}
+	if (opt.Prefix != "" && (opt.Merge || opt.Reset)) ||
+		(opt.Merge && (opt.Prefix != "" || opt.Reset)) ||
+		(opt.Reset && (opt.Prefix != "" || opt.Merge)) {
+		return fmt.Errorf("Can only specify one of -u, --reset, or --prefix")
+	}
 
 	// Verify that merge won't overwrite anything that's been modified locally.
 	for _, entry := range newidx.Objects {
@@ -290,7 +295,7 @@ func checkMergeAndUpdate(c *Client, opt ReadTreeOptions, origidx map[IndexPath]*
 	}
 
 	if opt.Update || opt.Reset {
-		return CheckoutIndexUncommited(c, newidx, CheckoutIndexOptions{All: true, Force: opt.Reset}, nil)
+		return CheckoutIndexUncommited(c, newidx, CheckoutIndexOptions{All: true, Quiet: true, Force: opt.Reset}, nil)
 	}
 	return nil
 }

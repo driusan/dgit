@@ -59,17 +59,25 @@ func CheckoutIndexUncommited(c *Client, idx *Index, opts CheckoutIndexOptions, f
 			if entry.PathName != indexpath {
 				continue
 			}
-
+			if entry.PathName.IsClean(c, entry.Sha1) {
+				// don't bother checkout out the file
+				// if it's already clean. This makes us less
+				// likely to avoid GetObject have an error
+				// trying to read from a packfile (which isn't
+				// supported yet.)
+				continue
+			}
+			
 			f := File(opts.Prefix + file)
 			obj, err := c.GetObject(entry.Sha1)
+			if err != nil {
+				return err
+			}
 			if f.Exists() && !opts.Force {
 				if !opts.Quiet {
 					fmt.Fprintf(os.Stderr, "%v already exists, no checkout\n", indexpath)
 				}
 				continue
-			}
-			if err != nil {
-				return err
 			}
 
 			if !opts.NoCreate {
