@@ -1,8 +1,6 @@
 package git
 
 import (
-	"fmt"
-
 	libgit "github.com/driusan/git"
 )
 
@@ -34,7 +32,6 @@ func (g *Index) ResetIndex(c *Client, tree Treeish) error {
 	if err != nil {
 		return err
 	}
-	fmt.Printf("%s", newEntries)
 	g.NumberIndexEntries = uint32(len(newEntries))
 	g.Objects = newEntries
 	return nil

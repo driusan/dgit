@@ -43,7 +43,6 @@ func (c *Client) GetObject(sha1 Sha1) (GitObject, error) {
 		panic(err)
 	}
 	objectname := fmt.Sprintf("%s/objects/%x/%x", c.GitDir, sha1[0:1], sha1[1:])
-	fmt.Printf("File: %s\n", objectname)
 	f, err := os.Open(objectname)
 	if err != nil {
 		panic("Couldn't open object file.")

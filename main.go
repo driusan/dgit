@@ -61,7 +61,10 @@ func main() {
 	case "branch":
 		cmd.Branch(c, args)
 	case "checkout":
-		cmd.Checkout(c, args)
+		if err := cmd.Checkout(c, args); err != nil {
+			fmt.Fprintf(os.Stderr, "%v\n", err)
+			os.Exit(4)
+		}
 	case "checkout-index":
 		if err := cmd.CheckoutIndexCmd(c, args); err != nil {
 			fmt.Fprintf(os.Stderr, "%v\n", err)
