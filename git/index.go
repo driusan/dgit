@@ -37,6 +37,9 @@ type IndexEntry struct {
 	PathName IndexPath
 }
 
+func (ie IndexEntry) Stage() Stage {
+	return Stage((ie.Flags >> 12) & 0x3)
+}
 func NewIndex() *Index {
 	return &Index{
 		fixedGitIndex: fixedGitIndex{
@@ -163,6 +166,107 @@ func ReadIndexEntry(file *os.File) (*IndexEntry, error) {
 	return &IndexEntry{f, IndexPath(name)}, nil
 }
 
+// A Stage represents a git merge stage in the index. 
+type Stage uint8
+
+// Valid merge stages.
+const (
+	Stage0 = Stage(iota)
+	Stage1
+	Stage2
+	Stage3
+)
+// Adds an entry to the index with Sha1 s and stage stage during a merge.
+// If an entry already exists for this pathname/stage, it will be overwritten,
+// otherwise it will be added.
+//
+// As a special case, if something is added as Stage0, then Stage1-3 entries
+// will be removed.
+func (g *Index) AddStage(c *Client, path IndexPath, s Sha1, stage Stage, mtime, mtimenano, size uint32) error {
+	if stage == Stage0 {
+		defer g.RemoveUnmergedStages(c, path)
+	}
+
+	// Update the existing stage, if it exists.
+	for _, entry := range g.Objects {
+		if entry.PathName == path && entry.Stage() == stage {
+			entry.Sha1 = s
+			entry.Mtime = mtime
+			entry.Mtimenano = mtimenano
+			entry.Fsize = size
+
+			// We found and updated the entry, no need to continue
+			return nil
+		}
+	}
+
+	// There was no path/stage combo already in the index. Add it.
+
+	// According to the git documentation:
+	// Flags is
+	//    A 16-bit 'flags' field split into (high to low bits)
+	//
+	//       1-bit assume-valid flag
+	//
+	//       1-bit extended flag (must be zero in version 2)
+	//
+	//       2-bit stage (during merge)
+	//       12-bit name length if the length is less than 0xFFF; otherwise 0xFFF
+	//     is stored in this field.
+
+	// So we'll construct the flags based on what we know.
+
+	var flags = uint16(stage) << 12 // start with the stage.
+	// Add the name length.
+	if len(path) >= 0x0FFF {
+		flags |= 0x0FFF
+	} else {
+		flags |= (uint16(len(path)) & 0x0FFF)
+	}
+
+	g.Objects = append(g.Objects, &IndexEntry{
+		fixedIndexEntry{
+			0, //uint32(csec),
+			0, //uint32(cnano),
+			mtime,
+			mtimenano,
+			0, //uint32(stat.Dev),
+			0, //uint32(stat.Ino),
+			ModeBlob, // Directories are never added, only their files, so assume blob
+			0, //stat.Uid,
+			0, //stat.Gid,
+			size,
+			s,
+			flags,
+		},
+		path,
+	})
+	g.NumberIndexEntries += 1
+	sort.Sort(ByPath(g.Objects))
+	return nil
+
+}
+
+// Remove any unmerged (non-stage 0) stage from the index for the given path
+func (g *Index) RemoveUnmergedStages(c *Client, path IndexPath) error {
+	// There are likely 3 things being deleted, so make a new slice
+	newobjects := make([]*IndexEntry, 0, len(g.Objects))
+	for _, entry := range g.Objects {
+		stage := entry.Stage()
+		if entry.PathName == path && stage == Stage0 {
+				newobjects = append(newobjects, entry)
+		} else if entry.PathName == path && stage != Stage0 {
+			// do not add it, it's the wrong stage.
+		} else {
+			// It's a different Pathname, keep it.
+			newobjects = append(newobjects, entry)
+		}
+	}
+	g.Objects = newobjects
+	g.NumberIndexEntries = uint32(len(newobjects))
+	return nil
+}
+
 // Adds a file to the index, without writing it to disk.
 // To write it to disk after calling this, use GitIndex.WriteIndex
 //
@@ -189,96 +293,26 @@ func (g *Index) AddFile(c *Client, file *os.File) error {
 	if err != nil {
 		return err
 	}
-	for _, entry := range g.Objects {
-		if entry.PathName == name {
-			entry.Sha1 = hash
 
-			fstat, err := file.Stat()
-			if err != nil {
-				panic(err)
-			}
-			modTime := fstat.ModTime()
-			entry.Mtime = uint32(modTime.Unix())
-			entry.Mtimenano = uint32(modTime.Nanosecond())
-			entry.Fsize = uint32(fstat.Size())
-
-			// We found and updated the entry, no need to continue
-			return nil
-		}
-	}
-
-	// It's a new file.
 	fstat, err := file.Stat()
 	if err != nil {
 		return err
 	}
-	modTime := fstat.ModTime()
-	//stat := fstat.Sys().(*syscall.Stat_t)
-	//csec, cnano := stat.Ctim.Unix()
-
-	var mode EntryMode
 	if fstat.IsDir() {
 		// This should really recursively call add for each file in the directory.
-		panic("Add can't handle directories. yet.")
-	} else {
-		// if it's a regular file, just assume it's 0644 for now
-		mode = ModeBlob
-
-	}
-	// mode is
-	/*
-	     32-bit mode, split into (high to low bits)
-
-	       4-bit object type
-	         valid values in binary are 1000 (regular file), 1010 (symbolic link)
-	         and 1110 (gitlink)
-
-	       3-bit unused
-
-	       9-bit unix permission. Only 0755 and 0644 are valid for regular files.
-	       Symbolic links and gitlinks have value 0 in this field.
-
-	   Flags is
-	    A 16-bit 'flags' field split into (high to low bits)
-
-	       1-bit assume-valid flag
-
-	       1-bit extended flag (must be zero in version 2)
-
-	       2-bit stage (during merge)
-
-	       12-bit name length if the length is less than 0xFFF; otherwise 0xFFF
-	       is stored in this field.
-
-	*/
-	//var flags uint16 = 0x8000 // start with "assume-valid" flag
-	var flags uint16 = 0x8000 // start with "assume-valid" flag
-	if len(name) >= 0x0FFF {
-		flags |= 0x0FFF
-	} else {
-		flags |= (uint16(len(name)) & 0x0FFF)
+		return fmt.Errorf("Add can't handle directories. yet.")
 	}
 
-	g.Objects = append(g.Objects, &IndexEntry{
-		fixedIndexEntry{
-			0, //uint32(csec),                 // right?
-			0, //uint32(cnano),                // right?
-			uint32(modTime.Unix()),       // right
-			uint32(modTime.Nanosecond()), // right
-			0, //uint32(stat.Dev),             // right
-			0, //uint32(stat.Ino),             // right
-			mode,
-			0,                    //stat.Uid,             // right?
-			0,                    //stat.Gid,             // right?
-			uint32(fstat.Size()), // right
-			hash,                 // this is right
-			flags,                // right
-		},
+	modTime := fstat.ModTime()
+	return g.AddStage(
+		c,
 		name,
-	})
-	g.NumberIndexEntries += 1
-	sort.Sort(ByPath(g.Objects))
-	return nil
+		hash,
+		Stage0,
+		uint32(modTime.Unix()),
+		uint32(modTime.Nanosecond()),
+		uint32(fstat.Size()),
+	)
 }
 
 func (i *Index) GetMap() map[IndexPath]*IndexEntry {
