@@ -117,7 +117,7 @@ func RevParseTreeish(c *Client, opt *RevParseOptions, arg string) (Treeish, erro
 			return nil, fmt.Errorf("%s is not a tree-ish", arg)
 		}
 	}
-	if r := SymbolicRefGet(c, arg); r != "" {
+	if r := SymbolicRefGet(c, SymbolicRefOptions{}, arg); r != "" {
 		return c.GetSymbolicRefCommit(r)
 	}
 	return c.GetBranchCommit(arg)
@@ -131,7 +131,7 @@ func RevParseCommit(c *Client, opt *RevParseOptions, arg string) (CommitID, erro
 		sha1, err := Sha1FromString(arg)
 		return CommitID(sha1), err
 	}
-	if r := SymbolicRefGet(c, arg); r != "" {
+	if r := SymbolicRefGet(c, SymbolicRefOptions{}, arg); r != "" {
 		return c.GetSymbolicRefCommit(r)
 	}
 	return c.GetBranchCommit(arg)
@@ -171,7 +171,7 @@ func RevParse(c *Client, opt RevParseOptions, args []string) (commits []ParsedRe
 					commits = append(commits, ParsedRevision{comm, exclude})
 					continue
 				}
-				if r := SymbolicRefGet(c, sha); r != "" {
+				if r := SymbolicRefGet(c, SymbolicRefOptions{}, sha); r != "" {
 					comm, err := c.GetSymbolicRefCommit(r)
 					if err != nil {
 						err2 = err

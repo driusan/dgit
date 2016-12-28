@@ -7,9 +7,18 @@ import (
 	"strings"
 )
 
+// SymbolicRefOptions represents the command line options
+// that may be passed on the command line. (NB. None of these
+// are implemented.)
+type SymbolicRefOptions struct {
+	Quiet  bool
+	Delete bool
+	Short  bool
+}
+
 // Gets a RefSpec for a symbolic ref. Returns "" if symname is not a valid
 // symbolic ref.
-func SymbolicRefGet(c *Client, symname string) RefSpec {
+func SymbolicRefGet(c *Client, opts SymbolicRefOptions, symname string) RefSpec {
 	file, err := c.GitDir.Open(File(symname))
 	if err != nil {
 		return ""
@@ -27,7 +36,7 @@ func SymbolicRefGet(c *Client, symname string) RefSpec {
 
 }
 
-func SymbolicRefUpdate(c *Client, reflogmessage string, symname string, refvalue RefSpec) RefSpec {
+func SymbolicRefUpdate(c *Client, opts SymbolicRefOptions, symname string, refvalue RefSpec, reason string) RefSpec {
 	if !strings.HasPrefix(refvalue.String(), "refs/") {
 		fmt.Fprintf(os.Stderr, "fatal: Refusing to point "+symname+" outside of refs/")
 		return ""

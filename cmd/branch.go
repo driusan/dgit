@@ -24,7 +24,7 @@ func Branch(c *git.Client, args []string) {
 			fmt.Println(b)
 		}
 	case 1:
-		head, err := c.GetSymbolicRefCommit(git.SymbolicRefGet(c, "HEAD"))
+		head, err := c.GetSymbolicRefCommit(git.SymbolicRefGet(c, git.SymbolicRefOptions{}, "HEAD"))
 		if err != nil {
 			fmt.Fprintf(os.Stderr, "Could not create branch (%v): %v\n", head, err)
 			return

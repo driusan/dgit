@@ -98,7 +98,11 @@ func main() {
 	case "log":
 		cmd.Log(c, args)
 	case "symbolic-ref":
-		val := cmd.SymbolicRef(c, args)
+		val, err := cmd.SymbolicRef(c, args)
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "%v\n", err)
+			os.Exit(4)
+		}
 		fmt.Printf("%s\n", val)
 	case "clone":
 		cmd.Clone(c, args)

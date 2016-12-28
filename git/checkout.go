@@ -90,24 +90,34 @@ func Checkout(c *Client, opts CheckoutOptions, thing string, files []string) err
 //     git checkout [-q] [-f] [-m] [--detach] <commit>
 //     git checkout [-q] [-f] [-m] [[-b|-B|--orphan] <new_branch>] [<start_point>]
 func CheckoutCommit(c *Client, opts CheckoutOptions, commit Commitish) error {
-	if opt.Branch != "" {
+	if opts.Branch != "" {
 		// commit is the startpoint in the last variation, otherwise
 		// Checkout() already set it to the commit of "HEAD"
-		refspecfile := File(c.GitDir + "/refs/heads/" + opts.Branch
-		if refspecfile.Exists() && !opts.BranchForce {
-			return fmt.Errorf("Branch %s already exists.", opt.Branch)
+		refspec := RefSpec("refs/heads/" + opts.Branch)
+		refspecfile := refspec.File(c)
+		if refspecfile.Exists() && !opts.ForceBranch {
+			return fmt.Errorf("Branch %s already exists.", opts.Branch)
 		}
-		UpdateRef(c, "refs/heads/" + opts.Branch, commit)
+		return fmt.Errorf("CheckoutCommit not yet implemented")
 	}
-	//	return CheckoutFiles(c, opts, commit, nil)
-	return fmt.Errorf("Not yet implemented. Please use checkout-index directly instead.")
+	cmt, err := commit.CommitID(c)
+	if err != nil {
+		return err
+	}
+	return CheckoutFiles(c, opts, cmt, nil)
 }
 
 // Implements "git checkout" subcommand of git for variations:
 //     git checkout [-f|--ours|--theirs|-m|--conflict=<style>] [<tree-ish>] [--] <paths>...
 //     git checkout [-p|--patch] [<tree-ish>] [--] [<paths>...]
 func CheckoutFiles(c *Client, opts CheckoutOptions, tree Treeish, files []string) error {
-	i, err := ReadTree(c, ReadTreeOptions{Update: true, Merge: true}, tree)
+	// If files were specified, we don't want ReadTree to update the workdir,
+	// because we only want to (force) update the specified files.
+	//
+	// If they weren't, we want to checkout a treeish, so let ReadTree update
+	// the workdir so that we don't lose any changes.
+	updateAll := (len(files) == 0)
+	i, err := ReadTree(c, ReadTreeOptions{Update: updateAll, Merge: updateAll}, tree)
 	if err != nil {
 		return err
 	}

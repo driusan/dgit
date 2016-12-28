@@ -1,34 +1,45 @@
 package cmd
 
 import (
+	"flag"
+	"fmt"
+	"os"
+
 	"github.com/driusan/go-git/git"
 )
 
-func SymbolicRef(c *git.Client, args []string) git.RefSpec {
-	var startAt int
-	var skipNext bool
-	//	var reason string
-	for idx, val := range args {
-		if skipNext == true {
-			skipNext = false
-			continue
-		}
-
-		switch val {
-		case "-m":
-			//	reason = args[idx+1]
-			startAt = idx + 1
-		}
-
+func SymbolicRef(c *git.Client, args []string) (git.RefSpec, error) {
+	flags := flag.NewFlagSet("symbolic-ref", flag.ExitOnError)
+	flags.Usage = func() {
+		flag.Usage()
+		fmt.Fprintf(os.Stderr, "\nsymbolic-ref options:\n\n")
+		flags.PrintDefaults()
 	}
 
-	args = args[startAt:]
+	opts := git.SymbolicRefOptions{}
+
+	reason := flags.String("m", "", "Reason to record in reflog for updating the reference")
+
+	delete := flags.Bool("delete", false, "Delete the reference")
+	d := flags.Bool("d", false, "Alias of --delete")
+
+	quiet := flags.Bool("quiet", false, "Do not print an error if <name> is not a detached head")
+	q := flags.Bool("q", false, "Alias of --quiet")
+
+	flags.BoolVar(&opts.Short, "short", false, "Try to shorten the names of a symbolic ref")
+
+	opts.Delete = *delete || *d
+	opts.Quiet = *quiet || *q
+
+	flags.Parse(args)
+	vals := flags.Args()
+
 	switch len(args) {
 	case 1:
-		return git.SymbolicRefGet(c, args[0])
+		return git.SymbolicRefGet(c, opts, vals[0]), nil
 	case 2:
-		return git.SymbolicRefUpdate(c, "", args[0], git.RefSpec(args[1]))
-	default:
-		panic("Arguments were parsed incorrectly or invalid. Can't get or update symbolic ref")
+		return git.SymbolicRefUpdate(c, opts, vals[0], git.RefSpec(vals[1]), *reason), nil
 	}
+	flag.Usage()
+	return "", fmt.Errorf("Invalid usage")
 }

@@ -79,7 +79,7 @@ func UpdateRef(c *Client, opts UpdateRefOptions, ref string, cmt CommitID, reaso
 	if strings.HasPrefix(ref, "refs/") {
 		return UpdateRefSpec(c, opts, RefSpec(ref), cmt, reason)
 	}
-	if refspec := SymbolicRefGet(c, ref); !opts.NoDeref && refspec != "" {
+	if refspec := SymbolicRefGet(c, SymbolicRefOptions{}, ref); !opts.NoDeref && refspec != "" {
 		// This is duplicated from UpdateRefSpec, but we should check
 		// the value before updating the reflog. If we're not doing
 		// anything, we shouldn't update the reflog. (It stays in

@@ -17,10 +17,15 @@ func (r RefSpec) String() string {
 	return strings.TrimSpace(strings.TrimSuffix(string(r), "\000"))
 }
 
+// Returns the file that holds r.
+func (r RefSpec) File(c *Client) File {
+	return c.GitDir.File(File(r.String()))
+}
+
 // Returns the value of RefSpec in Client's GitDir, or the empty string
 // if it doesn't exist.
 func (r RefSpec) Value(c *Client) (string, error) {
-	f := c.GitDir.File(File(r.String()))
+	f := r.File(c)
 	val, err := f.ReadAll()
 	return strings.TrimSpace(val), err
 }
