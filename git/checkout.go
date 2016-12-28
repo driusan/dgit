@@ -7,31 +7,45 @@ import (
 // CheckoutOptions represents the options that may be passed to
 // "git checkout"
 type CheckoutOptions struct {
-	Quiet    bool
+	// Not implemented
+	Quiet bool
+	// Not implemented
 	Progress bool
-	Force    bool
+	// Not implemented
+	Force bool
 
-	// Check out the named stage.
+	// Check out the named stage for unnamed paths.
 	// Stage2 is equivalent to --ours, Stage3 to --theirs
+	// Not implemented
 	Stage Stage
 
-	Branch       string // -b
-	ForceBranch  bool   // use branch as -B
-	OrphanBranch bool   // use branch as --orphan
+	// Not implemented
+	Branch string // -b
+	// Not implemented
+	ForceBranch bool // use branch as -B
+	// Not implemented
+	OrphanBranch bool // use branch as --orphan
 
-	Track        bool
+	// Not implemented
+	Track string
+	// Not implemented
 	CreateReflog bool // -l
 
+	// Not implemented
 	Detach bool
 
+	// Not implemented
 	IgnoreSkipWorktreeBits bool
-	Merge                  bool
+	// Not implemented
+	Merge bool
 
 	// Not implemented.
 	ConflictStyle string
 
+	// Not implemented
 	Patch bool
 
+	// Not implemented
 	IgnoreOtherWorktrees bool
 }
 
@@ -51,22 +65,16 @@ type CheckoutOptions struct {
 // "thing" is the thing that the user entered on the command line to be checked out. It
 // might be a branch, a commit, or a treeish, depending on the variation above.
 func Checkout(c *Client, opts CheckoutOptions, thing string, files []string) error {
-	if len(files) == 0 {
-		if sha1, err := c.GetBranchCommit(thing); err != nil {
-			return CheckoutCommit(c, opts, sha1)
-		}
-
-		if opts.Branch != "" {
-			b, err := RevParseCommit(c, &RevParseOptions{}, "HEAD")
-			if err != nil {
-				return err
-			}
-			return CheckoutCommit(c, opts, b)
-		}
-	}
-
 	if thing == "" {
 		thing = "HEAD"
+	}
+
+	if len(files) == 0 {
+		cmt, err := RevParseCommit(c, &RevParseOptions{}, thing)
+		if err != nil {
+			return err
+		}
+		return CheckoutCommit(c, opts, cmt)
 	}
 
 	b, err := RevParseTreeish(c, &RevParseOptions{}, thing)
