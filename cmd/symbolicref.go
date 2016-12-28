@@ -36,9 +36,9 @@ func SymbolicRef(c *git.Client, args []string) (git.RefSpec, error) {
 
 	switch len(args) {
 	case 1:
-		return git.SymbolicRefGet(c, opts, vals[0]), nil
+		return git.SymbolicRefGet(c, opts, vals[0])
 	case 2:
-		return git.SymbolicRefUpdate(c, opts, vals[0], git.RefSpec(vals[1]), *reason), nil
+		return "", git.SymbolicRefUpdate(c, opts, vals[0], git.RefSpec(vals[1]), *reason)
 	}
 	flag.Usage()
 	return "", fmt.Errorf("Invalid usage")

@@ -29,3 +29,45 @@ func (r RefSpec) Value(c *Client) (string, error) {
 	val, err := f.ReadAll()
 	return strings.TrimSpace(val), err
 }
+
+// A Branch is a type of RefSpec that lives under refs/heads/ or refs/remotes/heads
+// Use GetBranch to get a valid branch from a branchname, don't cast from string
+type Branch RefSpec
+
+// Returns a valid Branch object for an existing branch.
+func GetBranch(c *Client, branchname string) (Branch, error) {
+	b := Branch("refs/heads/" + branchname)
+	if !b.Exists(c) {
+		return "", InvalidBranch
+	}
+	return b, nil
+}
+
+// Returns true if the branch exists under c's GitDir
+func (b Branch) Exists(c *Client) bool {
+	return c.GitDir.File(File(b)).Exists()
+}
+
+// Implements Commitish interface on Branch.
+func (b Branch) CommitID(c *Client) (CommitID, error) {
+	val, err := RefSpec(b).Value(c)
+	if err != nil {
+		return CommitID{}, err
+	}
+	sha, err := Sha1FromString(val)
+	return CommitID(sha), err
+}
+
+// Implements Treeish on Branch.
+func (b Branch) TreeID(c *Client) (TreeID, error) {
+	cmt, err := b.CommitID(c)
+	if err != nil {
+		return TreeID{}, err
+	}
+	return cmt.TreeID(c)
+}
+
+// Returns the branch name, without the refspec portion.
+func (b Branch) BranchName() string {
+	return strings.TrimPrefix(string(b), "refs/heads/")
+}

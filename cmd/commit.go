@@ -1,6 +1,8 @@
 package cmd
 
 import (
+	"fmt"
+
 	"github.com/driusan/go-git/git"
 )
 
@@ -30,7 +32,7 @@ func Commit(c *git.Client, args []string) (string, error) {
 			return "", err
 		}
 
-		c.GitDir.WriteFile("COMMIT_EDITMSG", []byte("\n\n"+s), 0660)
+		c.GitDir.WriteFile("COMMIT_EDITMSG", []byte("\n"+s), 0660)
 		c.ExecEditor(c.GitDir.File("COMMIT_EDITMSG"))
 		commitTreeArgs = append(commitTreeArgs, "-F", c.GitDir.File("COMMIT_EDITMSG").String())
 	}
@@ -45,7 +47,17 @@ func Commit(c *git.Client, args []string) (string, error) {
 	if err != nil {
 		return "", err
 	}
+	file := c.GitDir.File("COMMIT_EDITMSG")
+	msg, _ := file.ReadFirstLine()
+	if msg == "" {
+		msg = "commit from go-git"
+	}
+	refmsg := fmt.Sprintf("commit: %s (go-git)", msg)
 
-	UpdateRef(c, []string{"-m", "commit from go-git", "HEAD", commitSha1})
-	return commitSha1, nil
+	oldHead, err := c.GetHeadID()
+	if err != nil {
+		return "", err
+	}
+	err = git.UpdateRef(c, git.UpdateRefOptions{OldValue: oldHead}, "HEAD", commitSha1, refmsg)
+	return commitSha1.String(), err
 }

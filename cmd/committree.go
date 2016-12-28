@@ -11,7 +11,7 @@ import (
 	"github.com/driusan/go-git/git"
 )
 
-func CommitTree(c *git.Client, args []string) (string, error) {
+func CommitTree(c *git.Client, args []string) (git.CommitID, error) {
 	content := bytes.NewBuffer(nil)
 
 	var parents []string
@@ -67,7 +67,7 @@ func CommitTree(c *git.Client, args []string) (string, error) {
 	}
 	messageString = strings.Join(strippedLines, "\n")
 	if strings.TrimSpace(messageString) == "" {
-		return "", fmt.Errorf("Aborting due to empty commit message")
+		return git.CommitID{}, fmt.Errorf("Aborting due to empty commit message")
 	}
 
 	if tree == "" {
@@ -86,8 +86,5 @@ func CommitTree(c *git.Client, args []string) (string, error) {
 	fmt.Fprintf(content, "%s", messageString)
 	fmt.Printf("%s", content.Bytes())
 	sha1, err := c.WriteObject("commit", content.Bytes())
-	if err != nil {
-		return "", err
-	}
-	return fmt.Sprintf("%s", sha1), nil
+	return git.CommitID(sha1), err
 }

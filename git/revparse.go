@@ -117,10 +117,19 @@ func RevParseTreeish(c *Client, opt *RevParseOptions, arg string) (Treeish, erro
 			return nil, fmt.Errorf("%s is not a tree-ish", arg)
 		}
 	}
-	if r := SymbolicRefGet(c, SymbolicRefOptions{}, arg); r != "" {
-		return c.GetSymbolicRefCommit(r)
+
+	// Check if it's a symbolic ref
+	var b Branch
+	r, err := SymbolicRefGet(c, SymbolicRefOptions{}, arg)
+	if err == nil {
+		// It was a symbolic ref, convert it to a branch.
+		b = Branch(r)
+		return b, nil
 	}
-	return c.GetBranchCommit(arg)
+
+	// arg was not a Sha or a symbolic ref, it might still be a branch.
+	// (This will return an error if arg is an invalid branch.)
+	return GetBranch(c, arg)
 }
 
 // RevParse will parse a single revision into a Commit object.
@@ -131,13 +140,30 @@ func RevParseCommit(c *Client, opt *RevParseOptions, arg string) (CommitID, erro
 		sha1, err := Sha1FromString(arg)
 		return CommitID(sha1), err
 	}
-	if r := SymbolicRefGet(c, SymbolicRefOptions{}, arg); r != "" {
-		return c.GetSymbolicRefCommit(r)
+
+	// Check if it's a symbolic ref
+	var b Branch
+	r, err := SymbolicRefGet(c, SymbolicRefOptions{}, arg)
+	if err == nil {
+		// It was a symbolic ref, convert it to a branch.
+		b = Branch(r)
+	} else {
+		// arg was not a Sha or a symbolic ref, it might still be a branch
+		b, err = GetBranch(c, arg)
+		if err != nil {
+			// Nothing we know about, give up.
+			return CommitID{}, InvalidCommit
+		}
+
 	}
-	return c.GetBranchCommit(arg)
+
+	if b.Exists(c) {
+		return b.CommitID(c)
+	}
+	return CommitID{}, InvalidCommit
 }
 
-// Implements "git rev-prse". This should be refactored in terms of RevParseCommit and cleaned up.
+// Implements "git rev-parse". This should be refactored in terms of RevParseCommit and cleaned up.
 // (clean up a lot.)
 func RevParse(c *Client, opt RevParseOptions, args []string) (commits []ParsedRevision, err2 error) {
 	for _, arg := range args {
@@ -163,28 +189,12 @@ func RevParse(c *Client, opt RevParseOptions, args []string) (commits []ParsedRe
 					sha = arg
 					exclude = false
 				}
-				if len(sha) == 40 {
-					comm, err := Sha1FromString(sha)
-					if err != nil {
-						panic(err)
-					}
-					commits = append(commits, ParsedRevision{comm, exclude})
-					continue
-				}
-				if r := SymbolicRefGet(c, SymbolicRefOptions{}, sha); r != "" {
-					comm, err := c.GetSymbolicRefCommit(r)
-					if err != nil {
-						err2 = err
-					} else {
-						commits = append(commits, ParsedRevision{Sha1(comm), exclude})
-					}
-					continue
-				}
-				comm, err := c.GetBranchCommit(sha)
+				cmt, err := RevParseCommit(c, &opt, sha)
 				if err != nil {
 					err2 = err
 				} else {
-					commits = append(commits, ParsedRevision{Sha1(comm), exclude})
+					commits = append(commits, ParsedRevision{Sha1(cmt), exclude})
+
 				}
 			}
 		}

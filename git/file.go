@@ -1,6 +1,7 @@
 package git
 
 import (
+	"bufio"
 	"fmt"
 	"io/ioutil"
 	"os"
@@ -29,6 +30,7 @@ func (f File) Append(val string) error {
 	if err != nil {
 		return err
 	}
+	defer fi.Close()
 	fmt.Fprintf(fi, "%s", val)
 	return nil
 }
@@ -64,4 +66,23 @@ func (f File) ReadAll() (string, error) {
 		return "", err
 	}
 	return string(val), nil
+}
+
+// Reads the first line of File. (This is primarily to extract commit message
+// lines for reflogs)
+func (f File) ReadFirstLine() (string, error) {
+	if !f.Exists() {
+		return "", fmt.Errorf("File %s does not exist", f)
+	}
+	fi, err := os.Open(f.String())
+	if err != nil {
+		return "", err
+	}
+	defer fi.Close()
+	scanner := bufio.NewScanner(fi)
+	scanner.Scan()
+	if err := scanner.Err(); err != nil {
+		return "", err
+	}
+	return scanner.Text(), nil
 }

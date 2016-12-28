@@ -21,16 +21,16 @@ func Branch(c *git.Client, args []string) {
 			} else {
 				fmt.Print("  ")
 			}
-			fmt.Println(b)
+			fmt.Println(b.BranchName())
 		}
 	case 1:
-		head, err := c.GetSymbolicRefCommit(git.SymbolicRefGet(c, git.SymbolicRefOptions{}, "HEAD"))
+		headref, err := git.SymbolicRefGet(c, git.SymbolicRefOptions{}, "HEAD")
 		if err != nil {
-			fmt.Fprintf(os.Stderr, "Could not create branch (%v): %v\n", head, err)
 			return
 		}
-		if err := c.CreateBranch(args[0], head); err != nil {
-			fmt.Fprintf(os.Stderr, "Could not create branch (%v): %v\n", head, err)
+		b := git.Branch(headref)
+		if err := c.CreateBranch(args[0], b); err != nil {
+			fmt.Fprintf(os.Stderr, "Could not create branch (%v): %v\n", args[0], err)
 		}
 	default:
 		fmt.Fprintln(os.Stderr, "Usage: go-git branch [branchname]")

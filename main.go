@@ -76,7 +76,7 @@ func main() {
 	case "commit":
 		sha1, err := cmd.Commit(c, args)
 		if err != nil {
-			fmt.Fprintf(os.Stderr, "%v\n", err)
+			fmt.Fprintf(os.Stderr, "Err: %v\n", err)
 		} else {
 			fmt.Printf("%s\n", sha1)
 		}

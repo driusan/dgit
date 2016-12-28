@@ -84,6 +84,10 @@ func Checkout(c *Client, opts CheckoutOptions, thing string, files []string) err
 	return CheckoutFiles(c, opts, b, files)
 }
 
+func CheckoutBranch(c *Client, opts CheckoutOptions, commit Commitish) error {
+	return fmt.Errorf("CheckoutCommit not yet implemented")
+}
+
 // Implements the "git checkout" subcommand of git for variations:
 //     git checkout [-q] [-f] [-m] [<branch>]
 //     git checkout [-q] [-f] [-m] --detach [<branch>]
@@ -98,6 +102,9 @@ func CheckoutCommit(c *Client, opts CheckoutOptions, commit Commitish) error {
 		if refspecfile.Exists() && !opts.ForceBranch {
 			return fmt.Errorf("Branch %s already exists.", opts.Branch)
 		}
+
+		// err := SymbolicRefUpdate(c, SymbolicRefOptions{}, "HEAD", refspec, refvalue RefSpec, "checkout: go-git moving from ??? to ??? ")
+
 		return fmt.Errorf("CheckoutCommit not yet implemented")
 	}
 	cmt, err := commit.CommitID(c)

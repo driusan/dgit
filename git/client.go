@@ -127,23 +127,14 @@ func NewClient(gitDir, workDir string) (*Client, error) {
 
 // Returns the branchname of the HEAD branch, or the empty string if the
 // HEAD pointer is invalid or in a detached head state.
-func (c *Client) GetHeadBranch() string {
-	file, _ := c.GitDir.Open("HEAD")
-	value, _ := ioutil.ReadAll(file)
-	if prefix := string(value[0:5]); prefix != "ref: " {
-		panic("Could not understand HEAD pointer.")
-	} else {
-		ref := strings.Split(string(value[5:]), "/")
-		if len(ref) != 3 {
-			panic("Could not parse branch out of HEAD")
-		}
-		if ref[0] != "refs" || ref[1] != "heads" {
-			panic("Unknown HEAD reference")
-		}
-		return strings.TrimSpace(ref[2])
+func (c *Client) GetHeadBranch() Branch {
+	refspec, err := SymbolicRefGet(c, SymbolicRefOptions{}, "HEAD")
+	if err != nil {
+		return ""
 	}
-	return ""
 
+	// refspec's stringer trims trailing newlines.
+	return Branch(refspec.String())
 }
 
 // Will invoke the Client's editor to edit the file f.
@@ -194,42 +185,14 @@ func (c *Client) ResetWorkTree() error {
 	return nil
 }
 
-// Return the CommitID that a refspec is pointing towards.
-func (c *Client) GetSymbolicRefCommit(r RefSpec) (CommitID, error) {
-	file, err := c.GitDir.Open(File(r))
-	if err != nil {
-		return CommitID{}, err
-	}
-	data, err := ioutil.ReadAll(file)
-	if err != nil {
-		return CommitID{}, err
-	}
-	sha, err := Sha1FromString(string(data))
-	return CommitID(sha), err
-}
-
-// Return the CommitID of an existing branch.
-func (c *Client) GetBranchCommit(b string) (CommitID, error) {
-	file, err := c.GitDir.Open(File("refs/heads/" + b))
-	if err != nil {
-		return CommitID{}, err
-	}
-	data, err := ioutil.ReadAll(file)
-	if err != nil {
-		return CommitID{}, err
-	}
-	sha, err := Sha1FromString(string(data))
-	return CommitID(sha), err
-}
-
 // Return valid branches that a Client knows about.
-func (c *Client) GetBranches() (branches []string, err error) {
+func (c *Client) GetBranches() (branches []Branch, err error) {
 	files, err := ioutil.ReadDir(c.GitDir.String() + "/refs/heads")
 	if err != nil {
 		return nil, err
 	}
 	for _, f := range files {
-		branches = append(branches, f.Name())
+		branches = append(branches, Branch("refs/heads/"+f.Name()))
 	}
 	return
 }

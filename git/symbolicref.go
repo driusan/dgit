@@ -1,11 +1,12 @@
 package git
 
 import (
+	"errors"
 	"fmt"
-	"io/ioutil"
-	"os"
 	"strings"
 )
+
+var DetachedHead error = errors.New("In Detached HEAD state")
 
 // SymbolicRefOptions represents the command line options
 // that may be passed on the command line. (NB. None of these
@@ -18,34 +19,30 @@ type SymbolicRefOptions struct {
 
 // Gets a RefSpec for a symbolic ref. Returns "" if symname is not a valid
 // symbolic ref.
-func SymbolicRefGet(c *Client, opts SymbolicRefOptions, symname string) RefSpec {
-	file, err := c.GitDir.Open(File(symname))
+func SymbolicRefGet(c *Client, opts SymbolicRefOptions, symname string) (RefSpec, error) {
+	file := c.GitDir.File(File(symname))
+
+	value, err := file.ReadAll()
 	if err != nil {
-		return ""
-	}
-	defer file.Close()
-	value, err := ioutil.ReadAll(file)
-	if err != nil {
-		return ""
+		return "", err
 	}
 
-	if prefix := string(value[0:5]); prefix != "ref: " {
-		return ""
+	if !strings.HasPrefix(value, "ref: ") {
+		return RefSpec(value), DetachedHead
 	}
-	return RefSpec(strings.TrimSpace(string(value[5:])))
+	return RefSpec(strings.TrimPrefix(value, "ref: ")), nil
 
 }
 
-func SymbolicRefUpdate(c *Client, opts SymbolicRefOptions, symname string, refvalue RefSpec, reason string) RefSpec {
+func SymbolicRefUpdate(c *Client, opts SymbolicRefOptions, symname string, refvalue RefSpec, reason string) error {
 	if !strings.HasPrefix(refvalue.String(), "refs/") {
-		fmt.Fprintf(os.Stderr, "fatal: Refusing to point "+symname+" outside of refs/")
-		return ""
+		return fmt.Errorf("Refusing to point %s outside of refs/", symname)
 	}
 	file, err := c.GitDir.Create(File(symname))
 	if err != nil {
-		return ""
+		return err
 	}
 	defer file.Close()
 	fmt.Fprintf(file, "ref: %s", refvalue)
-	return ""
+	return nil
 }

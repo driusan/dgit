@@ -26,8 +26,9 @@ func (c *Client) GetHeadID() (string, error) {
 	if err != nil {
 		return "", err
 	}
+
 	if headBranch := c.GetHeadBranch(); headBranch != "" {
-		return repo.GetCommitIdOfBranch(c.GetHeadBranch())
+		return repo.GetCommitIdOfBranch(headBranch.BranchName())
 	}
 	return "", InvalidHead
 

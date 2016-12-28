@@ -25,7 +25,7 @@ func updateReflog(c *Client, create bool, file File, oldvalue, newvalue string, 
 		return fmt.Errorf("Invalid commit value. Must be 40 character hex.")
 	}
 	if !create && !file.Exists() {
-		return fmt.Errorf("Can not create new reflog. --create-reflog not specified.")
+		return fmt.Errorf("Can not create new reflog for %s. --create-reflog not specified.", file)
 	}
 
 	now := time.Now()
@@ -56,11 +56,15 @@ func UpdateRefSpec(c *Client, opts UpdateRefOptions, ref RefSpec, cmt CommitID, 
 		return fmt.Errorf("Delete RefSpec not implemented")
 	}
 
-	if err := updateReflog(c, opts.CreateReflog, File(c.GitDir)+"/logs/"+File(ref), opts.OldValue, cmt.String(), reason); err != nil {
+	// The RefSpec Stringer method strips out trailing newlines and junk.
+	filename := File(ref.String())
+	print("filename, ", filename)
+	if err := updateReflog(c, opts.CreateReflog, File(c.GitDir)+"/logs/"+filename, opts.OldValue, cmt.String(), reason); err != nil {
 		return err
 	}
 
-	file, err := c.GitDir.Create(File(ref))
+	file, err := c.GitDir.Create(filename)
+	fmt.Printf("%s", file)
 	if err != nil {
 		return err
 	}
@@ -77,9 +81,9 @@ func UpdateRef(c *Client, opts UpdateRefOptions, ref string, cmt CommitID, reaso
 	}
 
 	if strings.HasPrefix(ref, "refs/") {
-		return UpdateRefSpec(c, opts, RefSpec(ref), cmt, reason)
+		return UpdateRefSpec(c, opts, RefSpec(strings.TrimSpace(ref)), cmt, reason)
 	}
-	if refspec := SymbolicRefGet(c, SymbolicRefOptions{}, ref); !opts.NoDeref && refspec != "" {
+	if refspec, err := SymbolicRefGet(c, SymbolicRefOptions{}, ref); !opts.NoDeref && refspec != "" && err == nil {
 		// This is duplicated from UpdateRefSpec, but we should check
 		// the value before updating the reflog. If we're not doing
 		// anything, we shouldn't update the reflog. (It stays in
