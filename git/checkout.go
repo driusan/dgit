@@ -90,6 +90,16 @@ func Checkout(c *Client, opts CheckoutOptions, thing string, files []string) err
 //     git checkout [-q] [-f] [-m] [--detach] <commit>
 //     git checkout [-q] [-f] [-m] [[-b|-B|--orphan] <new_branch>] [<start_point>]
 func CheckoutCommit(c *Client, opts CheckoutOptions, commit Commitish) error {
+	if opt.Branch != "" {
+		// commit is the startpoint in the last variation, otherwise
+		// Checkout() already set it to the commit of "HEAD"
+		refspecfile := File(c.GitDir + "/refs/heads/" + opts.Branch
+		if refspecfile.Exists() && !opts.BranchForce {
+			return fmt.Errorf("Branch %s already exists.", opt.Branch)
+		}
+		UpdateRef(c, "refs/heads/" + opts.Branch, commit)
+	}
+	//	return CheckoutFiles(c, opts, commit, nil)
 	return fmt.Errorf("Not yet implemented. Please use checkout-index directly instead.")
 }
 
