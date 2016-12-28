@@ -7,6 +7,8 @@ import (
 	"strings"
 )
 
+// Gets a RefSpec for a symbolic ref. Returns "" if symname is not a valid
+// symbolic ref.
 func SymbolicRefGet(c *Client, symname string) RefSpec {
 	file, err := c.GitDir.Open(File(symname))
 	if err != nil {
@@ -26,7 +28,7 @@ func SymbolicRefGet(c *Client, symname string) RefSpec {
 }
 
 func SymbolicRefUpdate(c *Client, reflogmessage string, symname string, refvalue RefSpec) RefSpec {
-	if len(refvalue) < 5 || refvalue[0:5] != "refs/" {
+	if !strings.HasPrefix(refvalue.String(), "refs/") {
 		fmt.Fprintf(os.Stderr, "fatal: Refusing to point "+symname+" outside of refs/")
 		return ""
 	}

@@ -79,14 +79,10 @@ func CommitTree(c *git.Client, args []string) (string, error) {
 		fmt.Fprintf(content, "parent %s\n", val)
 	}
 
-	author := c.GetAuthor()
-	t := time.Now()
-	_, tzoff := t.Zone()
-	// for some reason t.Zone() returns the timezone offset in seconds
-	// instead of hours, so convert it to an hour format string
-	tzStr := fmt.Sprintf("%+03d00", tzoff/(60*60))
-	fmt.Fprintf(content, "author %s %d %s\n", author, t.Unix(), tzStr)
-	fmt.Fprintf(content, "committer %s %d %s\n", author, t.Unix(), tzStr)
+	now := time.Now()
+	author := c.GetAuthor(&now)
+	fmt.Fprintf(content, "author %s\n", author)
+	fmt.Fprintf(content, "committer %s\n", author)
 	fmt.Fprintf(content, "%s", messageString)
 	fmt.Printf("%s", content.Bytes())
 	sha1, err := c.WriteObject("commit", content.Bytes())

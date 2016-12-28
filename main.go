@@ -88,7 +88,10 @@ func main() {
 		sha1 := cmd.WriteTree(c)
 		fmt.Printf("%s\n", sha1)
 	case "update-ref":
-		cmd.UpdateRef(c, args)
+		if err := cmd.UpdateRef(c, args); err != nil {
+			fmt.Fprintf(os.Stderr, "%v\n", err)
+			os.Exit(4)
+		}
 	case "log":
 		cmd.Log(c, args)
 	case "symbolic-ref":

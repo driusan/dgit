@@ -8,12 +8,10 @@ import (
 	"os/exec"
 	"path/filepath"
 	"strings"
+	"time"
 
 	"github.com/driusan/go-git/zlib"
 )
-
-// A file represents a file (or directory) relative to os.Getwd()
-type File string
 
 // An IndexPath represents a file in the index. ie. a File path relative
 // to the Git WorkDir, not the current working directory.
@@ -38,36 +36,6 @@ func (f IndexPath) FilePath(c *Client) (File, error) {
 		return "", err
 	}
 	return File(rel), err
-}
-
-// Determines if the file exists on the filesystem.
-func (f File) Exists() bool {
-	if _, err := os.Stat(string(f)); os.IsNotExist(err) {
-		return false
-	}
-	return true
-}
-
-func (f File) String() string {
-	return string(f)
-}
-
-// Normalizes the file name that's relative to the current working directory
-// to be relative to the workdir root. Ie. convert it from a file system
-// path to an index path.
-func (f File) IndexPath(c *Client) (IndexPath, error) {
-	p, err := filepath.Abs(f.String())
-	if err != nil {
-		return "", err
-	}
-	// BUG(driusan): This should verify that there is a prefix and return
-	// an error if it's outside of the tree.
-	return IndexPath(strings.TrimPrefix(p, string(c.WorkDir)+"/")), nil
-}
-
-// Returns stat information for the given file.
-func (f File) Stat() (os.FileInfo, error) {
-	return os.Stat(f.String())
 }
 
 // A GitDir represents the .git/ directory of a repository. It should not
@@ -280,14 +248,27 @@ func (c *Client) CreateBranch(name string, commit Commitish) error {
 // with an email address.
 type Person struct {
 	Name, Email string
+
+	// Optional time that this person should be serialized as. Causes
+	// String() to be returned in commit format if specified
+	Time *time.Time
 }
 
 func (p Person) String() string {
-	return fmt.Sprintf("%s <%s>", p.Name, p.Email)
+	if p.Time == nil {
+		return fmt.Sprintf("%s <%s>", p.Name, p.Email)
+	}
+	_, tzoff := p.Time.Zone()
+	// for some reason t.Zone() returns the timezone offset in seconds
+	// instead of hours, so convert it to an hour format string
+	tzStr := fmt.Sprintf("%+03d00", tzoff/(60*60))
+	return fmt.Sprintf("%s <%s> %d %s", p.Name, p.Email, p.Time.Unix(), tzStr)
+
 }
 
 // Returns the author that should be used for a commit message.
-func (c *Client) GetAuthor() Person {
+// If time t is provided,
+func (c *Client) GetAuthor(t *time.Time) Person {
 	home := os.Getenv("HOME")
 	if home == "" {
 		home = os.Getenv("home") // On some OSes, it is home
@@ -300,7 +281,7 @@ func (c *Client) GetAuthor() Person {
 
 	name := config.GetConfig("user.name")
 	email := config.GetConfig("user.email")
-	return Person{name, email}
+	return Person{name, email, t}
 }
 
 // Resets the index to the Treeish tree and save the results in

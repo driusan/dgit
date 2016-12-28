@@ -1,52 +1,67 @@
 package cmd
 
 import (
+	"flag"
 	"fmt"
 	"os"
 
 	"github.com/driusan/go-git/git"
 )
 
-func UpdateRef(c *git.Client, args []string) {
-	var startAt int
-	var skipNext bool
-	//	var reason string
-	for idx, val := range args {
-		if skipNext == true {
-			skipNext = false
-			continue
-		}
-
-		switch val {
-		case "-m":
-			//	reason = args[idx+1]
-			startAt = idx + 2
-		}
-
+func UpdateRef(c *git.Client, args []string) error {
+	flags := flag.NewFlagSet("update-ref", flag.ExitOnError)
+	flags.Usage = func() {
+		flag.Usage()
+		fmt.Fprintf(os.Stderr, "\nupdate-ref options:\n\n")
+		flags.PrintDefaults()
 	}
 
-	args = args[startAt:]
-	//	var oldRef string
-	var newValue string
-	var ref git.RefSpec
-	switch len(args) {
-	case 0, 1:
-		panic("Need at least 2 arguments to update-ref")
-	case 3:
-		panic("Checking oldref not yet implemented")
-		//	oldRef = args[2]
-		fallthrough
+	opts := git.UpdateRefOptions{}
+
+	reason := flags.String("m", "", "Reason to record in reflog for updating the reference")
+	flags.BoolVar(&opts.Delete, "d", false, "Delete the reference after verifying oldvalue")
+	flags.BoolVar(&opts.NoDeref, "no-deref", false, "Do not dereference symbolic references")
+	flags.BoolVar(&opts.NoDeref, "create-reflog", false, "Create a reflog if it doesn't exist")
+
+	stdin := flags.Bool("stdin", false, "Read references from stdin in batch mode")
+	flags.BoolVar(&opts.NullTerminate, "z", false, `Use \0 instead of \n to terminate lines in batch mode`)
+
+	flags.Parse(args)
+	vals := flags.Args()
+
+	if *stdin {
+		opts.Stdin = os.Stdin
+	}
+
+	switch len(vals) {
+	case 1:
+		if opts.Delete {
+			return git.UpdateRef(c, opts, vals[0], git.CommitID{}, *reason)
+		}
+		// 1 options with -d is meaningless, fall through to printusage
 	case 2:
-		ref = SymbolicRef(c, []string{args[0]})
-		newValue = args[1]
-	default:
-		panic("Arguments were parsed incorrectly or invalid. Can't get or update symbolic ref")
-	}
-	file, err := c.GitDir.Create(git.File(ref))
-	if err != nil {
-		fmt.Fprintf(os.Stderr, "Could not update reference %s\n", ref)
-	}
-	defer file.Close()
-	fmt.Fprintf(file, newValue)
+		if opts.Delete {
+			opts.OldValue = vals[1]
+			return git.UpdateRef(c, opts, vals[0], git.CommitID{}, *reason)
 
+		}
+		cmt, err := git.RevParseCommit(c, &git.RevParseOptions{}, vals[1])
+		if err != nil {
+			return fmt.Errorf("Invalid commit %s", vals[1])
+		}
+		return git.UpdateRef(c, opts, vals[0], cmt, *reason)
+	case 3:
+		if opts.Delete {
+			// There is no delete variaton with 3 parameters, abort.
+			break
+		}
+		cmt, err := git.RevParseCommit(c, &git.RevParseOptions{}, vals[1])
+		if err != nil {
+			return fmt.Errorf("Invalid commit %s", vals[1])
+		}
+		opts.OldValue = vals[2]
+		return git.UpdateRef(c, opts, vals[0], cmt, *reason)
+	}
+	flags.Usage()
+	return fmt.Errorf("Invalid usage")
 }

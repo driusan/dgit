@@ -13,17 +13,6 @@ import (
 )
 
 type PktLine string
-type RefSpec string
-
-func (r RefSpec) String() string {
-	if len(r) < 1 {
-		return ""
-	}
-
-	// This will only trim a single nil byte, but if there's more
-	// than that we're doing something really wrong.
-	return strings.TrimSpace(strings.TrimSuffix(string(r), "\000"))
-}
 
 func PktLineEncode(line []byte) (PktLine, error) {
 	if len(line) > 65535 {
