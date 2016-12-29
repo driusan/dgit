@@ -61,7 +61,7 @@ filter-branch  None
 mergetool      None
 pack-refs      None
 prune          None
-reflog         None                                 UpdateRef and SymbolicRef need to maintain the reflog first
+reflog         None                                 SymbolicRef needs to maintain the reflog first
 relink         None
 remote         None
 repack         None

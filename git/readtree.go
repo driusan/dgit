@@ -45,6 +45,25 @@ type ReadTreeOptions struct {
 	NoSparseCheckout bool
 }
 
+// Helper to safely check if path is the same in p1 and p2
+func samePath(p1, p2 map[IndexPath]*IndexEntry, path IndexPath) bool {
+	p1i, p1ok := p1[path]
+	p2i, p2ok := p2[path]
+
+	// It's in one but not the other
+	if p1ok != p2ok {
+		return false
+	}
+	// It's not in either, so it's the same
+	if p1ok == false && p2ok == false {
+		return true
+	}
+
+	// It's in both, so we can safely check
+	return p1i.Sha1 == p2i.Sha1
+
+}
+
 // ReadTreeMerge will perform a three-way merge on the trees stage1, stage2, and stage3.
 // In a normal merge, stage1 is the common ancestor, stage2 is "our" changes, and
 // stage3 is "their" changes. See git-read-tree(1) for details.
@@ -77,35 +96,43 @@ func ReadTreeMerge(c *Client, opt ReadTreeOptions, stage1, stage2, stage3 Treeis
 		path := entry.PathName
 
 		// All three trees are the same, don't do anything to the index.
-		if base[path].Sha1 == ours[path].Sha1 && base[path].Sha1 == theirs[path].Sha1 {
+		if samePath(base, ours, path) && samePath(base, theirs, path) {
 			continue
 		}
 
 		// If both stage2 and stage3 are the same, the work has been done in
 		// both branches, so collapse to stage0 (use our changes)
-		if ours[path].Sha1 == theirs[path].Sha1 {
+		if samePath(ours, theirs, path) {
 			idx.AddStage(c, path, ours[path].Sha1, Stage0, ours[path].Mtime, ours[path].Mtimenano, ours[path].Fsize)
 			continue
 		}
 
 		// If stage1 and stage2 are the same, our branch didn't do anything,
 		// but theirs did, so take their changes.
-		if base[path].Sha1 == ours[path].Sha1 {
+		if samePath(base, ours, path) {
 			idx.AddStage(c, path, theirs[path].Sha1, Stage0, theirs[path].Mtime, theirs[path].Mtimenano, theirs[path].Fsize)
 			continue
 		}
 
 		// If stage1 and stage3 are the same, we did something but they didn't,
 		// so take our changes
-		if base[path].Sha1 == theirs[path].Sha1 {
-			idx.AddStage(c, path, ours[path].Sha1, Stage0, ours[path].Mtime, ours[path].Mtimenano, ours[path].Fsize)
-			continue
+		if samePath(base, theirs, path) {
+			if o, ok := ours[path]; ok {
+				idx.AddStage(c, path, o.Sha1, Stage0, o.Mtime, o.Mtimenano, o.Fsize)
+				continue
+			}
 		}
 
 		// We couldn't short-circuit out, so add all three stages.
-		idx.AddStage(c, path, base[path].Sha1, Stage1, base[path].Mtime, base[path].Mtimenano, base[path].Fsize)
-		idx.AddStage(c, path, ours[path].Sha1, Stage2, ours[path].Mtime, ours[path].Mtimenano, ours[path].Fsize)
-		idx.AddStage(c, path, theirs[path].Sha1, Stage3, theirs[path].Mtime, theirs[path].Mtimenano, theirs[path].Fsize)
+		if b, ok := base[path]; ok {
+			idx.AddStage(c, path, b.Sha1, Stage1, b.Mtime, b.Mtimenano, b.Fsize)
+		}
+		if o, ok := ours[path]; ok {
+			idx.AddStage(c, path, o.Sha1, Stage2, o.Mtime, o.Mtimenano, o.Fsize)
+		}
+		if t, ok := theirs[path]; ok {
+			idx.AddStage(c, path, t.Sha1, Stage3, t.Mtime, t.Mtimenano, t.Fsize)
+		}
 	}
 	if err := checkMergeAndUpdate(c, opt, origMap, idx); err != nil {
 		return nil, err
