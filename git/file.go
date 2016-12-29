@@ -86,3 +86,7 @@ func (f File) ReadFirstLine() (string, error) {
 	}
 	return scanner.Text(), nil
 }
+
+func (f File) Remove() error {
+	return os.Remove(f.String())
+}

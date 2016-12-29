@@ -2,6 +2,7 @@ package git
 
 import (
 	"fmt"
+	"os"
 )
 
 // Options that may be passed in the command line to ReadTree.
@@ -331,21 +332,37 @@ func checkMergeAndUpdate(c *Client, opt ReadTreeOptions, origidx map[IndexPath]*
 		return fmt.Errorf("Can only specify one of -u, --reset, or --prefix")
 	}
 
+	// Keep a list of index entries to be updated by CheckoutIndex.
+	files := make([]string, 0, len(newidx.Objects))
+
 	if opt.Merge {
 		// Verify that merge won't overwrite anything that's been modified locally.
 		for _, entry := range newidx.Objects {
 			orig, ok := origidx[entry.PathName]
 			if !ok {
-				// If it wasn't in the original index, it's fine
+				// If it wasn't in the original index, make sure
+				// we check it out.
+				file, err := entry.PathName.FilePath(c)
+				if err != nil {
+					return err
+				}
+				files = append(files, file.String())
 				continue
 			}
 
 			if orig.Sha1 == entry.Sha1 {
-				// Nothing was modified, so don't bother checking anything
+				// Nothing was modified, so don't bother checking
+				// anything out
 				continue
 			}
 			if entry.PathName.IsClean(c, orig.Sha1) {
-				// it hasn't been modified locally, so we're good.
+				// it hasn't been modified locally, so we want to
+				// make sure the newidx version is checked out.
+				file, err := entry.PathName.FilePath(c)
+				if err != nil {
+					return err
+				}
+				files = append(files, file.String())
 				continue
 			} else {
 				// There are local unmodified changes on the filesystem
@@ -353,13 +370,53 @@ func checkMergeAndUpdate(c *Client, opt ReadTreeOptions, origidx map[IndexPath]*
 				// an error unless --reset is specified.
 				if !opt.Reset {
 					return fmt.Errorf("%s has local changes. Can not merge.", entry.PathName)
+				} else {
+					// with --reset, checkout the file anyways.
+					file, err := entry.PathName.FilePath(c)
+					if err != nil {
+						return err
+					}
+					files = append(files, file.String())
 				}
 			}
 		}
 	}
 
 	if opt.Update || opt.Reset {
-		return CheckoutIndexUncommited(c, newidx, CheckoutIndexOptions{All: true, Quiet: true, Force: opt.Reset}, nil)
+		if err := CheckoutIndexUncommited(c, newidx, CheckoutIndexOptions{Quiet: true, Force: true}, files); err != nil {
+			return err
+		}
+
+		// Convert to a map for constant time lookup in our loop..
+		newidxMap := newidx.GetMap()
+
+		// Before returning, delete anything that was in the old index, removed
+		// from the new index, and hasn't been changed on the filesystem.
+		for path, entry := range origidx {
+			if _, ok := newidxMap[path]; ok {
+				// It was already handled by checkout-index
+				continue
+			}
+
+			// It was deleted from the new index, but was in the
+			// original index, so delete it if it hasn't been
+			// changed on the filesystem.
+			if path.IsClean(c, entry.Sha1) {
+				file, err := path.FilePath(c)
+				if err != nil {
+					// Don't error out since we've already
+					// mucked up other stuff, just carry
+					// on to the next file.
+					fmt.Fprintf(os.Stderr, "%v\n", err)
+					continue
+
+				}
+				if err := file.Remove(); err != nil {
+					fmt.Fprintf(os.Stderr, "%v\n", err)
+				}
+			}
+		}
+
 	}
 	return nil
 }

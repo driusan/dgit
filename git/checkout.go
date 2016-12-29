@@ -120,17 +120,15 @@ func CheckoutCommit(c *Client, opts CheckoutOptions, commit Commitish) error {
 	}
 
 	if b, ok := commit.(Branch); ok && !opts.Detach {
-		// We're checking out a branch. Update the SymbolicRef for HEAD,
-		refmsg := fmt.Sprintf("checkout: moving from %s to %s (go-git)", origB, b.BranchName())
-		if err := SymbolicRefUpdate(c, SymbolicRefOptions{}, "HEAD", RefSpec(b), refmsg); err != nil {
-			return err
-		}
-		// And read the new tree into the worktree.
-		idx, err := ReadTree(c, ReadTreeOptions{Update: true, Merge: true}, cid)
+		// We're checking out a branch, first read the new tree, and
+		// then update the SymbolicRef for HEAD, if that succeeds.
+		_, err := ReadTree(c, ReadTreeOptions{Update: true, Merge: true}, cid)
 		if err != nil {
 			return err
 		}
-		return CheckoutIndexUncommited(c, idx, CheckoutIndexOptions{All: true}, nil)
+
+		refmsg := fmt.Sprintf("checkout: moving from %s to %s (go-git)", origB, b.BranchName())
+		return SymbolicRefUpdate(c, SymbolicRefOptions{}, "HEAD", RefSpec(b), refmsg)
 	}
 	refmsg := fmt.Sprintf("checkout: moving from %s to %s (go-git)", origB, cid)
 	origValue, err := head.Value(c)
