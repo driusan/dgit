@@ -70,7 +70,7 @@ func Checkout(c *Client, opts CheckoutOptions, thing string, files []string) err
 	}
 
 	if len(files) == 0 {
-		cmt, err := RevParseCommit(c, &RevParseOptions{}, thing)
+		cmt, err := RevParseCommitish(c, &RevParseOptions{}, thing)
 		if err != nil {
 			return err
 		}
@@ -84,34 +84,60 @@ func Checkout(c *Client, opts CheckoutOptions, thing string, files []string) err
 	return CheckoutFiles(c, opts, b, files)
 }
 
-func CheckoutBranch(c *Client, opts CheckoutOptions, commit Commitish) error {
-	return fmt.Errorf("CheckoutCommit not yet implemented")
-}
-
 // Implements the "git checkout" subcommand of git for variations:
 //     git checkout [-q] [-f] [-m] [<branch>]
 //     git checkout [-q] [-f] [-m] --detach [<branch>]
 //     git checkout [-q] [-f] [-m] [--detach] <commit>
 //     git checkout [-q] [-f] [-m] [[-b|-B|--orphan] <new_branch>] [<start_point>]
 func CheckoutCommit(c *Client, opts CheckoutOptions, commit Commitish) error {
+	// RefSpec for new branch with -b/-B variety
+	var newRefspec RefSpec
 	if opts.Branch != "" {
+		// Handle the -b/-B variety.
 		// commit is the startpoint in the last variation, otherwise
 		// Checkout() already set it to the commit of "HEAD"
-		refspec := RefSpec("refs/heads/" + opts.Branch)
-		refspecfile := refspec.File(c)
+		newRefspec = RefSpec("refs/heads/" + opts.Branch)
+		refspecfile := newRefspec.File(c)
 		if refspecfile.Exists() && !opts.ForceBranch {
 			return fmt.Errorf("Branch %s already exists.", opts.Branch)
 		}
-
-		// err := SymbolicRefUpdate(c, SymbolicRefOptions{}, "HEAD", refspec, refvalue RefSpec, "checkout: go-git moving from ??? to ??? ")
-
-		return fmt.Errorf("CheckoutCommit not yet implemented")
 	}
-	cmt, err := commit.CommitID(c)
+	// Get the original HEAD for the reflog
+	head, err := SymbolicRefGet(c, SymbolicRefOptions{}, "HEAD")
 	if err != nil {
 		return err
 	}
-	return CheckoutFiles(c, opts, cmt, nil)
+	// Get the original HEAD branchname
+	origB := Branch(head).BranchName()
+	if origB == "" {
+		return DetachedHead
+	}
+
+	// Convert from Commitish to Treeish for ReadTree
+	cid, err := commit.CommitID(c)
+	if err != nil {
+		return err
+	}
+
+	if b, ok := commit.(Branch); ok && !opts.Detach {
+		// We're checking out a branch. Update the SymbolicRef for HEAD,
+		refmsg := fmt.Sprintf("checkout: moving from %s to %s (go-git)", origB, b.BranchName())
+		if err := SymbolicRefUpdate(c, SymbolicRefOptions{}, "HEAD", RefSpec(b), refmsg); err != nil {
+			return err
+		}
+		// And read the new tree into the worktree.
+		idx, err := ReadTree(c, ReadTreeOptions{Update: true, Merge: true}, cid)
+		if err != nil {
+			return err
+		}
+		return CheckoutIndexUncommited(c, idx, CheckoutIndexOptions{All: true}, nil)
+	}
+	refmsg := fmt.Sprintf("checkout: moving from %s to %s (go-git)", origB, cid)
+	origValue, err := head.Value(c)
+	if err != nil {
+		return err
+	}
+	return UpdateRef(c, UpdateRefOptions{NoDeref: true, OldValue: origValue}, "HEAD", cid, refmsg)
 }
 
 // Implements "git checkout" subcommand of git for variations:

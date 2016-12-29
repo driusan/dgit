@@ -304,6 +304,9 @@ func (f IndexPath) IsClean(c *Client, s Sha1) bool {
 		panic(err)
 		// return false instead?
 	}
+	if !fi.Exists() {
+		return s == Sha1{}
+	}
 	fs, _, err := HashFile("blob", fi.String())
 	if err != nil {
 		panic(err)

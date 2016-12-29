@@ -331,27 +331,29 @@ func checkMergeAndUpdate(c *Client, opt ReadTreeOptions, origidx map[IndexPath]*
 		return fmt.Errorf("Can only specify one of -u, --reset, or --prefix")
 	}
 
-	// Verify that merge won't overwrite anything that's been modified locally.
-	for _, entry := range newidx.Objects {
-		orig, ok := origidx[entry.PathName]
-		if !ok {
-			// If it wasn't in the original index, it's fine
-			continue
-		}
+	if opt.Merge {
+		// Verify that merge won't overwrite anything that's been modified locally.
+		for _, entry := range newidx.Objects {
+			orig, ok := origidx[entry.PathName]
+			if !ok {
+				// If it wasn't in the original index, it's fine
+				continue
+			}
 
-		if orig.Sha1 == entry.Sha1 {
-			// Nothing was modified, so don't bother checking anything
-			continue
-		}
-		if entry.PathName.IsClean(c, orig.Sha1) {
-			// it hasn't been modified locally, so we're good.
-			continue
-		} else {
-			// There are local unmodified changes on the filesystem
-			// from the original that would be lost by -u, so return
-			// an error unless --reset is specified.
-			if !opt.Reset {
-				return fmt.Errorf("%s has local changes. Can not merge.", entry.PathName)
+			if orig.Sha1 == entry.Sha1 {
+				// Nothing was modified, so don't bother checking anything
+				continue
+			}
+			if entry.PathName.IsClean(c, orig.Sha1) {
+				// it hasn't been modified locally, so we're good.
+				continue
+			} else {
+				// There are local unmodified changes on the filesystem
+				// from the original that would be lost by -u, so return
+				// an error unless --reset is specified.
+				if !opt.Reset {
+					return fmt.Errorf("%s has local changes. Can not merge.", entry.PathName)
+				}
 			}
 		}
 	}

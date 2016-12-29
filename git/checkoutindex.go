@@ -69,6 +69,7 @@ func CheckoutIndexUncommited(c *Client, idx *Index, opts CheckoutIndexOptions, f
 			}
 
 			f := File(opts.Prefix + file)
+
 			obj, err := c.GetObject(entry.Sha1)
 			if err != nil {
 				return err

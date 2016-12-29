@@ -132,10 +132,8 @@ func RevParseTreeish(c *Client, opt *RevParseOptions, arg string) (Treeish, erro
 	return GetBranch(c, arg)
 }
 
-// RevParse will parse a single revision into a Commit object.
-// excluded will be true if it was parsed in a way that it should
-// be excluded (ie. the revision started with a ^)
-func RevParseCommit(c *Client, opt *RevParseOptions, arg string) (CommitID, error) {
+// RevParse will parse a single revision into a Commitish object.
+func RevParseCommitish(c *Client, opt *RevParseOptions, arg string) (Commitish, error) {
 	if len(arg) == 40 {
 		sha1, err := Sha1FromString(arg)
 		return CommitID(sha1), err
@@ -145,22 +143,22 @@ func RevParseCommit(c *Client, opt *RevParseOptions, arg string) (CommitID, erro
 	var b Branch
 	r, err := SymbolicRefGet(c, SymbolicRefOptions{}, arg)
 	if err == nil {
-		// It was a symbolic ref, convert it to a branch.
-		b = Branch(r)
-	} else {
-		// arg was not a Sha or a symbolic ref, it might still be a branch
-		b, err = GetBranch(c, arg)
-		if err != nil {
-			// Nothing we know about, give up.
-			return CommitID{}, InvalidCommit
+		// It was a symbolic ref, convert the refspec to a branch.
+		if b = Branch(r); b.Exists(c) {
+			return b, nil
 		}
-
 	}
+	// arg was not a Sha or a valid symbolic ref, it might still be a branch
+	return GetBranch(c, arg)
+}
 
-	if b.Exists(c) {
-		return b.CommitID(c)
+// RevParse will parse a single revision into a Commit object.
+func RevParseCommit(c *Client, opt *RevParseOptions, arg string) (CommitID, error) {
+	cmt, err := RevParseCommitish(c, opt, arg)
+	if err != nil {
+		return CommitID{}, InvalidCommit
 	}
-	return CommitID{}, InvalidCommit
+	return cmt.CommitID(c)
 }
 
 // Implements "git rev-parse". This should be refactored in terms of RevParseCommit and cleaned up.
