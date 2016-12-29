@@ -124,6 +124,11 @@ func ReadTreeMerge(c *Client, opt ReadTreeOptions, stage1, stage2, stage3 Treeis
 		}
 
 		// We couldn't short-circuit out, so add all three stages.
+
+		// Remove Stage0 if it exists. If it doesn't, then at worst we'll
+		// remove a stage that we're about to add back.
+		idx.RemoveFile(path)
+
 		if b, ok := base[path]; ok {
 			idx.AddStage(c, path, b.Sha1, Stage1, b.Mtime, b.Mtimenano, b.Fsize)
 		}

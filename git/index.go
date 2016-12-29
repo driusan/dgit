@@ -324,12 +324,15 @@ func (i *Index) GetMap() map[IndexPath]*IndexEntry {
 	return r
 }
 
+// Remove the first instance of file from the index. (This will usually
+// be stage 0.)
 func (g *Index) RemoveFile(file IndexPath) {
 	for i, entry := range g.Objects {
 		if entry.PathName == file {
 			//println("Should remove ", i)
 			g.Objects = append(g.Objects[:i], g.Objects[i+1:]...)
 			g.NumberIndexEntries -= 1
+			return
 		}
 	}
 }
@@ -370,9 +373,17 @@ func (g Index) GetSha1(path IndexPath) Sha1 {
 // it's easy to sort by name.
 type ByPath []*IndexEntry
 
-func (g ByPath) Len() int           { return len(g) }
-func (g ByPath) Swap(i, j int)      { g[i], g[j] = g[j], g[i] }
-func (g ByPath) Less(i, j int) bool { return g[i].PathName < g[j].PathName }
+func (g ByPath) Len() int      { return len(g) }
+func (g ByPath) Swap(i, j int) { g[i], g[j] = g[j], g[i] }
+func (g ByPath) Less(i, j int) bool {
+	if g[i].PathName < g[j].PathName {
+		return true
+	} else if g[i].PathName == g[j].PathName {
+		return g[i].Stage() < g[j].Stage()
+	} else {
+		return false
+	}
+}
 
 func writeIndexSubtree(c *Client, prefix string, entries []*IndexEntry) (Sha1, error) {
 	content := bytes.NewBuffer(nil)
