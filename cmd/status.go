@@ -15,6 +15,10 @@ type stagedFile struct {
 	Removed  bool
 }
 
+type unmergedFile struct {
+	Stage1, Stage2, Stage3 git.Sha1
+}
+
 func findUntrackedFilesFromDir(c *git.Client, root, parent, dir string, tracked map[git.IndexPath]bool) (untracked []git.File) {
 	files, err := ioutil.ReadDir(dir)
 	if err != nil {
@@ -62,6 +66,7 @@ func getStatus(c *git.Client, prefix string) (string, error) {
 	fileInIndex := make(map[git.IndexPath]bool)
 	stagedFiles := make([]stagedFile, 0)
 	unstagedFiles := make([]stagedFile, 0)
+	unmergedFiles := make(map[git.IndexPath]*unmergedFile)
 
 	headFiles := make(map[git.IndexPath]git.Sha1)
 	// This isn't very efficiently implemented, but it works(ish).
@@ -77,6 +82,39 @@ func getStatus(c *git.Client, prefix string) (string, error) {
 		fileInIndex[file.PathName] = true
 		idxsha1 := file.Sha1
 
+		switch file.Stage() {
+		case git.Stage0:
+			break
+		case git.Stage1:
+			if uf, ok := unmergedFiles[file.PathName]; ok {
+				uf.Stage1 = file.Sha1
+			} else {
+				unmergedFiles[file.PathName] = &unmergedFile{
+					Stage1: file.Sha1,
+				}
+			}
+			continue
+		case git.Stage2:
+			if uf, ok := unmergedFiles[file.PathName]; ok {
+				uf.Stage2 = file.Sha1
+			} else {
+				unmergedFiles[file.PathName] = &unmergedFile{
+					Stage2: file.Sha1,
+				}
+			}
+			continue
+		case git.Stage3:
+			if uf, ok := unmergedFiles[file.PathName]; ok {
+				uf.Stage3 = file.Sha1
+			} else {
+				unmergedFiles[file.PathName] = &unmergedFile{
+					Stage3: file.Sha1,
+				}
+			}
+			continue
+		default:
+			panic("Invalid stage")
+		}
 		relname, err := file.PathName.FilePath(c)
 		if err != nil {
 			panic(err)
@@ -158,6 +196,33 @@ func getStatus(c *git.Client, prefix string) (string, error) {
 			}
 		}
 	}
+
+	if len(unmergedFiles) != 0 {
+		msg += fmt.Sprintf("%s\n", prefix)
+		msg += fmt.Sprintf("%sUnmerged paths:\n", prefix)
+		msg += fmt.Sprintf("%s (use \"git reset HEAD <file>...\" to unstage)\n", prefix)
+		msg += fmt.Sprintf("%s (use \"git add/rm <file>...\" as appropriate to mark resolution)\n", prefix)
+		msg += fmt.Sprintf("%s\n", prefix)
+
+		for path, status := range unmergedFiles {
+			file, err := path.FilePath(c)
+			if err != nil {
+				panic(err)
+			}
+
+			var empty git.Sha1
+			if status.Stage2 == empty && status.Stage3 != empty {
+				msg += fmt.Sprintf("%s\tdeleted by us:\t%s\n", prefix, file)
+			} else if status.Stage2 != empty && status.Stage3 == empty {
+				msg += fmt.Sprintf("%s\tdeleted by them:\t%s\n", prefix, file)
+			} else if status.Stage2 == empty && status.Stage3 == empty {
+				msg += fmt.Sprintf("%s\tdeleted by both:\t%s\n", prefix, file)
+			} else if status.Stage2 != status.Stage3 {
+				msg += fmt.Sprintf("%s\tmodified by both:\t%s\n", prefix, file)
+			}
+		}
+	}
+
 	if len(unstagedFiles) != 0 {
 		msg += fmt.Sprintf("%s\n", prefix)
 		msg += fmt.Sprintf("%sChanges not staged for commit:\n", prefix)
@@ -172,9 +237,9 @@ func getStatus(c *git.Client, prefix string) (string, error) {
 			}
 
 			if f.Removed {
-				msg += fmt.Sprintf("\tdeleted:\t%s\n", file)
+				msg += fmt.Sprintf("%s\tdeleted:\t%s\n", prefix, file)
 			} else {
-				msg += fmt.Sprintf("\tmodified:\t%s\n", file)
+				msg += fmt.Sprintf("%s\tmodified:\t%s\n", prefix, file)
 			}
 		}
 	}
