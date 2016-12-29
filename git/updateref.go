@@ -58,13 +58,11 @@ func UpdateRefSpec(c *Client, opts UpdateRefOptions, ref RefSpec, cmt CommitID, 
 
 	// The RefSpec Stringer method strips out trailing newlines and junk.
 	filename := File(ref.String())
-	print("filename, ", filename)
 	if err := updateReflog(c, opts.CreateReflog, File(c.GitDir)+"/logs/"+filename, opts.OldValue, cmt.String(), reason); err != nil {
 		return err
 	}
 
 	file, err := c.GitDir.Create(filename)
-	fmt.Printf("%s", file)
 	if err != nil {
 		return err
 	}
