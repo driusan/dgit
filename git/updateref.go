@@ -80,10 +80,17 @@ func UpdateRef(c *Client, opts UpdateRefOptions, ref string, cmt CommitID, reaso
 		return fmt.Errorf("UpdateRef batch mode not implemented")
 	}
 
+	// It's not a symbolic ref, it's a real ref. Just directly call UpdateRefSpec
 	if strings.HasPrefix(ref, "refs/") {
 		return UpdateRefSpec(c, opts, RefSpec(strings.TrimSpace(ref)), cmt, reason)
 	}
-	if refspec, err := SymbolicRefGet(c, SymbolicRefOptions{}, ref); !opts.NoDeref && refspec != "" && err == nil {
+
+	// It's a symbolic ref. Dereference it, unless --deref
+	if !opts.NoDeref {
+		refspec, err := SymbolicRefGet(c, SymbolicRefOptions{}, ref)
+		if err != nil {
+			return err
+		}
 		// This is duplicated from UpdateRefSpec, but we should check
 		// the value before updating the reflog. If we're not doing
 		// anything, we shouldn't update the reflog. (It stays in
@@ -105,5 +112,17 @@ func UpdateRef(c *Client, opts UpdateRefOptions, ref string, cmt CommitID, reaso
 		}
 		return UpdateRefSpec(c, opts, refspec, cmt, reason)
 	}
-	return fmt.Errorf("Invalid reference %s", ref)
+
+	// NoDeref was specified.
+	if err := updateReflog(c, true, File(c.GitDir)+"/logs/"+File(ref), opts.OldValue, cmt.String(), reason); err != nil {
+		return err
+	}
+
+	f, err := c.GitDir.Create(File(ref))
+	if err != nil {
+		return err
+	}
+	defer f.Close()
+	fmt.Fprintf(f, "%s", cmt)
+	return nil
 }
