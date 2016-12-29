@@ -31,5 +31,4 @@ func (c *Client) GetHeadID() (string, error) {
 		return repo.GetCommitIdOfBranch(headBranch.BranchName())
 	}
 	return "", InvalidHead
-
 }

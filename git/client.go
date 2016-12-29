@@ -313,3 +313,21 @@ func (f IndexPath) IsClean(c *Client, s Sha1) bool {
 	}
 	return fs == s
 }
+
+// Gets the Commit of the current HEAD as a string.
+func (c *Client) GetHeadCommit() (CommitID, error) {
+	// If it's a symbolic ref, dereference it
+	refspec, err := SymbolicRefGet(c, SymbolicRefOptions{}, "HEAD")
+	if err == nil {
+		b := Branch(refspec.String())
+		return b.CommitID(c)
+	}
+	// Otherwise, try and parse the detached HEAD state.
+	f := c.GitDir.File("HEAD")
+	val, err := f.ReadFirstLine()
+	if err != nil {
+		return CommitID{}, InvalidHead
+	}
+	return CommitIDFromString(val)
+
+}
