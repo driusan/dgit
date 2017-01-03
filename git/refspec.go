@@ -34,6 +34,10 @@ func (r RefSpec) Value(c *Client) (string, error) {
 // Use GetBranch to get a valid branch from a branchname, don't cast from string
 type Branch RefSpec
 
+// Implements Stringer on Branch
+func (b Branch) String() string {
+	return RefSpec(b).String()
+}
 // Returns a valid Branch object for an existing branch.
 func GetBranch(c *Client, branchname string) (Branch, error) {
 	b := Branch("refs/heads/" + branchname)
