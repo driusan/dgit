@@ -8,7 +8,7 @@ import (
 )
 
 func Config(c *git.Client, args []string) {
-	if len(args) < 2 {
+	if len(args) < 1 {
 		fmt.Fprintf(os.Stderr, "Usage: go-git config [<options>]\n")
 		return
 	}
