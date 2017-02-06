@@ -1,10 +1,13 @@
 package git
 
 import (
+	"bufio"
 	"fmt"
 	"io"
 	"io/ioutil"
 	"os"
+	"strconv"
+	"strings"
 )
 
 // CheckoutIndexOptions represents the options that may be passed to
@@ -23,14 +26,112 @@ type CheckoutIndexOptions struct {
 	// Stage not implemented
 	Stage string // <number>|all
 
-	// Temp not implemented
 	Temp bool
 
 	// Stdin implies checkout-index with the --stdin parameter.
 	// nil implies it wasn't passed.
-	// (Which is a moot point, because --stdin isn't implemented)
 	Stdin         io.Reader // nil implies no --stdin param passed
 	NullTerminate bool
+}
+
+// Performs CheckoutIndex on the Stdin io.Reader from opts, with the git index
+// passed as a parameter.
+func CheckoutIndexFromReaderUncommited(c *Client, idx *Index, opts CheckoutIndexOptions) error {
+	if opts.Stdin == nil {
+		return fmt.Errorf("Invalid Reader for opts.Stdin")
+	}
+	reader := bufio.NewReader(opts.Stdin)
+
+	var delim byte = '\n'
+	if opts.NullTerminate {
+		delim = 0
+	}
+
+	for s, err := reader.ReadString(delim); err == nil; s, err = reader.ReadString(delim) {
+		s = strings.TrimSuffix(s, string(delim))
+
+		e := CheckoutIndexUncommited(c, idx, opts, []string{s})
+		if e != nil {
+			fmt.Fprintln(os.Stderr, e)
+		}
+	}
+	return nil
+}
+
+// Performs a CheckoutIndex on the files read from opts.Stdin
+func CheckoutIndexFromReader(c *Client, opts CheckoutIndexOptions) error {
+	idx, err := c.GitDir.ReadIndex()
+	if err != nil {
+		return err
+	}
+	return CheckoutIndexFromReaderUncommited(c, idx, opts)
+}
+
+// Handles checking out a file when --temp is specified on the command line.
+func checkoutTemp(c *Client, entry *IndexEntry, opts CheckoutIndexOptions) (string, error) {
+	// I don't know where ".merged_file" comes from
+	// for checkout-index, but it's what the real
+	// git client seems to use for a prefix..
+	tmpfile, err := ioutil.TempFile(".", ".merge_file_")
+	if err != nil {
+		return "", err
+	}
+	defer tmpfile.Close()
+
+	obj, err := c.GetObject(entry.Sha1)
+	if err != nil {
+		return "", err
+	}
+	_, err = tmpfile.Write(obj.GetContent())
+	if err != nil {
+		return "", err
+	}
+
+	os.Chmod(tmpfile.Name(), os.FileMode(entry.Mode))
+	return tmpfile.Name(), nil
+}
+
+// Checks out a given index entry.
+func checkoutFile(c *Client, entry *IndexEntry, opts CheckoutIndexOptions) error {
+	f := File(opts.Prefix + entry.PathName.String())
+	if f.Exists() && !opts.Force {
+		if !opts.Quiet {
+			return fmt.Errorf("%v already exists, no checkout", entry.PathName.String())
+		}
+		return nil
+	}
+
+	obj, err := c.GetObject(entry.Sha1)
+	if err != nil {
+		return err
+	}
+	if !opts.NoCreate {
+		fmode := os.FileMode(entry.Mode)
+		err := ioutil.WriteFile(f.String(), obj.GetContent(), fmode)
+		if err != nil {
+			return err
+		}
+		os.Chmod(f.String(), os.FileMode(entry.Mode))
+	}
+
+	// Update the stat information, but only if it's the same
+	// file name. We only change the mtime, because the only
+	// other thing we track is the file size, and that couldn't
+	// have changed.
+	// Don't change the stat info if there's a prefix, because
+	// if we're checkout out into a prefix, it means we haven't
+	// touched the index.
+	if opts.UpdateStat && opts.Prefix == "" {
+		fstat, err := f.Stat()
+		if err != nil {
+			return err
+		}
+
+		modTime := fstat.ModTime()
+		entry.Mtime = uint32(modTime.Unix())
+		entry.Mtimenano = uint32(modTime.Nanosecond())
+	}
+	return nil
 }
 
 // Same as "git checkout-index", except the Index is passed as a parameter (and
@@ -40,26 +141,79 @@ type CheckoutIndexOptions struct {
 // -u parameter.)
 func CheckoutIndexUncommited(c *Client, idx *Index, opts CheckoutIndexOptions, files []string) error {
 	if opts.All {
+		files = make([]string, 0, len(idx.Objects))
 		for _, entry := range idx.Objects {
 			files = append(files, entry.PathName.String())
 		}
 	}
 
-	for _, entry := range idx.Objects {
-		for _, file := range files {
-			indexpath, err := File(file).IndexPath(c)
-			if err != nil {
+	var stageMap map[IndexStageEntry]*IndexEntry
+	if opts.Stage == "all" {
+		// This is only used if stage==all, but we don't want to reallocate
+		// it every iteration of the loop, so we just define it as a var
+		// and let it stay nil unless stage=="all"
+		stageMap = idx.GetStageMap()
+	}
+	var delim byte = '\n'
+	if opts.NullTerminate {
+		delim = 0
+	}
+
+	for _, file := range files {
+		indexpath, err := File(file).IndexPath(c)
+		if err != nil {
+			if !opts.Quiet {
+				fmt.Fprintf(os.Stderr, "%v\n", err)
+			}
+			continue
+		}
+
+		if opts.Stage == "all" {
+			if _, ok := stageMap[IndexStageEntry{indexpath, Stage0}]; ok {
 				if !opts.Quiet {
-					fmt.Fprintf(os.Stderr, "%v\n", err)
+					// This error doesn't make any sense to me,
+					// but it's what the official git client says when
+					// you try and checkout-index --stage=all a file that isn't
+					// in conflict.
+					fmt.Fprintf(os.Stderr, "git checkout-index: %v does not exist at stage 4\n", indexpath)
 				}
 				continue
-
 			}
+			if stg1, s1ok := stageMap[IndexStageEntry{indexpath, Stage1}]; s1ok {
+				name, err := checkoutTemp(c, stg1, opts)
+				if err != nil {
+					fmt.Fprintln(os.Stderr, err)
+				}
+				fmt.Print(name, " ")
+			} else {
+				fmt.Print(". ")
+			}
+			if stg2, s2ok := stageMap[IndexStageEntry{indexpath, Stage2}]; s2ok {
+				name, err := checkoutTemp(c, stg2, opts)
+				if err != nil {
+					fmt.Fprintln(os.Stderr, err)
+				}
+				fmt.Print(name, " ")
+			} else {
+				fmt.Print(". ")
+			}
+			if stg3, s3ok := stageMap[IndexStageEntry{indexpath, Stage3}]; s3ok {
+				name, err := checkoutTemp(c, stg3, opts)
+				if err != nil {
+					fmt.Fprintln(os.Stderr, err)
+				}
+				fmt.Printf("%s\t%s%c", name, stg3.PathName, delim)
+			} else {
+				fmt.Printf(".\t%s%c", stg3.PathName, delim)
+			}
+			continue
+		}
 
+		for _, entry := range idx.Objects {
 			if entry.PathName != indexpath {
 				continue
 			}
-			if entry.PathName.IsClean(c, entry.Sha1) {
+			if entry.PathName.IsClean(c, entry.Sha1) && !opts.Temp {
 				// don't bother checkout out the file
 				// if it's already clean. This makes us less
 				// likely to avoid GetObject have an error
@@ -68,45 +222,43 @@ func CheckoutIndexUncommited(c *Client, idx *Index, opts CheckoutIndexOptions, f
 				continue
 			}
 
-			f := File(opts.Prefix + file)
+			switch opts.Stage {
+			case "":
+				if entry.Stage() == Stage0 {
+					var name string
+					if opts.Temp {
+						name, err = checkoutTemp(c, entry, opts)
+						if name != "" {
+							fmt.Printf("%v\t%v%c", name, entry.PathName, delim)
+						}
+					} else {
+						err = checkoutFile(c, entry, opts)
+					}
+				} else {
+					return fmt.Errorf("Index has unmerged entries. Aborting.")
+				}
+			case "1", "2", "3":
+				stg, _ := strconv.Atoi(opts.Stage)
+				if entry.Stage() == Stage(stg) {
+					var name string
 
-			obj, err := c.GetObject(entry.Sha1)
+					if opts.Temp {
+						name, err = checkoutTemp(c, entry, opts)
+						if name != "" {
+							fmt.Printf("%v\t%v%c", name, entry.PathName, delim)
+						}
+
+					} else {
+						err = checkoutFile(c, entry, opts)
+					}
+				}
+			default:
+				return fmt.Errorf("Invalid stage: %v", opts.Stage)
+			}
 			if err != nil {
-				return err
-			}
-			if f.Exists() && !opts.Force {
-				if !opts.Quiet {
-					fmt.Fprintf(os.Stderr, "%v already exists, no checkout\n", indexpath)
-				}
-				continue
+				fmt.Fprintln(os.Stderr, err)
 			}
 
-			if !opts.NoCreate {
-				fmode := os.FileMode(entry.Mode)
-				err := ioutil.WriteFile(f.String(), obj.GetContent(), fmode)
-				if err != nil {
-					return err
-				}
-				os.Chmod(file, os.FileMode(entry.Mode))
-			}
-
-			// Update the stat information, but only if it's the same
-			// file name. We only change the mtime, because the only
-			// other thing we track is the file size, and that couldn't
-			// have changed.
-			// Don't change the stat info if there's a prefix, because
-			// if we're checkout out into a prefix, it means we haven't
-			// touched the index.
-			if opts.UpdateStat && opts.Prefix == "" {
-				fstat, err := f.Stat()
-				if err != nil {
-					return err
-				}
-
-				modTime := fstat.ModTime()
-				entry.Mtime = uint32(modTime.Unix())
-				entry.Mtimenano = uint32(modTime.Nanosecond())
-			}
 		}
 	}
 
@@ -122,7 +274,7 @@ func CheckoutIndexUncommited(c *Client, idx *Index, opts CheckoutIndexOptions, f
 	return nil
 }
 
-// Implements the "git checkout-index" subcommand of git.
+// CheckoutIndex implements the "git checkout-index" subcommand of git.
 func CheckoutIndex(c *Client, opts CheckoutIndexOptions, files []string) error {
 	if len(files) != 0 && opts.All {
 		return fmt.Errorf("Can not mix --all and named files")
@@ -132,5 +284,12 @@ func CheckoutIndex(c *Client, opts CheckoutIndexOptions, files []string) error {
 	if err != nil {
 		return err
 	}
-	return CheckoutIndexUncommited(c, idx, opts, files)
+	if opts.Stdin == nil {
+		return CheckoutIndexUncommited(c, idx, opts, files)
+	} else {
+		if len(files) != 0 {
+			return fmt.Errorf("Can not mix --stdin and paths on command line")
+		}
+		return CheckoutIndexFromReaderUncommited(c, idx, opts)
+	}
 }

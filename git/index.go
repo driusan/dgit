@@ -316,6 +316,19 @@ func (g *Index) AddFile(c *Client, file *os.File) error {
 	)
 }
 
+type IndexStageEntry struct {
+	IndexPath
+	Stage
+}
+
+func (i *Index) GetStageMap() map[IndexStageEntry]*IndexEntry {
+	r := make(map[IndexStageEntry]*IndexEntry)
+	for _, entry := range i.Objects {
+		r[IndexStageEntry{entry.PathName, entry.Stage()}] = entry
+	}
+	return r
+}
+
 func (i *Index) GetMap() map[IndexPath]*IndexEntry {
 	r := make(map[IndexPath]*IndexEntry)
 	for _, entry := range i.Objects {
