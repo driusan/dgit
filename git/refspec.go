@@ -38,6 +38,7 @@ type Branch RefSpec
 func (b Branch) String() string {
 	return RefSpec(b).String()
 }
+
 // Returns a valid Branch object for an existing branch.
 func GetBranch(c *Client, branchname string) (Branch, error) {
 	b := Branch("refs/heads/" + branchname)

@@ -52,11 +52,11 @@ func (s Sha1) String() string {
 }
 
 func (s TreeID) String() string {
-	return fmt.Sprintf("%x", string(s[:]))
+	return Sha1(s).String()
 }
 
 func (s CommitID) String() string {
-	return fmt.Sprintf("%x", string(s[:]))
+	return Sha1(s).String()
 }
 
 func (s CommitID) CommitID(c *Client) (CommitID, error) {

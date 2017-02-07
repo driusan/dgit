@@ -7,7 +7,13 @@ import (
 // WriteTree implements the git write-tree command on the Git repository
 // pointed to by c.
 func WriteTree(c *git.Client) string {
-	idx, _ := c.GitDir.ReadIndex()
-	sha1 := idx.WriteTree(c)
-	return sha1
+	idx, err := c.GitDir.ReadIndex()
+	if err != nil {
+		return err.Error()
+	}
+	sha1, err := idx.WriteTree(c)
+	if err != nil {
+		return err.Error()
+	}
+	return sha1.String()
 }

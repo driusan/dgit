@@ -450,7 +450,7 @@ func writeIndexSubtree(c *Client, prefix string, entries []*IndexEntry) (Sha1, e
 
 	return c.WriteObject("tree", content.Bytes())
 }
-func writeIndexEntries(c *Client, prefix string, entries []*IndexEntry) (Sha1, error) {
+func writeIndexEntries(c *Client, prefix string, entries []*IndexEntry) (TreeID, error) {
 	content := bytes.NewBuffer(nil)
 	// [mode] [file/folder name]\0[SHA-1 of referencing blob or tree as [20]byte]
 
@@ -494,16 +494,17 @@ func writeIndexEntries(c *Client, prefix string, entries []*IndexEntry) (Sha1, e
 		}
 	}
 
-	return c.WriteObject("tree", content.Bytes())
+	tid, err := c.WriteObject("tree", content.Bytes())
+	return TreeID(tid), err
 }
 
 // WriteTree writes the current index to a tree object.
 // It returns the sha1 of the written tree, or an empty string
 // if there was an error
-func (g Index) WriteTree(c *Client) string {
+func (g Index) WriteTree(c *Client) (TreeID, error) {
 	sha1, err := writeIndexEntries(c, "", g.Objects)
-	if err != nil {
-		return ""
+	if err != nil && err != ObjectExists {
+		return TreeID{}, err
 	}
-	return sha1.String()
+	return sha1, nil
 }
