@@ -2,6 +2,7 @@ package cmd
 
 import (
 	"fmt"
+	"log"
 
 	"github.com/driusan/go-git/git"
 )
@@ -33,7 +34,9 @@ func Commit(c *git.Client, args []string) (string, error) {
 		}
 
 		c.GitDir.WriteFile("COMMIT_EDITMSG", []byte("\n"+s), 0660)
-		c.ExecEditor(c.GitDir.File("COMMIT_EDITMSG"))
+		if err := c.ExecEditor(c.GitDir.File("COMMIT_EDITMSG")); err != nil {
+			log.Println(err)
+		}
 		commitTreeArgs = append(commitTreeArgs, "-F", c.GitDir.File("COMMIT_EDITMSG").String())
 	}
 	commitTreeArgs = append(commitTreeArgs, messages...)

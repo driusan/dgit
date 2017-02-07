@@ -144,7 +144,12 @@ func (c *Client) ExecEditor(f File) error {
 		fmt.Fprintf(os.Stderr, "Warning: EDITOR environment not set. Falling back on ed...\n")
 		editor = "ed"
 	}
+
 	cmd := exec.Command(editor, f.String())
+	cmd.Stdin = os.Stdin
+	cmd.Stdout = os.Stdout
+	cmd.Stderr = os.Stderr
+
 	return cmd.Run()
 }
 
