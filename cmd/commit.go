@@ -61,6 +61,6 @@ func Commit(c *git.Client, args []string) (string, error) {
 	if err != nil {
 		return "", err
 	}
-	err = git.UpdateRef(c, git.UpdateRefOptions{OldValue: oldHead}, "HEAD", commitSha1, refmsg)
+	err = git.UpdateRef(c, git.UpdateRefOptions{OldValue: oldHead, CreateReflog: true}, "HEAD", commitSha1, refmsg)
 	return commitSha1.String(), err
 }

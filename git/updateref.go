@@ -24,8 +24,13 @@ func updateReflog(c *Client, create bool, file File, oldvalue, newvalue string, 
 	if len(oldvalue) != 40 || len(newvalue) != 40 {
 		return fmt.Errorf("Invalid commit value. Must be 40 character hex.")
 	}
-	if !create && !file.Exists() {
-		return fmt.Errorf("Can not create new reflog for %s. --create-reflog not specified.", file)
+	if !file.Exists() {
+		if !create {
+			return fmt.Errorf("Can not create new reflog for %s. --create-reflog not specified.", file)
+		}
+		if err := file.Create(); err != nil {
+			return err
+		}
 	}
 
 	now := time.Now()

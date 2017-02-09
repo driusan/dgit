@@ -57,6 +57,12 @@ func (f File) Stat() (os.FileInfo, error) {
 	return os.Stat(f.String())
 }
 
+func (f File) Create() error {
+	fi, err := os.Create(f.String())
+	fi.Close()
+	return err
+}
+
 // Reads the entire contents of file and return as a string. Note
 // that this should only be used for very small files (like refspecs)
 //
