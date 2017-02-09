@@ -28,6 +28,9 @@ func LsFiles(c *git.Client, args []string) error {
 	ignored := flags.Bool("ignored", false, "Show only ignored files in output")
 	i := flags.Bool("i", false, "Alias of --ignored")
 
+	stage := flags.Bool("stage", false, "Show staged content")
+	s := flags.Bool("s", false, "Alias of --stage")
+
 	flags.Parse(args)
 	oargs := flags.Args()
 
@@ -41,6 +44,7 @@ func LsFiles(c *git.Client, args []string) error {
 	options.Modified = rmodified
 	options.Others = rothers
 	options.Ignored = *ignored || *i
+	options.Stage = *stage || *s
 
 	// If -u, -m or -o are given, cached is turned off.
 	if rdeleted || rmodified || rothers {
@@ -62,7 +66,11 @@ func LsFiles(c *git.Client, args []string) error {
 		return err
 	}
 	for _, file := range files {
-		fmt.Printf("%v\n", file)
+		if options.Stage {
+			fmt.Printf("%o %v %v %v\n", file.Mode, file.Sha1, file.Stage(), file.PathName)
+		} else {
+			fmt.Printf("%v\n", file.PathName)
+		}
 	}
 	return err
 }

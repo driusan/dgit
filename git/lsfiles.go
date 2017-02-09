@@ -6,7 +6,9 @@ import (
 	"strings"
 )
 
-func findUntrackedFilesFromDir(c *Client, root, parent, dir string, tracked map[IndexPath]bool) (untracked []File) {
+// Finds things that aren't tracked, and creates fake IndexEntrys for them to be merged into
+// the output if --others is passed.
+func findUntrackedFilesFromDir(c *Client, root, parent, dir string, tracked map[IndexPath]bool) (untracked []*IndexEntry) {
 	files, err := ioutil.ReadDir(dir)
 	if err != nil {
 		return nil
@@ -22,11 +24,7 @@ func findUntrackedFilesFromDir(c *Client, root, parent, dir string, tracked map[
 			indexPath := IndexPath(strings.TrimPrefix(parent+"/"+fi.Name(), root))
 
 			if _, ok := tracked[indexPath]; !ok {
-				rel, err := indexPath.FilePath(c)
-				if err != nil {
-					panic(err)
-				}
-				untracked = append(untracked, rel)
+				untracked = append(untracked, &IndexEntry{PathName: indexPath})
 			}
 		}
 	}
@@ -42,12 +40,15 @@ type LsFilesOptions struct {
 
 	// Invert exclusion logic
 	Ignored bool
+
+	// Show stage status instead of just file name
+	Stage bool
 }
 
 // LsFiles implements the git ls-files command. It returns an array of files
 // that match the options passed.
-func LsFiles(c *Client, opt *LsFilesOptions, files []string) ([]File, error) {
-	var fs []File
+func LsFiles(c *Client, opt *LsFilesOptions, files []string) ([]*IndexEntry, error) {
+	var fs []*IndexEntry
 	index, err := c.GitDir.ReadIndex()
 	if err != nil {
 		return nil, err
@@ -80,11 +81,11 @@ func LsFiles(c *Client, opt *LsFilesOptions, files []string) ([]File, error) {
 			}
 		}
 		if opt.Cached {
-			fs = append(fs, f)
+			fs = append(fs, entry)
 		}
 		if opt.Deleted {
 			if !f.Exists() {
-				fs = append(fs, f)
+				fs = append(fs, entry)
 			}
 		}
 		if opt.Modified {
@@ -92,7 +93,7 @@ func LsFiles(c *Client, opt *LsFilesOptions, files []string) ([]File, error) {
 			// passed, so ignore the error.
 			hash, _, _ := HashFile("blob", f.String())
 			if hash != entry.Sha1 {
-				fs = append(fs, f)
+				fs = append(fs, entry)
 			}
 		}
 		if opt.Others {
