@@ -80,12 +80,19 @@ func LsFiles(c *Client, opt *LsFilesOptions, files []string) ([]*IndexEntry, err
 				continue
 			}
 		}
+
+		if opt.Others {
+			filesInIndex[entry.PathName] = true
+		}
+
 		if opt.Cached {
 			fs = append(fs, entry)
+			continue
 		}
 		if opt.Deleted {
 			if !f.Exists() {
 				fs = append(fs, entry)
+				continue
 			}
 		}
 		if opt.Modified {
@@ -94,11 +101,10 @@ func LsFiles(c *Client, opt *LsFilesOptions, files []string) ([]*IndexEntry, err
 			hash, _, _ := HashFile("blob", f.String())
 			if hash != entry.Sha1 {
 				fs = append(fs, entry)
+				continue
 			}
 		}
-		if opt.Others {
-			filesInIndex[entry.PathName] = true
-		}
+
 
 	}
 
