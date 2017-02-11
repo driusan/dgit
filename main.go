@@ -70,7 +70,11 @@ func main() {
 			fmt.Fprintf(os.Stderr, "%v\n", err)
 			os.Exit(4)
 		}
-
+	case "cat-file":
+		if err := cmd.CatFile(c, args); err != nil {
+			fmt.Fprintln(os.Stderr, err)
+			os.Exit(4)
+		}
 	case "add":
 		cmd.Add(c, args)
 	case "commit":
