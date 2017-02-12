@@ -105,7 +105,6 @@ func LsFiles(c *Client, opt *LsFilesOptions, files []string) ([]*IndexEntry, err
 			}
 		}
 
-
 	}
 
 	if opt.Others {

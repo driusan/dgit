@@ -1,7 +1,6 @@
 package git
 
 import (
-	"fmt"
 	"regexp"
 )
 
@@ -9,12 +8,7 @@ import (
 // "git diff-index". Note that only raw mode is currently supported, even
 // though all the other options are parsed/set in this struct.
 type DiffIndexOptions struct {
-	Patch bool
-
-	// The 0 value implies 3.
-	NumContextLines int
-
-	Raw bool
+	DiffCommonOptions
 
 	// Unimplemented. Probably never will be.
 	CompactionHeuristic bool
@@ -60,38 +54,6 @@ type DiffIndexOptions struct {
 	// And 6 million more options, which are mostly for the unsupported patch
 	// format anyways.
 }
-
-// A HashDiff represents a single line in a git diff-index type output.
-type HashDiff struct {
-	Name     IndexPath
-	Src, Dst TreeEntry
-}
-
-func (h HashDiff) String() string {
-	var status string = "?"
-
-	empty := Sha1{}
-	if h.Src.Sha1 == empty && h.Dst.Sha1 != empty {
-		status = "A"
-	} else if h.Src.Sha1 != empty && h.Dst.Sha1 == empty {
-		if h.Dst.FileMode == 0 {
-			status = "D"
-		} else {
-			status = "M"
-		}
-	} else {
-		status = "M"
-	}
-	return fmt.Sprintf(":%0.6o %0.6o %v %v %v	%v", h.Src.FileMode, h.Dst.FileMode, h.Src.Sha1, h.Dst.Sha1, status, h.Name)
-}
-
-// Implement the sort interface on *GitIndexEntry, so that
-// it's easy to sort by name.
-type ByName []HashDiff
-
-func (g ByName) Len() int           { return len(g) }
-func (g ByName) Swap(i, j int)      { g[i], g[j] = g[j], g[i] }
-func (g ByName) Less(i, j int) bool { return g[i].Name < g[j].Name }
 
 func DiffIndex(c *Client, opt *DiffIndexOptions, tree Treeish, paths []string) ([]HashDiff, error) {
 	t, err := tree.TreeID(c)
