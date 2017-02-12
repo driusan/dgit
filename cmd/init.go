@@ -4,7 +4,7 @@ import (
 	"io/ioutil"
 	"os"
 
-	"github.com/driusan/go-git/git"
+	"github.com/driusan/dgit/git"
 )
 
 func Init(c *git.Client, args []string) *git.Client {

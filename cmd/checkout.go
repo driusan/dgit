@@ -4,7 +4,7 @@ import (
 	"flag"
 	"fmt"
 
-	"github.com/driusan/go-git/git"
+	"github.com/driusan/dgit/git"
 )
 
 // Implements the git checkout command.

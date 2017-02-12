@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/driusan/go-git/git"
+	"github.com/driusan/dgit/git"
 )
 
 func ReadTree(c *git.Client, args []string) error {

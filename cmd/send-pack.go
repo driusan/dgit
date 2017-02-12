@@ -5,7 +5,7 @@ import (
 	//"fmt"
 	//"os"
 	//"strings"
-	"github.com/driusan/go-git/git"
+	"github.com/driusan/dgit/git"
 )
 
 func SendPack(c *git.Client, args []string) {

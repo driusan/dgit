@@ -6,7 +6,7 @@ import (
 	"fmt"
 	"io"
 
-	"github.com/driusan/go-git/zlib"
+	"github.com/driusan/dgit/zlib"
 )
 
 var debug bool = false

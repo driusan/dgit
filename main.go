@@ -4,8 +4,8 @@ import (
 	"errors"
 	"flag"
 	"fmt"
-	"github.com/driusan/go-git/cmd"
-	"github.com/driusan/go-git/git"
+	"github.com/driusan/dgit/cmd"
+	"github.com/driusan/dgit/git"
 	"os"
 )
 

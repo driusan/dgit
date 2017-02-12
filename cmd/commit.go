@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"log"
 
-	"github.com/driusan/go-git/git"
+	"github.com/driusan/dgit/git"
 )
 
 // Commit implements the command "git commit" in the repository pointed

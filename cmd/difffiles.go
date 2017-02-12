@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"log"
 
-	"github.com/driusan/go-git/git"
+	"github.com/driusan/dgit/git"
 )
 
 func DiffFiles(c *git.Client, args []string) error {

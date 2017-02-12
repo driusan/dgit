@@ -8,7 +8,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/driusan/go-git/git"
+	"github.com/driusan/dgit/git"
 )
 
 func CommitTree(c *git.Client, args []string) (git.CommitID, error) {

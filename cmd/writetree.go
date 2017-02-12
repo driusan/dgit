@@ -1,7 +1,7 @@
 package cmd
 
 import (
-	"github.com/driusan/go-git/git"
+	"github.com/driusan/dgit/git"
 )
 
 // WriteTree implements the git write-tree command on the Git repository

@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/driusan/go-git/git"
+	"github.com/driusan/dgit/git"
 )
 
 func Config(c *git.Client, args []string) {

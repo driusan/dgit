@@ -8,7 +8,7 @@ import (
 	"strings"
 
 	libgit "github.com/driusan/git"
-	"github.com/driusan/go-git/zlib"
+	"github.com/driusan/dgit/zlib"
 )
 
 type Sha1 [20]byte

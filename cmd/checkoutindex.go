@@ -4,7 +4,7 @@ import (
 	"flag"
 	"os"
 
-	"github.com/driusan/go-git/git"
+	"github.com/driusan/dgit/git"
 )
 
 // Parses the command arguments from args (usually from os.Args) into a

@@ -2,7 +2,7 @@ package cmd
 
 import (
 	"fmt"
-	"github.com/driusan/go-git/git"
+	"github.com/driusan/dgit/git"
 	"os"
 )
 

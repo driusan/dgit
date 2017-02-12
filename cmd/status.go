@@ -6,7 +6,7 @@ import (
 	"os"
 	"strings"
 
-	"github.com/driusan/go-git/git"
+	"github.com/driusan/dgit/git"
 )
 
 type stagedFile struct {

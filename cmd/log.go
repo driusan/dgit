@@ -7,7 +7,7 @@ import (
 	"strings"
 
 	libgit "github.com/driusan/git"
-	"github.com/driusan/go-git/git"
+	"github.com/driusan/dgit/git"
 )
 
 // Since libgit is somewhat out of our control and we can't implement

@@ -4,7 +4,7 @@ import (
 	"flag"
 	"fmt"
 
-	"github.com/driusan/go-git/git"
+	"github.com/driusan/dgit/git"
 )
 
 // Parses the arguments from git-cat-file as they were passed on the commandline

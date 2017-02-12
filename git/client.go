@@ -9,7 +9,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/driusan/go-git/zlib"
+	"github.com/driusan/dgit/zlib"
 )
 
 // An IndexPath represents a file in the index. ie. a File path relative
