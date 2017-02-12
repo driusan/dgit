@@ -6,8 +6,8 @@ import (
 	"os"
 	"strings"
 
-	libgit "github.com/driusan/git"
 	"github.com/driusan/dgit/git"
+	libgit "github.com/driusan/git"
 )
 
 // Since libgit is somewhat out of our control and we can't implement

@@ -1,58 +1,13 @@
 package git
 
-import (
-	"regexp"
-)
-
 // Describes the options that may be specified on the command line for
 // "git diff-index". Note that only raw mode is currently supported, even
 // though all the other options are parsed/set in this struct.
 type DiffIndexOptions struct {
 	DiffCommonOptions
 
-	// Unimplemented. Probably never will be.
-	CompactionHeuristic bool
-
-	// Can be "default", "myers", "minimal", "patience", or "histogram"
-	DiffAlgorithm string
-
-	StatWidth, StatNameWidth, StatCount int
-	NumStat                             bool
-	ShortStat                           bool
-
-	DirStat string
-
-	Summary bool
-
-	NullTerminate bool
-
-	NameOnly, NameStatus bool
-
-	Submodule string
-
-	// Colour can have three states: "always" (true), "never" (false), or "auto" (nil)
-	Color *bool
-
-	// "color", "plain", "porcelain", or "none"
-	WordDiff string
-
-	WordDiffRegex *regexp.Regexp
-
-	NoRenames bool
-
-	// Warn if changes introduce conflict markers or whitespace errors.
-	Check bool
-
-	// Valid options in the []string are "old", "new", or "context"
-	WhitespaceErrorHighlight []string
-
-	FullIndex, Binary bool
-
-	// Number of characters to abbreviate the hexadecimal object name to.
-	Abbrev int
-
-	// And 6 million more options, which are mostly for the unsupported patch
-	// format anyways.
+	// Only compare the index to the tree, not the filesystem.
+	Cached bool
 }
 
 func DiffIndex(c *Client, opt *DiffIndexOptions, tree Treeish, paths []string) ([]HashDiff, error) {
@@ -72,9 +27,14 @@ func DiffIndex(c *Client, opt *DiffIndexOptions, tree Treeish, paths []string) (
 	for _, entry := range index.Objects {
 		f, err := entry.PathName.FilePath(c)
 		treeSha, ok := treeObjects[entry.PathName]
-		fssha, _, err := HashFile("blob", f.String())
-		if err != nil {
-			return nil, err
+		var fssha Sha1
+		if !opt.Cached {
+			fssha, _, err = HashFile("blob", f.String())
+			if err != nil {
+				return nil, err
+			}
+		} else {
+			fssha = entry.Sha1
 		}
 
 		if entry.Sha1 != fssha {

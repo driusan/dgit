@@ -7,8 +7,8 @@ import (
 	"io/ioutil"
 	"strings"
 
-	libgit "github.com/driusan/git"
 	"github.com/driusan/dgit/zlib"
+	libgit "github.com/driusan/git"
 )
 
 type Sha1 [20]byte
