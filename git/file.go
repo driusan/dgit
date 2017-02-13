@@ -58,6 +58,13 @@ func (f File) Stat() (os.FileInfo, error) {
 }
 
 func (f File) Create() error {
+	dir := File(filepath.Dir(f.String()))
+	if !dir.Exists() {
+		if err := os.MkdirAll(dir.String(), 0755); err != nil {
+			return err
+		}
+	}
+
 	fi, err := os.Create(f.String())
 	fi.Close()
 	return err
