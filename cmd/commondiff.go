@@ -13,10 +13,10 @@ import (
 //
 // Any unique parameters must already be set up in flags before calling this,
 // because this will call flags.Parse
-func parseCommonDiffFlags(c *git.Client, options *git.DiffCommonOptions, flags *flag.FlagSet, args []string) (newargs []string, err error) {
-	patch := flags.Bool("patch", false, "Generate patch")
-	p := flags.Bool("p", false, "Alias for --patch")
-	u := flags.Bool("u", false, "Alias for --patch")
+func parseCommonDiffFlags(c *git.Client, options *git.DiffCommonOptions, defaultPatch bool, flags *flag.FlagSet, args []string) (newargs []string, err error) {
+	patch := flags.Bool("patch", defaultPatch, "Generate patch")
+	p := flags.Bool("p", defaultPatch, "Alias for --patch")
+	u := flags.Bool("u", defaultPatch, "Alias for --patch")
 
 	nopatch := flags.Bool("no-patch", false, "Suppress patch generation")
 	s := flags.Bool("s", false, "Alias of --no-patch")

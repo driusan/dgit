@@ -172,6 +172,11 @@ func main() {
 			fmt.Fprintf(os.Stderr, "%v\n", err)
 			os.Exit(4)
 		}
+	case "diff":
+		if err := cmd.Diff(c, args); err != nil {
+			fmt.Fprintf(os.Stderr, "%v\n", err)
+			os.Exit(4)
+		}
 	case "diff-files":
 		if err := cmd.DiffFiles(c, args); err != nil {
 			fmt.Fprintf(os.Stderr, "%v\n", err)

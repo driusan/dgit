@@ -9,9 +9,9 @@ import (
 func DiffFiles(c *git.Client, args []string) error {
 	flags := flag.NewFlagSet("diff-files", flag.ExitOnError)
 	options := git.DiffFilesOptions{}
-	args, err := parseCommonDiffFlags(c, &options.DiffCommonOptions, flags, args)
+	args, err := parseCommonDiffFlags(c, &options.DiffCommonOptions, false, flags, args)
 
-	diffs, err := git.DiffFiles(c, &options, args)
+	diffs, err := git.DiffFiles(c, options, args)
 	if err != nil {
 		return err
 	}

@@ -26,7 +26,7 @@ clean          None
 clone          HappyPath     git 2.9.2
 commit         HappyPath     git 2.9.2              Most options not implemented
 describe       None
-diff           None
+diff           HappyPath	 git 2.9.2              Only "git diff" and "git diff --staged" are implemented
 fetch          HappyPath     git 2.9.2
 format-patch   None
 gc             None
