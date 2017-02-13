@@ -91,9 +91,19 @@ func ReadTreeMerge(c *Client, opt ReadTreeOptions, stage1, stage2, stage3 Treeis
 		return nil, err
 	}
 
-	objects := idx.Objects
-	for _, entry := range objects {
-		path := entry.PathName
+	// Create a fake map which contains all objects in base, ours, or theirs
+	allObjects := make(map[IndexPath]bool)
+	for path, _ := range base {
+		allObjects[path] = true
+	}
+	for path, _ := range ours {
+		allObjects[path] = true
+	}
+	for path, _ := range theirs {
+		allObjects[path] = true
+	}
+
+	for path, _ := range allObjects {
 
 		// All three trees are the same, don't do anything to the index.
 		if samePath(base, ours, path) && samePath(base, theirs, path) {
@@ -370,6 +380,14 @@ func checkMergeAndUpdate(c *Client, opt ReadTreeOptions, origidx map[IndexPath]*
 	if opt.Merge {
 		// Verify that merge won't overwrite anything that's been modified locally.
 		for _, entry := range newidx.Objects {
+			if entry.Stage() != Stage0 {
+				// Don't check unmerged entries. One will always
+				// conflict, which means that -u won't work
+				// if we check them.
+				// (We also don't add them to files, so they won't
+				// make it to checkoutindex
+				continue
+			}
 			orig, ok := origidx[entry.PathName]
 			if !ok {
 				// If it wasn't in the original index, make sure

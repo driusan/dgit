@@ -2,9 +2,18 @@ package git
 
 import (
 	"fmt"
+	"io"
+	"os"
 )
 
 type MergeStrategy string
+
+func commitishName(c Commitish) string {
+	if b, ok := c.(Branch); ok {
+		return b.BranchName()
+	}
+	return ""
+}
 
 const (
 	MergeRecursive = MergeStrategy("recursive")
@@ -84,10 +93,6 @@ func Merge(c *Client, opts MergeOptions, others []Commitish) error {
 
 	}
 
-	if len(others) != 1 {
-		return fmt.Errorf("Only fast-forward commits are currently implemented.")
-	}
-
 	// RevParse returns ParsedRevisions, which are Commitish, but slices
 	// can't be passed in terms of interfaces without converting them
 	// first.
@@ -128,8 +133,97 @@ func Merge(c *Client, opts MergeOptions, others []Commitish) error {
 
 		return UpdateRef(c, UpdateRefOptions{OldValue: head.String()}, "HEAD", dstc, refmsg)
 	}
+
 	if opts.FastForwardOnly {
 		return fmt.Errorf("Not a fast-forward commit.")
 	}
-	return fmt.Errorf("Only fast-forward commits are implemented")
+
+	if len(others) != 1 {
+		return fmt.Errorf("Can only merge one branch at a time (for now.)")
+	}
+
+	// Perform a three-way merge with mergebase, head, and tree.
+	tree, err := others[0].CommitID(c)
+	if err != nil {
+		return err
+	}
+
+	idx, err := ReadTreeMerge(c,
+		ReadTreeOptions{
+			Merge:  true,
+			Update: true,
+		},
+		base,
+		head,
+		tree,
+	)
+	if err != nil {
+		return err
+	}
+
+	// run MergeFile on any unmerged entries.
+	unmerged := idx.GetUnmerged()
+	if len(unmerged) != 0 {
+		// Flag conflicts in the tree if necessary.
+		conflictLabel := commitishName(others[0])
+		if conflictLabel == "" {
+			conflictLabel = tree.String()
+		}
+		var errStr string
+		for path, file := range unmerged {
+			fp, err := path.FilePath(c)
+			if err != nil {
+				return err
+			}
+
+			fmt.Fprintf(os.Stderr, "Auto-merging %v\n", fp)
+
+			// Check out the stages to temporary files for MergeFile
+			stage1tmp, _ := checkoutTemp(c, file.Stage1, CheckoutIndexOptions{})
+			defer os.Remove(stage1tmp)
+			stage2tmp, _ := checkoutTemp(c, file.Stage2, CheckoutIndexOptions{})
+			defer os.Remove(stage2tmp)
+			stage3tmp, _ := checkoutTemp(c, file.Stage3, CheckoutIndexOptions{})
+			defer os.Remove(stage3tmp)
+
+			// run git merge-file with the appropriate parameters.
+			r, err := MergeFile(c,
+				MergeFileOptions{
+					Current: MergeFileFile{
+						Filename: File(stage2tmp),
+						Label:    "HEAD",
+					},
+					Base: MergeFileFile{
+						Filename: File(stage1tmp),
+						Label:    "merged common ancestors",
+					},
+					Other: MergeFileFile{
+						Filename: File(stage3tmp),
+						Label:    conflictLabel,
+					},
+				},
+			)
+			if err != nil {
+				errStr += "CONFLICT (content): Merge conflict in " + fp.String() + "\n"
+			}
+
+			// Write the output with conflict markers into the file.
+			f2, err := os.Create(fp.String())
+			if err != nil {
+				return err
+			}
+
+			io.Copy(f2, r)
+			f2.Close()
+		}
+
+		// Only error out if there was at least 1 conflict, otherwise it was
+		// a success.
+		if errStr != "" {
+			return fmt.Errorf("%vAutomatic merge failed; fix conflicts and then commit the result.", errStr)
+		}
+	}
+
+	// TODO: Finally, create the new commit.
+	return nil
 }

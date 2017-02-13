@@ -329,6 +329,31 @@ func (i *Index) GetStageMap() map[IndexStageEntry]*IndexEntry {
 	return r
 }
 
+type UnmergedPath struct {
+	Stage1, Stage2, Stage3 *IndexEntry
+}
+
+func (i *Index) GetUnmerged() map[IndexPath]*UnmergedPath {
+	r := make(map[IndexPath]*UnmergedPath)
+	for _, entry := range i.Objects {
+		if entry.Stage() != Stage0 {
+			e, ok := r[entry.PathName]
+			if !ok {
+				e = &UnmergedPath{}
+				r[entry.PathName] = e
+			}
+			switch entry.Stage() {
+			case Stage1:
+				e.Stage1 = entry
+			case Stage2:
+				e.Stage2 = entry
+			case Stage3:
+				e.Stage3 = entry
+			}
+		}
+	}
+	return r
+}
 func (i *Index) GetMap() map[IndexPath]*IndexEntry {
 	r := make(map[IndexPath]*IndexEntry)
 	for _, entry := range i.Objects {
