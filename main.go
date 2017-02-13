@@ -116,6 +116,11 @@ func main() {
 		cmd.Fetch(c, args)
 	case "reset":
 		cmd.Reset(c, args)
+	case "merge-file":
+		if err := cmd.MergeFile(c, args); err != nil {
+			fmt.Fprintf(os.Stderr, "%v\n", err)
+			os.Exit(2)
+		}
 	case "merge":
 		if err := cmd.Merge(c, args); err != nil {
 			fmt.Fprintf(os.Stderr, "%v\n", err)
