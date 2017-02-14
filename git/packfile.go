@@ -21,6 +21,7 @@ type PackfileHeader struct {
 type PackEntryType uint8
 type PackEntrySize uint64
 type ObjectReference []byte
+type ObjectOffset int
 
 const (
 	OBJ_COMMIT    PackEntryType = 1
@@ -32,7 +33,7 @@ const (
 	OBJ_REF_DELTA PackEntryType = 7
 )
 
-func (p PackfileHeader) ReadHeaderSize(r io.Reader) (PackEntryType, PackEntrySize, ObjectReference) {
+func (p PackfileHeader) ReadHeaderSize(r io.Reader) (PackEntryType, PackEntrySize, ObjectReference, ObjectOffset) {
 	b := make([]byte, 1)
 	var i uint
 	var size PackEntrySize
@@ -77,13 +78,18 @@ func (p PackfileHeader) ReadHeaderSize(r io.Reader) (PackEntryType, PackEntrySiz
 		}
 		i += 1
 	}
-	if entrytype == OBJ_REF_DELTA {
+	switch entrytype {
+	case OBJ_REF_DELTA:
 		n, err := r.Read(refDelta)
 		if n != 20 || err != nil {
 			panic(err)
 		}
+		return entrytype, size, refDelta, 0
+	case OBJ_OFS_DELTA:
+		deltaOffset := ReadVariable(r)
+		return entrytype, size, nil, ObjectOffset(deltaOffset)
 	}
-	return entrytype, size, refDelta
+	return entrytype, size, nil, 0
 }
 
 func (p PackfileHeader) ReadEntryDataStream(r io.ReadSeeker) (uncompressed []byte, compressed []byte) {
