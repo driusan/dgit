@@ -178,40 +178,70 @@ func calculateDelta(repo *libgit.Repository, reference ObjectReference, delta []
 
 }
 
-// Unpacks a packfile into the GitDir of c
-func Unpack(c *Client, r io.ReadSeeker) {
+// Unpacks a packfile into the GitDir of c and returns the Sha1
+// of everything that was unpacked.
+func Unpack(c *Client, r io.ReadSeeker) ([]Sha1, error) {
 	repo, err := libgit.OpenRepository(c.GitDir.String())
 	if err != nil {
-		return
+		return nil, err
 	}
 
 	var p PackfileHeader
 	binary.Read(r, binary.BigEndian, &p)
 	if p.Signature != [4]byte{'P', 'A', 'C', 'K'} {
-		return //err
+		return nil, fmt.Errorf("Invalid packfile.")
 	}
 	if p.Version != 2 {
-		return //err
+		return nil, fmt.Errorf("Unsupported packfile version: %d", p.Version)
 	}
+
+	var objects []Sha1
 	for i := uint32(0); i < p.Size; i += 1 {
 		t, s, ref := p.ReadHeaderSize(r)
 		rawdata, _ := p.ReadEntryDataStream(r)
 		switch t {
 		case OBJ_COMMIT:
-			c.WriteObject("commit", rawdata)
+			sha1, err := c.WriteObject("commit", rawdata)
+			if err != nil {
+				return objects, err
+			}
+			objects = append(objects, sha1)
 		case OBJ_TREE:
-			c.WriteObject("tree", rawdata)
+			sha1, err := c.WriteObject("tree", rawdata)
+			if err != nil {
+				return objects, err
+			}
+			objects = append(objects, sha1)
 		case OBJ_BLOB:
-			c.WriteObject("blob", rawdata)
+			sha1, err := c.WriteObject("blob", rawdata)
+			if err != nil {
+				return objects, err
+			}
+			objects = append(objects, sha1)
 		case OBJ_REF_DELTA:
 			t, deltadata := calculateDelta(repo, ref, rawdata)
 			switch t {
 			case OBJ_COMMIT:
-				c.WriteObject("commit", deltadata)
+				sha1, err := c.WriteObject("commit", deltadata)
+				if err != nil {
+					return objects, err
+				}
+				objects = append(objects, sha1)
+
 			case OBJ_TREE:
-				c.WriteObject("tree", deltadata)
+				sha1, err := c.WriteObject("tree", deltadata)
+				if err != nil {
+					return objects, err
+				}
+				objects = append(objects, sha1)
+
 			case OBJ_BLOB:
-				c.WriteObject("blob", deltadata)
+				sha1, err := c.WriteObject("blob", deltadata)
+				if err != nil {
+					return objects, err
+				}
+				objects = append(objects, sha1)
+
 			default:
 				panic("TODO: Unhandled type for REF_DELTA")
 			}
@@ -223,4 +253,5 @@ func Unpack(c *Client, r io.ReadSeeker) {
 			panic(fmt.Sprintf("Incorrect size of entry %d: %d not %d", i, len(rawdata), s))
 		}
 	}
+	return objects, nil
 }
