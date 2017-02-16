@@ -8,6 +8,7 @@ import (
 	"fmt"
 	libgit "github.com/driusan/git"
 	"io"
+	"log"
 )
 
 func SendPackfile(c *Client, w io.Writer, objects []Sha1) error {
@@ -47,31 +48,36 @@ func SendPackfile(c *Client, w io.Writer, objects []Sha1) error {
 	return nil
 }
 
-func (d *deltaeval) Copy(repo *libgit.Repository, src ObjectReference, offset, length uint64) {
+func (d *deltaeval) Copy(repo *libgit.Repository, src ObjectReference, offset, length uint64) error {
 	id, _ := libgit.NewId(src)
 	_, _, r, err := repo.GetRawObject(id, false)
 	if err != nil {
-		panic(err)
+		return err
 	}
 	defer r.Close()
 	if offset > 0 {
 		tmp := make([]byte, offset)
 		n, err := io.ReadFull(r, tmp)
 		if err != nil {
-			panic(err)
+			return err
 		}
 		if n == 0 || uint64(n) != offset {
-			panic("Couldn't correctly read offset.")
+			return fmt.Errorf("Couldn't correctly read offset in delta copy.")
 		}
 
 	}
 
 	reading := make([]byte, length)
 	n, err := io.ReadFull(r, reading)
-	if uint64(n) != length || err != nil {
-		panic("Error copying data")
+	if err != nil {
+		return err
 	}
+	if uint64(n) != length {
+		return fmt.Errorf("Could not copy %d bytes of data. Got %d", length, n)
+	}
+
 	d.value = append(d.value, reading...)
+	return nil
 }
 
 type resolvedDelta struct {
@@ -81,7 +87,7 @@ type resolvedDelta struct {
 
 var deltaChains map[ObjectOffset]resolvedDelta
 
-func (d *deltaeval) CopyOfs(repo *libgit.Repository, p PackfileHeader, src io.ReadSeeker, offset int64, length uint64) {
+func (d *deltaeval) CopyOfs(repo *libgit.Repository, p PackfileHeader, src io.ReadSeeker, offset int64, length uint64) error {
 	bookmark, _ := src.Seek(0, io.SeekCurrent)
 	t, _, _, foffset := p.ReadHeaderSize(src)
 
@@ -94,7 +100,7 @@ func (d *deltaeval) CopyOfs(repo *libgit.Repository, p PackfileHeader, src io.Re
 		// variable and then into r so that we can defer Close() it
 		zr, err := zlib.NewReader(src)
 		if err != nil {
-			panic(err)
+			return err
 		}
 		defer zr.Close()
 		r = zr
@@ -105,32 +111,38 @@ func (d *deltaeval) CopyOfs(repo *libgit.Repository, p PackfileHeader, src io.Re
 		// in the packfile.
 		rawdata := deltaChains[ObjectOffset(bookmark)-ObjectOffset(foffset)]
 		r = bytes.NewReader(rawdata.Value)
+	default:
+		return fmt.Errorf("Unhandled type in CopyOfs %v", t)
 	}
 
 	if offset > 0 {
 		tmp := make([]byte, offset)
 		n, err := io.ReadFull(r, tmp)
-		if err != nil && err != io.EOF {
-			panic(err)
+		if err != nil {
+			return err
 		}
 		if n == 0 || int64(n) != offset {
-			panic(fmt.Sprintf("Couldn't correctly read offset %d != %d.", n, offset))
+			return fmt.Errorf("Couldn't correctly read offset %d != %d.", n, offset)
 		}
 
 	}
 
 	reading := make([]byte, length)
+	if r == nil {
+		return fmt.Errorf("Invalid reader for instruction.")
+	}
 	n, err := io.ReadFull(r, reading)
 	if err != nil && err != io.EOF {
-		panic(err)
+		return err
 	}
-	if uint64(n) != length || err != nil {
-		panic("Error copying data")
+	if uint64(n) != length {
+		return fmt.Errorf("Could not copy %d bytes of data. Got %d", length, n)
 	}
 	d.value = append(d.value, reading...)
+	return nil
 }
 
-func (d *deltaeval) DoInstruction(repo *libgit.Repository, delta io.Reader, ref ObjectReference, targetSize uint64) {
+func (d *deltaeval) DoInstruction(repo *libgit.Repository, delta io.Reader, ref ObjectReference, targetSize uint64) error {
 	b := make([]byte, 1)
 
 	delta.Read(b)
@@ -179,18 +191,18 @@ func (d *deltaeval) DoInstruction(repo *libgit.Repository, delta io.Reader, ref 
 			panic("Trying to read too much data.")
 		}
 
-		d.Copy(repo, ref, uint64(offset), length)
+		return d.Copy(repo, ref, uint64(offset), length)
 	} else {
-		d.Insert(delta, uint8(b[0]))
+		return d.Insert(delta, uint8(b[0]))
 	}
 }
 
-func (d *deltaeval) DoOfsInstruction(repo *libgit.Repository, p PackfileHeader, delta io.Reader, src io.ReadSeeker, absref ObjectOffset, targetSize uint64) {
+func (d *deltaeval) DoOfsInstruction(repo *libgit.Repository, p PackfileHeader, delta io.Reader, src io.ReadSeeker, absref ObjectOffset, targetSize uint64) error {
 	b := make([]byte, 1)
 
 	delta.Read(b)
 	if b[0] == 0 {
-		panic("Unexpected delta opcode: 0")
+		return fmt.Errorf("Unexpected delta opcode: 0")
 	}
 	if b[0] >= 128 {
 		var offset, length uint64
@@ -236,9 +248,9 @@ func (d *deltaeval) DoOfsInstruction(repo *libgit.Repository, p PackfileHeader, 
 
 		// Go to the reference for the copy.
 		src.Seek(int64(absref), io.SeekStart)
-		d.CopyOfs(repo, p, src, int64(offset), length)
+		return d.CopyOfs(repo, p, src, int64(offset), length)
 	} else {
-		d.Insert(delta, uint8(b[0]))
+		return d.Insert(delta, uint8(b[0]))
 	}
 }
 
@@ -295,13 +307,13 @@ func calculateDelta(repo *libgit.Repository, reference ObjectReference, delta []
 
 // Modified version of the above which uses file offsets instead of reference
 // offsets.
-func calculateOfsDelta(repo *libgit.Repository, p PackfileHeader, r io.ReadSeeker, reference ObjectOffset, delta []byte) (PackEntryType, []byte) {
+func calculateOfsDelta(repo *libgit.Repository, p PackfileHeader, r io.ReadSeeker, reference ObjectOffset, delta []byte) (PackEntryType, []byte, error) {
 	deltaStream := bytes.NewBuffer(delta)
 
 	// Restore the pointer for r after the delta is calculated.
 	bookmark, err := r.Seek(0, io.SeekCurrent)
 	if err != nil {
-		panic(err)
+		return 0, nil, err
 	}
 
 	defer func(i int64) {
@@ -321,7 +333,10 @@ func calculateOfsDelta(repo *libgit.Repository, p PackfileHeader, r io.ReadSeeke
 	d := deltaeval{}
 
 	for {
-		d.DoOfsInstruction(repo, p, deltaStream, r, reference, targetLength)
+		if err := d.DoOfsInstruction(repo, p, deltaStream, r, reference, targetLength); err != nil {
+			return 0, nil, err
+		}
+
 		if targetLength == uint64(len(d.value)) {
 			break
 		}
@@ -335,14 +350,14 @@ func calculateOfsDelta(repo *libgit.Repository, p PackfileHeader, r io.ReadSeeke
 
 	switch objt {
 	case OBJ_COMMIT, OBJ_TREE, OBJ_BLOB, OBJ_TAG:
-		return objt, d.value
+		return objt, d.value, nil
 	case OBJ_OFS_DELTA:
-		val := deltaChains[reference - ObjectOffset(foffset)]
+		val := deltaChains[reference-ObjectOffset(foffset)]
 		// Use the type of the fully resolved reference from our chain
 		// map, and the value we just calculated.
-		return val.Type, d.value
+		return val.Type, d.value, nil
 	default:
-		panic(fmt.Sprintf("Unhandle object type while calculating delta: %v", objt))
+		return objt, nil, fmt.Errorf("Unhandle object type while calculating delta: %v", objt)
 	}
 }
 
@@ -358,12 +373,16 @@ func writeResolvedObject(c *Client, t PackEntryType, rawdata []byte) (Sha1, erro
 	default:
 		return Sha1{}, fmt.Errorf("Unknown type: %s", t)
 	}
-	return c.WriteObject(sType, rawdata)
+	sha, err := c.WriteObject(sType, rawdata)
+	if err != nil && err != ObjectExists {
+		return sha, err
+	}
+	return sha, nil
 }
 
 // Unpacks a packfile into the GitDir of c and returns the Sha1
 // of everything that was unpacked.
-func Unpack(c *Client, r io.ReadSeeker) ([]Sha1, error) {
+func Unpack(c *Client, opts UnpackObjectsOptions, r io.ReadSeeker) ([]Sha1, error) {
 	repo, err := libgit.OpenRepository(c.GitDir.String())
 	if err != nil {
 		return nil, err
@@ -382,8 +401,15 @@ func Unpack(c *Client, r io.ReadSeeker) ([]Sha1, error) {
 
 	var objects []Sha1
 	for i := uint32(0); i < p.Size; i += 1 {
+		if !opts.Quiet {
+			progressF("Unpacking objects: %2.f%% (%d/%d)", (float32(i+1) / float32(p.Size) * 100), i+1, p.Size)
+		}
 		start, err := r.Seek(0, io.SeekCurrent)
 		if err != nil {
+			if opts.Recover {
+				log.Println(err)
+				continue
+			}
 			return objects, err
 		}
 		t, s, ref, offset := p.ReadHeaderSize(r)
@@ -392,16 +418,31 @@ func Unpack(c *Client, r io.ReadSeeker) ([]Sha1, error) {
 		case OBJ_COMMIT, OBJ_TREE, OBJ_BLOB:
 			sha1, err := writeResolvedObject(c, t, rawdata)
 			if err != nil {
+				if opts.Recover {
+					log.Println(err)
+					continue
+				}
 				return objects, err
 			}
 			objects = append(objects, sha1)
 		case OBJ_OFS_DELTA:
-			t, deltadata := calculateOfsDelta(repo, p, r, ObjectOffset(start)-offset, rawdata)
+			t, deltadata, err := calculateOfsDelta(repo, p, r, ObjectOffset(start)-offset, rawdata)
+			if err != nil {
+				if opts.Recover {
+					log.Println(err)
+					continue
+				}
+				return objects, err
+			}
 			deltaChains[ObjectOffset(start)-offset] = resolvedDelta{deltadata, t}
 			switch t {
 			case OBJ_COMMIT, OBJ_TREE, OBJ_BLOB:
 				sha1, err := writeResolvedObject(c, t, deltadata)
 				if err != nil {
+					if opts.Recover {
+						log.Println(err)
+						continue
+					}
 					return objects, err
 				}
 				objects = append(objects, sha1)
@@ -415,6 +456,10 @@ func Unpack(c *Client, r io.ReadSeeker) ([]Sha1, error) {
 			case OBJ_COMMIT, OBJ_TREE, OBJ_BLOB:
 				sha1, err := writeResolvedObject(c, t, deltadata)
 				if err != nil {
+					if opts.Recover {
+						log.Println(err)
+						continue
+					}
 					return objects, err
 				}
 				objects = append(objects, sha1)

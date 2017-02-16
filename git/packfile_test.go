@@ -29,7 +29,7 @@ func runCase(label string, tc PackfileTestCase, t *testing.T) {
 		t.Fatal(err)
 	}
 
-	shas, err := Unpack(c, bytes.NewReader(tc.Packfile))
+	shas, err := Unpack(c, UnpackObjectsOptions{}, bytes.NewReader(tc.Packfile))
 	if err != nil {
 		t.Fatal(err)
 	}

@@ -187,12 +187,16 @@ type deltaeval struct {
 	value []byte
 }
 
-func (d *deltaeval) Insert(src io.Reader, length uint8) {
+func (d *deltaeval) Insert(src io.Reader, length uint8) error {
 
 	val := make([]byte, length)
 	n, err := src.Read(val)
-	if err != nil || n != int(length) {
-		panic(fmt.Sprintf("Couldn't read %d bytes: %s", length, err))
+	if err != nil {
+		return err
+	}
+	if n != int(length) {
+		return fmt.Errorf("Could not insert %d byte of data. Got %d..", length, n)
 	}
 	d.value = append(d.value, val...)
+	return nil
 }
