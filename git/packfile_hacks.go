@@ -69,7 +69,7 @@ func (d *deltaeval) Copy(repo *libgit.Repository, src ObjectReference, offset, l
 
 	reading := make([]byte, length)
 	n, err := io.ReadFull(r, reading)
-	if err != nil && err != io.EOF {
+	if err != nil {
 		return err
 	}
 	if uint64(n) != length {
@@ -92,7 +92,6 @@ func (d *deltaeval) CopyOfs(repo *libgit.Repository, p PackfileHeader, src io.Re
 	t, _, _, foffset := p.ReadHeaderSize(src)
 
 	var r io.Reader
-	var err error
 	switch t {
 	case OBJ_COMMIT, OBJ_TREE, OBJ_BLOB, OBJ_TAG:
 		// the ReadHeaderSize got past the object header.
@@ -109,7 +108,10 @@ func (d *deltaeval) CopyOfs(repo *libgit.Repository, p PackfileHeader, src io.Re
 		// already resolved it before getting here, similarly to how
 		// OBJ_REF_DELTAs only refer to things that occured earlier
 		// in the packfile.
-		rawdata := deltaChains[ObjectOffset(bookmark)-ObjectOffset(foffset)]
+		rawdata, ok := deltaChains[ObjectOffset(bookmark)]
+		if !ok {
+			return fmt.Errorf("Could not follow deltachain from %d", bookmark)
+		}
 		r = bytes.NewReader(rawdata.Value)
 	default:
 		return fmt.Errorf("Unhandled type in CopyOfs %v", t)
@@ -127,12 +129,12 @@ func (d *deltaeval) CopyOfs(repo *libgit.Repository, p PackfileHeader, src io.Re
 
 	}
 
-	reading := make([]byte, length)
 	if r == nil {
 		return fmt.Errorf("Invalid reader for instruction.")
 	}
+	reading := make([]byte, length)
 	n, err := io.ReadFull(r, reading)
-	if err != nil && err != io.EOF {
+	if err != nil {
 		return err
 	}
 	if uint64(n) != length {
@@ -346,13 +348,16 @@ func calculateOfsDelta(repo *libgit.Repository, p PackfileHeader, r io.ReadSeeke
 	}
 	r.Seek(int64(reference), io.SeekStart)
 
-	objt, _, _, foffset := p.ReadHeaderSize(r)
+	objt, _, _, _ := p.ReadHeaderSize(r)
 
 	switch objt {
 	case OBJ_COMMIT, OBJ_TREE, OBJ_BLOB, OBJ_TAG:
 		return objt, d.value, nil
 	case OBJ_OFS_DELTA:
-		val := deltaChains[reference-ObjectOffset(foffset)]
+		val, ok := deltaChains[reference]
+		if !ok {
+			return 0, d.value, fmt.Errorf("Could not determine type of object.")
+		}
 		// Use the type of the fully resolved reference from our chain
 		// map, and the value we just calculated.
 		return val.Type, d.value, nil
@@ -434,7 +439,7 @@ func Unpack(c *Client, opts UnpackObjectsOptions, r io.ReadSeeker) ([]Sha1, erro
 				}
 				return objects, err
 			}
-			deltaChains[ObjectOffset(start)-offset] = resolvedDelta{deltadata, t}
+			deltaChains[ObjectOffset(start)] = resolvedDelta{deltadata, t}
 			switch t {
 			case OBJ_COMMIT, OBJ_TREE, OBJ_BLOB:
 				sha1, err := writeResolvedObject(c, t, deltadata)
