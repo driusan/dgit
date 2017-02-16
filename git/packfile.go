@@ -86,7 +86,7 @@ func (p PackfileHeader) ReadHeaderSize(r io.Reader) (PackEntryType, PackEntrySiz
 		}
 		return entrytype, size, refDelta, 0
 	case OBJ_OFS_DELTA:
-		deltaOffset := ReadVariable(r)
+		deltaOffset := ReadDeltaOffset(r)
 		return entrytype, size, nil, ObjectOffset(deltaOffset)
 	}
 	return entrytype, size, nil, 0
@@ -168,6 +168,22 @@ func (v VariableLengthInt) WriteVariable(w io.Writer, typ PackEntryType) error {
 	return nil
 }
 
+func ReadDeltaOffset(src io.Reader) uint64 {
+	b := make([]byte, 1)
+	var val uint64
+	src.Read(b)
+	val = uint64(b[0] & 127)
+	for i := 0; b[0]&128 != 0; i++ {
+		val += 1
+		if debug {
+			fmt.Printf("%x ", b)
+		}
+		src.Read(b)
+		val = (val << 7) + uint64(b[0]&127)
+	}
+	return val
+
+}
 func ReadVariable(src io.Reader) uint64 {
 	b := make([]byte, 1)
 	var val uint64

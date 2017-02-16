@@ -69,7 +69,7 @@ func (d *deltaeval) Copy(repo *libgit.Repository, src ObjectReference, offset, l
 
 	reading := make([]byte, length)
 	n, err := io.ReadFull(r, reading)
-	if err != nil {
+	if err != nil && err != io.EOF {
 		return err
 	}
 	if uint64(n) != length {
