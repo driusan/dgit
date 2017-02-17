@@ -33,14 +33,42 @@ const (
 	OBJ_REF_DELTA PackEntryType = 7
 )
 
-func (p PackfileHeader) ReadHeaderSize(r io.Reader) (PackEntryType, PackEntrySize, ObjectReference, ObjectOffset) {
+func (t PackEntryType) String() string {
+	switch t {
+	case OBJ_COMMIT:
+		return "commit"
+	case OBJ_TREE:
+		return "tree"
+	case OBJ_BLOB:
+		return "blob"
+	case OBJ_TAG:
+		return "tag"
+	case OBJ_OFS_DELTA:
+		return "ofs_delta"
+	case OBJ_REF_DELTA:
+		return "ref_delta"
+	default:
+		return "unknown"
+	}
+}
+
+// Readers a packfile entry header from r, and returns the type of packfile,
+// the size from the header, optionally a reference or file offset (for deltas
+// only), and any data read from the io stream.
+func (p PackfileHeader) ReadHeaderSize(r io.Reader) (PackEntryType, PackEntrySize, Sha1, ObjectOffset, []byte) {
 	b := make([]byte, 1)
 	var i uint
 	var size PackEntrySize
 	var entrytype PackEntryType
 	refDelta := make([]byte, 20)
+
+	// allocate a little bit of space, to go easier on the GC. We don't know
+	// exactly how much will be read because the size is variable, but most
+	// headers should be less than 32 bytes.
+	dataread := make([]byte, 0, 32)
 	for {
 		r.Read(b)
+		dataread = append(dataread, b...)
 		if i == 0 {
 			// Extract bits 2-4, which contain the type
 			// 0x70 is the bitmask for bits 2-4, then shift
@@ -54,9 +82,7 @@ func (p PackfileHeader) ReadHeaderSize(r io.Reader) (PackEntryType, PackEntrySiz
 			case OBJ_TAG:
 				fmt.Printf("Tag!\n")
 			case OBJ_OFS_DELTA:
-				fmt.Printf("OFS_DELTA!\n")
 			case OBJ_REF_DELTA:
-
 			}
 			// on the first byte, bits 5-8 are the size
 			size = PackEntrySize(b[0] & 0x0F)
@@ -84,12 +110,18 @@ func (p PackfileHeader) ReadHeaderSize(r io.Reader) (PackEntryType, PackEntrySiz
 		if n != 20 || err != nil {
 			panic(err)
 		}
-		return entrytype, size, refDelta, 0
+		dataread = append(dataread, refDelta...)
+		sha, err := Sha1FromSlice(refDelta)
+		if err != nil {
+			panic(err)
+		}
+		return entrytype, size, sha, 0, dataread
 	case OBJ_OFS_DELTA:
-		deltaOffset := ReadDeltaOffset(r)
-		return entrytype, size, nil, ObjectOffset(deltaOffset)
+		deltaOffset, raw := ReadDeltaOffset(r)
+		dataread = append(dataread, raw...)
+		return entrytype, size, Sha1{}, ObjectOffset(deltaOffset), dataread
 	}
-	return entrytype, size, nil, 0
+	return entrytype, size, Sha1{}, 0, dataread
 }
 
 func (p PackfileHeader) ReadEntryDataStream(r io.ReadSeeker) (uncompressed []byte, compressed []byte) {
@@ -168,10 +200,14 @@ func (v VariableLengthInt) WriteVariable(w io.Writer, typ PackEntryType) error {
 	return nil
 }
 
-func ReadDeltaOffset(src io.Reader) uint64 {
+// Reads a delta offset from the io.Reader, and returns both the value
+// and the list of bytes consumed from the reader.
+func ReadDeltaOffset(src io.Reader) (uint64, []byte) {
 	b := make([]byte, 1)
+	consumed := make([]byte, 0, 32)
 	var val uint64
 	src.Read(b)
+	consumed = append(consumed, b...)
 	val = uint64(b[0] & 127)
 	for i := 0; b[0]&128 != 0; i++ {
 		val += 1
@@ -179,10 +215,10 @@ func ReadDeltaOffset(src io.Reader) uint64 {
 			fmt.Printf("%x ", b)
 		}
 		src.Read(b)
+		consumed = append(consumed, b...)
 		val = (val << 7) + uint64(b[0]&127)
 	}
-	return val
-
+	return val, consumed
 }
 func ReadVariable(src io.Reader) uint64 {
 	b := make([]byte, 1)
@@ -199,20 +235,18 @@ func ReadVariable(src io.Reader) uint64 {
 	return val
 }
 
-type deltaeval struct {
-	value []byte
-}
-
-func (d *deltaeval) Insert(src io.Reader, length uint8) error {
-
-	val := make([]byte, length)
-	n, err := src.Read(val)
-	if err != nil {
-		return err
+func writeResolvedObject(c *Client, t PackEntryType, rawdata []byte) (Sha1, error) {
+	switch t {
+	case OBJ_COMMIT, OBJ_TREE, OBJ_BLOB:
+		// Do nothing. We're just checking that it's a type we can
+		// handle.
+	default:
+		return Sha1{}, fmt.Errorf("Unknown type: %s", t)
 	}
-	if n != int(length) {
-		return fmt.Errorf("Could not insert %d byte of data. Got %d..", length, n)
+	sha, err := c.WriteObject(t.String(), rawdata)
+	if err != nil && err != ObjectExists {
+		println(err)
+		return sha, err
 	}
-	d.value = append(d.value, val...)
-	return nil
+	return sha, nil
 }

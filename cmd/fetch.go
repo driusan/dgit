@@ -42,7 +42,7 @@ func Fetch(c *git.Client, args []string) {
 	defer pack.Close()
 	defer os.RemoveAll(pack.Name())
 	pack.Seek(0, 0)
-	git.Unpack(c, git.UnpackObjectsOptions{}, pack)
+	git.UnpackObjects(c, git.UnpackObjectsOptions{}, pack)
 	for _, ref := range refs {
 		if c.GitDir != "" {
 			refloc := fmt.Sprintf("%s/%s", c.GitDir, ref.Refname.String())

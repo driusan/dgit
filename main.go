@@ -202,9 +202,15 @@ func main() {
 			fmt.Fprintf(os.Stderr, "%v\n", err)
 			os.Exit(4)
 		}
+	case "index-pack":
+		if err := cmd.IndexPack(c, args); err != nil {
+			fmt.Fprintln(os.Stderr, err)
+			os.Exit(4)
+		}
 	case "unpack-objects":
 		if err := cmd.UnpackObjects(c, args); err != nil {
 			fmt.Fprintln(os.Stderr, err)
+			os.Exit(4)
 		}
 	default:
 		fmt.Fprintf(os.Stderr, "Unknown git command %s.\n", subcommand)

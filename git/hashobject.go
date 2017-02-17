@@ -1,6 +1,7 @@
 package git
 
 import (
+	"bytes"
 	"crypto/sha1"
 	"fmt"
 	"io"
@@ -21,6 +22,11 @@ func HashReader(t string, r io.Reader) (Sha1, []byte, error) {
 	fmt.Fprintf(h, "%s %d\000%s", t, len(data), data)
 	s, err := Sha1FromSlice(h.Sum(nil))
 	return s, data, err
+}
+
+func HashSlice(t string, data []byte) (Sha1, []byte, error) {
+	r := bytes.NewReader(data)
+	return HashReader(t, r)
 }
 
 func HashFile(t, filename string) (Sha1, []byte, error) {

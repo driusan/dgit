@@ -109,10 +109,11 @@ apply          None                                 (26)
 checkout-index Done          git 2.9.2              This is the first thing to be done!
 commit-tree    Almost        git 2.9.2              (3) missing -s to sign commits
 hash-object    Almost        git 2.9.2              (2) --literally and --no-filters are implied
-index-pack     None                                 (9) The work of this is already done when doing a clone, but not as a stand-alone commmand
+index-pack     Almost        git 2.9.2              (7) -v, -o, and --stdin are implemented. Most of the other options are for internal use by git (but --fix-thin is probably a good idea to add.) 
 merge-file     None                                 (11)
 merge-index    None                                 (3) It's not clear how this is useful
 mktag          None                                 (1) There's only a happy path!
+mktree         None
 pack-objects   HappyPath     git 2.9.2              (18) No options are implemented
 prune-packed   None                                 (2)
 read-tree      Almost        git 2.9.2              (6) missing --prefix, -i, --trivial/aggressive, --exclude-per-directory, and --nosparse-checkout

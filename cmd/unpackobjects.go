@@ -20,5 +20,6 @@ func UnpackObjects(c *git.Client, args []string) error {
 	flags.UintVar(&options.MaxInputSize, "max-input-size", 0, "Do not process pack files larger than size")
 	flags.Parse(args)
 
-	return git.UnpackObjects(c, options, os.Stdin)
+	_, err := git.UnpackObjects(c, options, os.Stdin)
+	return err
 }
