@@ -89,7 +89,7 @@ var deltaChains map[ObjectOffset]resolvedDelta
 
 func (d *deltaeval) CopyOfs(repo *libgit.Repository, p PackfileHeader, src io.ReadSeeker, offset int64, length uint64) error {
 	bookmark, _ := src.Seek(0, io.SeekCurrent)
-	t, _, _, foffset := p.ReadHeaderSize(src)
+	t, _, _, _ := p.ReadHeaderSize(src)
 
 	var r io.Reader
 	switch t {
