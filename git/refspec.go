@@ -17,6 +17,10 @@ func (r RefSpec) String() string {
 	return strings.TrimSpace(strings.TrimSuffix(string(r), "\000"))
 }
 
+func (r RefSpec) HasPrefix(s string) bool {
+	return strings.HasPrefix(r.String(), s)
+}
+
 // Returns the file that holds r.
 func (r RefSpec) File(c *Client) File {
 	return c.GitDir.File(File(r.String()))

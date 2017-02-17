@@ -156,7 +156,7 @@ func (s SmartHTTPServerRetriever) parseUploadPackInfoRefs(r io.Reader) ([]*Refer
 			//noDone = true
 			//fallthrough
 		case "ofs-delta":
-			//		fallthrough
+			fallthrough
 		case "no-progress":
 			responseCapabilities = append(responseCapabilities, val)
 		}
@@ -166,8 +166,10 @@ func (s SmartHTTPServerRetriever) parseUploadPackInfoRefs(r io.Reader) ([]*Refer
 	for _, ref := range references {
 		var line string
 		if have, _, _ := s.C.HaveObject(ref.Sha1); have == false {
-			line = fmt.Sprintf("want %s", ref.Sha1)
-			wantAtLeastOne = true
+			if ref.Refname.String() == "HEAD" || ref.Refname.HasPrefix("refs/heads") {
+				line = fmt.Sprintf("want %s", ref.Sha1)
+				wantAtLeastOne = true
+			}
 		} else {
 			line = fmt.Sprintf("have %s", ref.Sha1)
 		}
@@ -177,7 +179,9 @@ func (s SmartHTTPServerRetriever) parseUploadPackInfoRefs(r io.Reader) ([]*Refer
 			}
 			sentData = true
 		}
-		postData += fmt.Sprintf("%.4x%s\n", len(line)+5, line)
+		if line != "" {
+			postData += fmt.Sprintf("%.4x%s\n", len(line)+5, line)
+		}
 	}
 	if noDone {
 		return references, postData + "0000", nil
@@ -226,13 +230,6 @@ func (s *SmartHTTPServerRetriever) getRefs(service, expectedmime string) (io.Rea
 		if err != nil {
 			resp.Body.Close()
 		}
-		/*
-			println("I am here")
-			if resp.StatusCode >= 400 && resp.StatusCode != 404 && resp.StatusCode {
-				return nil, errors.New(resp.Status)
-			}
-			println("I am now here")
-		*/
 		s.Location = s.Location + ".git"
 		req, err = http.NewRequest("GET", s.Location+"/info/refs?service="+service, nil)
 		if s.username != "" || s.password != "" {
