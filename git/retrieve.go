@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"io"
 	"io/ioutil"
+	"log"
 	"net/http"
 	"os"
 	"strconv"
@@ -165,7 +166,12 @@ func (s SmartHTTPServerRetriever) parseUploadPackInfoRefs(r io.Reader) ([]*Refer
 	wantAtLeastOne := false
 	for _, ref := range references {
 		var line string
-		if have, _, _ := s.C.HaveObject(ref.Sha1); have == false {
+		sha1, err := Sha1FromString(ref.Sha1)
+		if err != nil {
+			log.Print(err)
+			continue
+		}
+		if have, _, _ := s.C.HaveObject(sha1); have == false {
 			if ref.Refname.String() == "HEAD" || ref.Refname.HasPrefix("refs/heads") {
 				line = fmt.Sprintf("want %s", ref.Sha1)
 				wantAtLeastOne = true

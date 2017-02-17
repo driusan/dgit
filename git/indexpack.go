@@ -64,6 +64,21 @@ type PackfileIndexV2 struct {
 	Packfile, IdxFile Sha1
 }
 
+// reads a v2 pack file from r and tells if it has object inside it.
+// This avoids reading the entire pack file, since it only needs to
+// read up to the Sha1 table.
+func v2PackIndexHasSha1(r io.Reader, obj Sha1) bool {
+	var pack PackfileIndexV2
+	binary.Read(r, binary.BigEndian, &pack.magic)
+	binary.Read(r, binary.BigEndian, &pack.Version)
+	binary.Read(r, binary.BigEndian, &pack.Fanout)
+	pack.Sha1Table = make([]Sha1, pack.Fanout[255])
+	for i := 0; i < len(pack.Sha1Table); i++ {
+		binary.Read(r, binary.BigEndian, &pack.Sha1Table[i])
+	}
+
+	return pack.HasObject(obj)
+}
 func (idx PackfileIndexV2) WriteIndex(w io.Writer) error {
 	return idx.writeIndex(w, true)
 }
@@ -120,7 +135,7 @@ func (idx PackfileIndexV2) HasObject(s Sha1) bool {
 	// Packfiles are designed so that we could do a binary search here, but
 	// we don't need that optimization yet, so just do a linear search through
 	// the objects with the same first byte.
-	for i := startIdx; idx.Sha1Table[i][0] == s[0]; i++ {
+	for i := startIdx - 1; idx.Sha1Table[i][0] == s[0]; i-- {
 		if s == idx.Sha1Table[i] {
 			return true
 		}

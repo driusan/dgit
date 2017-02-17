@@ -122,7 +122,7 @@ func (t GitTreeObject) String() string {
 	return ret
 }
 func (c *Client) GetObject(sha1 Sha1) (GitObject, error) {
-	_, packed, err := c.HaveObject(sha1.String())
+	_, packed, err := c.HaveObject(sha1)
 	if packed == true {
 		return nil, fmt.Errorf("GetObject does not yet support packed objects")
 	}

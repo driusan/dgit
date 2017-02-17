@@ -4,6 +4,7 @@ import (
 	"crypto/sha1"
 	"fmt"
 	"io/ioutil"
+	"log"
 	"os"
 	"path/filepath"
 	"strings"
@@ -258,7 +259,7 @@ func (c *Client) WriteObject(objType string, rawdata []byte) (Sha1, error) {
 	obj = append(obj, rawdata...)
 	sha := sha1.Sum(obj)
 
-	if have, _, err := c.HaveObject(fmt.Sprintf("%x", sha)); have == true || err != nil {
+	if have, _, err := c.HaveObject(Sha1(sha)); have == true || err != nil {
 		if err != nil {
 			return Sha1{}, err
 
@@ -318,4 +319,37 @@ func (c *Client) GetHeadCommit() (CommitID, error) {
 	}
 	return CommitIDFromString(val)
 
+}
+
+// Determine whether or not the object represented by idStr (a 40 character
+// hash string ) exists in the repository.
+func (c *Client) HaveObject(id Sha1) (found, packed bool, err error) {
+	// First the easy case
+	if f := c.GitDir.File(File(fmt.Sprintf("objects/%x/%x", id[0], id[1:]))); f.Exists() {
+		return true, false, nil
+	}
+
+	// Then, check if it's in a pack file.
+	files, err := ioutil.ReadDir(c.GitDir.File("objects/pack").String())
+	if err != nil {
+		return false, false, err
+	}
+	for _, fi := range files {
+		if filepath.Ext(fi.Name()) == ".idx" {
+			// It's ambiguous if Name() has the full path or not according to what
+			// ReadDir returns, so just be very cautious on how we open it.
+			name := c.GitDir.File(File(fmt.Sprintf("objects/pack/%s", filepath.Base(fi.Name()))))
+			f, err := os.Open(name.String())
+			if err != nil {
+				log.Print(err)
+				continue
+			}
+			if v2PackIndexHasSha1(f, id) {
+				f.Close()
+				return true, true, nil
+			}
+			f.Close()
+		}
+	}
+	return false, false, nil
 }
