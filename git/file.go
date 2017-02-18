@@ -103,3 +103,7 @@ func (f File) ReadFirstLine() (string, error) {
 func (f File) Remove() error {
 	return os.Remove(f.String())
 }
+
+func (f File) Open() (*os.File, error) {
+	return os.Open(f.String())
+}

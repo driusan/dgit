@@ -73,7 +73,7 @@ func (t GitTreeObject) GetContent() []byte {
 }
 
 func (t GitTreeObject) GetType() string {
-	return "commit"
+	return "tree"
 }
 func (t GitTreeObject) GetSize() int {
 	return t.size
@@ -121,28 +121,55 @@ func (t GitTreeObject) String() string {
 	}
 	return ret
 }
-func (c *Client) GetObject(sha1 Sha1) (GitObject, error) {
-	_, packed, err := c.HaveObject(sha1)
-	if packed == true {
-		return nil, fmt.Errorf("GetObject does not yet support packed objects")
-	}
-	if err != nil {
-		panic(err)
-	}
-	objectname := fmt.Sprintf("%s/objects/%x/%x", c.GitDir, sha1[0:1], sha1[1:])
-	f, err := os.Open(objectname)
-	if err != nil {
-		return nil, err
-	}
-	defer f.Close()
 
-	uncompressed, err := zlib.NewReader(f)
+// Returns the byte array of a packed object from packfile, after
+// resolving any deltas. (packfile should be the base name with no
+// extension.)
+func (c *Client) getPackedObject(packfile File, sha1 Sha1) (GitObject, error) {
+	idx, err := (packfile + ".idx").Open()
 	if err != nil {
 		return nil, err
 	}
-	b, err := ioutil.ReadAll(uncompressed)
+	defer idx.Close()
+
+	data, err := (packfile + ".pack").Open()
 	if err != nil {
 		return nil, err
+	}
+	defer data.Close()
+
+	return getPackFileObject(idx, data, sha1)
+}
+
+func (c *Client) GetObject(sha1 Sha1) (GitObject, error) {
+	found, packfile, err := c.HaveObject(sha1)
+	if err != nil {
+		return nil, err
+	}
+
+	if found == false {
+		return nil, fmt.Errorf("Object not found.")
+	}
+
+	var b []byte
+	if packfile != "" {
+		return c.getPackedObject(packfile, sha1)
+	} else {
+		objectname := fmt.Sprintf("%s/objects/%x/%x", c.GitDir, sha1[0:1], sha1[1:])
+		f, err := os.Open(objectname)
+		if err != nil {
+			return nil, err
+		}
+		defer f.Close()
+		uncompressed, err := zlib.NewReader(f)
+		if err != nil {
+			return nil, err
+		}
+		b, err = ioutil.ReadAll(uncompressed)
+		if err != nil {
+			return nil, err
+		}
+
 	}
 
 	if strings.HasPrefix(string(b), "blob ") {

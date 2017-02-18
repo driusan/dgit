@@ -40,6 +40,7 @@ type IndexPackOptions struct {
 }
 
 type PackfileIndex interface {
+	GetObject(i io.ReadSeeker, s Sha1) (GitObject, error)
 	HasObject(s Sha1) bool
 	WriteIndex(w io.Writer) error
 	GetTrailer() (Packfile Sha1, Index Sha1)
@@ -60,6 +61,8 @@ type PackfileIndexV2 struct {
 	FourByteOffsets  []uint32
 	EightByteOffsets []uint64
 
+	// the objects stream goes here in the file
+
 	// The trailer from a V1 checksum
 	Packfile, IdxFile Sha1
 }
@@ -79,10 +82,174 @@ func v2PackIndexHasSha1(r io.Reader, obj Sha1) bool {
 
 	return pack.HasObject(obj)
 }
+
 func (idx PackfileIndexV2) WriteIndex(w io.Writer) error {
 	return idx.writeIndex(w, true)
 }
 
+// Using the index, retrieve an object from the packfile represented by r.
+func (idx PackfileIndexV2) getObjectAtOffset(r io.ReadSeeker, offset int64) (GitObject, error) {
+	var p PackfileHeader
+
+	_, err := r.Seek(offset, io.SeekStart)
+	if err != nil {
+		return nil, err
+	}
+
+	t, _, ref, refoffset, _ := p.ReadHeaderSize(r)
+	rawdata, _ := p.ReadEntryDataStream(r)
+	// The way we calculate the hash changes based on if it's a delta
+	// or not.
+	switch t {
+	case OBJ_COMMIT:
+		return GitCommitObject{len(rawdata), rawdata}, nil
+	case OBJ_TREE:
+		return GitTreeObject{len(rawdata), rawdata}, nil
+	case OBJ_BLOB:
+		return GitBlobObject{len(rawdata), rawdata}, nil
+	case OBJ_OFS_DELTA:
+		// Things aren't very consistent with if types are strings, types,
+		// or interfaces, making this far more difficult than it needs to be.
+		base, err := idx.getObjectAtOffset(r, offset-int64(refoffset))
+		if err != nil {
+			return nil, err
+		}
+
+		// calculateDelta needs a fully resolved delta, so we need to create
+		// one based on the GitObject returned.
+		res := resolvedDelta{Value: base.GetContent()}
+		switch ty := base.GetType(); ty {
+		case "commit":
+			res.Type = OBJ_COMMIT
+		case "tree":
+			res.Type = OBJ_TREE
+		case "blob":
+			res.Type = OBJ_BLOB
+		default:
+			return nil, InvalidObject
+		}
+
+		baseType, val, err := calculateDelta(res, rawdata)
+		if err != nil {
+			return nil, err
+		}
+		// Convert back into a GitObject interface.
+		switch baseType {
+		case OBJ_COMMIT:
+			return GitCommitObject{len(val), val}, nil
+		case OBJ_TREE:
+			return GitTreeObject{len(val), val}, nil
+		case OBJ_BLOB:
+			return GitBlobObject{len(val), val}, nil
+		default:
+			return nil, InvalidObject
+		}
+	case OBJ_REF_DELTA:
+		base, err := idx.GetObject(r, ref)
+		if err != nil {
+			return nil, err
+		}
+
+		// calculateDelta needs a fully resolved delta, so we need to create
+		// one based on the GitObject returned.
+		res := resolvedDelta{Value: base.GetContent()}
+		switch ty := base.GetType(); ty {
+		case "commit":
+			res.Type = OBJ_COMMIT
+		case "tree":
+			res.Type = OBJ_TREE
+		case "blob":
+			res.Type = OBJ_BLOB
+		default:
+			return nil, InvalidObject
+		}
+
+		baseType, val, err := calculateDelta(res, rawdata)
+		if err != nil {
+			return nil, err
+		}
+		// Convert back into a GitObject interface.
+		switch baseType {
+		case OBJ_COMMIT:
+			return GitCommitObject{len(val), val}, nil
+		case OBJ_TREE:
+			return GitTreeObject{len(val), val}, nil
+		case OBJ_BLOB:
+			return GitBlobObject{len(val), val}, nil
+		default:
+			return nil, InvalidObject
+		}
+	default:
+		return nil, fmt.Errorf("Unhandled object type.")
+	}
+
+}
+func (idx PackfileIndexV2) GetObject(r io.ReadSeeker, s Sha1) (GitObject, error) {
+	// Find the object in the table.
+	foundIdx := -1
+	startIdx := idx.Fanout[s[0]]
+
+	// Packfiles are designed so that we could do a binary search here, but
+	// we don't need that optimization yet, so just do a linear search through
+	// the objects with the same first byte.
+	for i := startIdx - 1; idx.Sha1Table[i][0] == s[0]; i-- {
+		if s == idx.Sha1Table[i] {
+			foundIdx = int(i)
+			break
+		}
+	}
+	if foundIdx == -1 {
+		return nil, fmt.Errorf("Object not found")
+	}
+
+	var offset int64
+	if idx.FourByteOffsets[foundIdx]&(1<<31) != 0 {
+		// clear out the MSB to get the offset
+		eightbyteOffset := idx.FourByteOffsets[foundIdx] ^ (1 << 31)
+		offset = int64(idx.EightByteOffsets[eightbyteOffset])
+	} else {
+		offset = int64(idx.FourByteOffsets[foundIdx])
+	}
+
+	// Now that we've figured out where the object lives, use the packfile
+	// to get the value from the packfile.
+	return idx.getObjectAtOffset(r, offset)
+}
+
+func getPackFileObject(idx io.Reader, packfile io.ReadSeeker, s Sha1) (GitObject, error) {
+	var pack PackfileIndexV2
+	binary.Read(idx, binary.BigEndian, &pack.magic)
+	binary.Read(idx, binary.BigEndian, &pack.Version)
+	binary.Read(idx, binary.BigEndian, &pack.Fanout)
+	pack.Sha1Table = make([]Sha1, pack.Fanout[255])
+	pack.CRC32 = make([]uint32, pack.Fanout[255])
+	pack.FourByteOffsets = make([]uint32, pack.Fanout[255])
+	// Load the tables. The first three are based on the number of
+	// objects in the packfile (stored in Fanout[255]), the last
+	// table is dynamicly sized.
+
+	for i := 0; i < len(pack.Sha1Table); i++ {
+		binary.Read(idx, binary.BigEndian, &pack.Sha1Table[i])
+	}
+	for i := 0; i < len(pack.CRC32); i++ {
+		binary.Read(idx, binary.BigEndian, &pack.CRC32[i])
+	}
+	for i := 0; i < len(pack.FourByteOffsets); i++ {
+		binary.Read(idx, binary.BigEndian, &pack.FourByteOffsets[i])
+	}
+
+	// The number of eight byte offsets is dynamic, based on how many
+	// four byte offsets have the MSB set.
+	for _, offset := range pack.FourByteOffsets {
+		if offset&(1<<31) != 0 {
+			var val uint64
+			binary.Read(idx, binary.BigEndian, &val)
+			pack.EightByteOffsets = append(pack.EightByteOffsets, val)
+		}
+	}
+
+	return pack.GetObject(packfile, s)
+}
 func (idx PackfileIndexV2) GetTrailer() (Sha1, Sha1) {
 	return idx.Packfile, idx.IdxFile
 }

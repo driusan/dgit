@@ -321,18 +321,21 @@ func (c *Client) GetHeadCommit() (CommitID, error) {
 
 }
 
-// Determine whether or not the object represented by idStr (a 40 character
-// hash string ) exists in the repository.
-func (c *Client) HaveObject(id Sha1) (found, packed bool, err error) {
+// Determine whether or not the object represented by id exists in the
+// Client's object directory. Returns a bool if it was found, and the
+// basename of the packfile pack/idx pair that it was contained in (the
+// zero value if it's stored loosely in the repo), and possibly an error
+// if anything went wrong.
+func (c *Client) HaveObject(id Sha1) (found bool, packedfile File, err error) {
 	// First the easy case
 	if f := c.GitDir.File(File(fmt.Sprintf("objects/%x/%x", id[0], id[1:]))); f.Exists() {
-		return true, false, nil
+		return true, "", nil
 	}
 
 	// Then, check if it's in a pack file.
 	files, err := ioutil.ReadDir(c.GitDir.File("objects/pack").String())
 	if err != nil {
-		return false, false, err
+		return false, "", err
 	}
 	for _, fi := range files {
 		if filepath.Ext(fi.Name()) == ".idx" {
@@ -346,10 +349,11 @@ func (c *Client) HaveObject(id Sha1) (found, packed bool, err error) {
 			}
 			if v2PackIndexHasSha1(f, id) {
 				f.Close()
-				return true, true, nil
+				// We want to return the pack file, not the index.
+				return true, File(strings.TrimSuffix(name.String(), ".idx")), nil
 			}
 			f.Close()
 		}
 	}
-	return false, false, nil
+	return false, "", nil
 }
