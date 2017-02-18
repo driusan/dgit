@@ -3,6 +3,8 @@ package git
 import (
 	"fmt"
 	"io"
+	"io/ioutil"
+	"os"
 	"sort"
 	"sync"
 
@@ -489,4 +491,52 @@ func IndexPack(c *Client, opts IndexPackOptions, r io.ReadSeeker) (PackfileIndex
 	// were calculating everything.)
 	err := indexfile.calculateTrailer()
 	return indexfile, err
+}
+
+// Indexes the pack, and stores a copy in Client's .git/objects/pack directory as it's
+// doing so. This is the equivalent of "git index-pack --stdin", but works with any
+// reader.
+func IndexAndCopyPack(c *Client, opts IndexPackOptions, r io.Reader) (PackfileIndex, error) {
+	// Generate a temp file for the pack index.
+	fidx, err := ioutil.TempFile(c.GitDir.File("objects/pack").String(), ".tmppackfileidx")
+	if err != nil {
+		return nil, err
+	}
+	defer fidx.Close()
+
+	opts.Output = fidx
+	// Also use a temp file for copying the packfile to.
+	pack, err := ioutil.TempFile(c.GitDir.File("objects/pack").String(), ".tmppackfileidx")
+	if err != nil {
+		// We handle fidx and pack in one defer, so we need to
+		// manually close fidx if we haven't set up the defer yet.
+		return nil, err
+	}
+	defer pack.Close()
+	// Use a temp file for the index.
+
+	// We need a ReadSeeker, not a Reader, so copy the whole thing before
+	// starting. (We can't just make the parameter a ReadSeeker, because
+	// os.Stdin is an *os.File which has a Seek method which always returns
+	// an error.)
+	io.Copy(pack, os.Stdin)
+	pack.Seek(0, io.SeekStart)
+
+	var idx PackfileIndex
+	defer func() {
+		if idx != nil {
+			packhash, _ := idx.GetTrailer()
+			base := fmt.Sprintf("%s/pack-%s", c.GitDir.File("objects/pack").String(), packhash)
+			os.Rename(fidx.Name(), base+".idx")
+			os.Rename(pack.Name(), base+".pack")
+		}
+	}()
+	idx, err = IndexPack(c, opts, pack)
+	if err != nil {
+		return idx, err
+	}
+	if idx != nil {
+		return idx, idx.WriteIndex(opts.Output)
+	}
+	return nil, fmt.Errorf("Invalid packfile index.")
 }

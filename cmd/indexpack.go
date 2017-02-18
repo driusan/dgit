@@ -4,7 +4,6 @@ import (
 	"flag"
 	"fmt"
 	"io"
-	"io/ioutil"
 	"os"
 	"path/filepath"
 	"strings"
@@ -77,46 +76,12 @@ func IndexPack(c *git.Client, args []string) (err error) {
 			//  because otherwise we'll need an extra pointless copy
 			//  on some operating systems, where mv can't move between
 			// directories.)
-
-			// Use a temp file for the index.
-			fidx, err := ioutil.TempFile(c.GitDir.File("objects/pack").String(), ".tmppackfileidx")
-			if err != nil {
-				return err
-			}
-			options.Output = fidx
-
-			// Also use a temp file for copying the packfile to.
-
-			pack, err := ioutil.TempFile(c.GitDir.File("objects/pack").String(), ".tmppackfileidx")
-			if err != nil {
-				// We handle fidx and pack in one defer, so we need to
-				// manually close fidx if we haven't set up the defer yet.
-				fidx.Close()
-				return err
-			}
-			defer func() {
-				fidx.Close()
-				pack.Close()
-
-				if idx != nil {
-					packhash, _ := idx.GetTrailer()
-					base := fmt.Sprintf("%s/pack-%s", c.GitDir.File("objects/pack").String(), packhash)
-					os.Rename(fidx.Name(), base+".idx")
-					os.Rename(pack.Name(), base+".pack")
-				} else {
-					panic(err)
-				}
-			}()
-
-			// Copy the whole thing before getting started, because
-			// os.Stdin can't seek.
-			io.Copy(pack, os.Stdin)
-			pack.Seek(0, io.SeekStart)
-			packfile = pack
+			_, err := git.IndexAndCopyPack(c, options, os.Stdin)
+			return err
 		}
 	} else {
 		// Guess based on the pack name.
-		if filepath.Ext(args[0]) != "pack" {
+		if filepath.Ext(args[0]) != ".pack" {
 			return fmt.Errorf("File name does not end in .pack")
 		}
 		fname := strings.TrimSuffix(args[0], "pack") + "idx"
