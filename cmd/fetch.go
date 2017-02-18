@@ -39,10 +39,13 @@ func Fetch(c *git.Client, args []string) {
 	default:
 		panic(err)
 	}
-	defer pack.Close()
-	defer os.RemoveAll(pack.Name())
-	pack.Seek(0, 0)
-	git.UnpackObjects(c, git.UnpackObjectsOptions{}, pack)
+	if pack != nil {
+		defer pack.Close()
+	}
+	_, err = git.IndexAndCopyPack(c, git.IndexPackOptions{Verbose: true}, pack)
+	if err != nil {
+		panic(err)
+	}
 	for _, ref := range refs {
 		if c.GitDir != "" {
 			refloc := fmt.Sprintf("%s/%s", c.GitDir, ref.Refname.String())

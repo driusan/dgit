@@ -519,7 +519,7 @@ func IndexAndCopyPack(c *Client, opts IndexPackOptions, r io.Reader) (PackfileIn
 	// starting. (We can't just make the parameter a ReadSeeker, because
 	// os.Stdin is an *os.File which has a Seek method which always returns
 	// an error.)
-	io.Copy(pack, os.Stdin)
+	io.Copy(pack, r)
 	pack.Seek(0, io.SeekStart)
 
 	var idx PackfileIndex

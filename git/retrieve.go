@@ -47,7 +47,7 @@ type Uploadpack interface {
 	// read it.
 	// As well as a map of refs/ that the server had
 	// to the hashes that they reference
-	NegotiatePack() ([]*Reference, *os.File, error)
+	NegotiatePack() ([]*Reference, io.ReadCloser, error)
 
 	// Negotiate references that should up uploaded in a sendpack
 	NegotiateSendPack() ([]*Reference, error)
@@ -275,7 +275,10 @@ func (s *SmartHTTPServerRetriever) NegotiateSendPack() ([]*Reference, error) {
 	return refs, nil
 
 }
-func (s SmartHTTPServerRetriever) NegotiatePack() ([]*Reference, *os.File, error) {
+
+// Returns a list of references on the server, and a ReadCloser that'll read the packfile.
+// It's the callers responsibility to close the reader if non-nil.
+func (s SmartHTTPServerRetriever) NegotiatePack() ([]*Reference, io.ReadCloser, error) {
 	r, err := s.getRefs("git-upload-pack", "application/x-git-upload-pack-advertisement")
 	if err != nil {
 		return nil, nil, err
@@ -294,21 +297,12 @@ func (s SmartHTTPServerRetriever) NegotiatePack() ([]*Reference, *os.File, error
 	if err != nil {
 		return refs, nil, err
 	}
-	defer r2.Body.Close()
 	response := loadLine(r2.Body)
 	if response != "NAK\n" {
 		panic(response)
 	}
 
-	// Use a tempfile so that the body is a io.ReadSeeker
-	f, err := ioutil.TempFile("", "gitpack")
-	if err != nil {
-		return refs, f, err
-	}
-
-	io.Copy(f, r2.Body)
-
-	return refs, f, nil
+	return refs, r2.Body, nil
 }
 
 func (s SmartHTTPServerRetriever) SendPack(ref UpdateReference, r io.Reader, size int64) error {
