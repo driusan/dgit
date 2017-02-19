@@ -47,6 +47,12 @@ func CheckoutIndexCmd(c *git.Client, args []string) error {
 		options.Stdin = os.Stdin
 	}
 
-	return git.CheckoutIndex(c, options, files)
+	// Convert from string to git.File
+	gfiles := make([]git.File, len(files))
+	for i, f := range files {
+		gfiles[i] = git.File(f)
+	}
+
+	return git.CheckoutIndex(c, options, gfiles)
 
 }

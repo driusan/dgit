@@ -47,10 +47,11 @@ func CheckoutIndexFromReaderUncommited(c *Client, idx *Index, opts CheckoutIndex
 		delim = 0
 	}
 
+	var f File
 	for s, err := reader.ReadString(delim); err == nil; s, err = reader.ReadString(delim) {
-		s = strings.TrimSuffix(s, string(delim))
+		f = File(strings.TrimSuffix(s, string(delim)))
 
-		e := CheckoutIndexUncommited(c, idx, opts, []string{s})
+		e := CheckoutIndexUncommited(c, idx, opts, []File{f})
 		if e != nil {
 			fmt.Fprintln(os.Stderr, e)
 		}
@@ -93,7 +94,11 @@ func checkoutTemp(c *Client, entry *IndexEntry, opts CheckoutIndexOptions) (stri
 
 // Checks out a given index entry.
 func checkoutFile(c *Client, entry *IndexEntry, opts CheckoutIndexOptions) error {
-	f := File(opts.Prefix + entry.PathName.String())
+	f, err := entry.PathName.FilePath(c)
+	if err != nil {
+		return err
+	}
+	f = File(opts.Prefix) + f
 	if f.Exists() && !opts.Force {
 		if !opts.Quiet {
 			return fmt.Errorf("%v already exists, no checkout", entry.PathName.String())
@@ -139,11 +144,15 @@ func checkoutFile(c *Client, entry *IndexEntry, opts CheckoutIndexOptions) error
 //
 // (This is primarily for read-tree to be able to update the filesystem with the
 // -u parameter.)
-func CheckoutIndexUncommited(c *Client, idx *Index, opts CheckoutIndexOptions, files []string) error {
+func CheckoutIndexUncommited(c *Client, idx *Index, opts CheckoutIndexOptions, files []File) error {
 	if opts.All {
-		files = make([]string, 0, len(idx.Objects))
+		files = make([]File, 0, len(idx.Objects))
 		for _, entry := range idx.Objects {
-			files = append(files, entry.PathName.String())
+			f, err := entry.PathName.FilePath(c)
+			if err != nil {
+				return err
+			}
+			files = append(files, f)
 		}
 	}
 
@@ -275,7 +284,7 @@ func CheckoutIndexUncommited(c *Client, idx *Index, opts CheckoutIndexOptions, f
 }
 
 // CheckoutIndex implements the "git checkout-index" subcommand of git.
-func CheckoutIndex(c *Client, opts CheckoutIndexOptions, files []string) error {
+func CheckoutIndex(c *Client, opts CheckoutIndexOptions, files []File) error {
 	if len(files) != 0 && opts.All {
 		return fmt.Errorf("Can not mix --all and named files")
 	}

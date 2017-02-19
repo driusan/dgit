@@ -375,7 +375,7 @@ func checkMergeAndUpdate(c *Client, opt ReadTreeOptions, origidx map[IndexPath]*
 	}
 
 	// Keep a list of index entries to be updated by CheckoutIndex.
-	files := make([]string, 0, len(newidx.Objects))
+	files := make([]File, 0, len(newidx.Objects))
 
 	if opt.Merge {
 		// Verify that merge won't overwrite anything that's been modified locally.
@@ -396,7 +396,7 @@ func checkMergeAndUpdate(c *Client, opt ReadTreeOptions, origidx map[IndexPath]*
 				if err != nil {
 					return err
 				}
-				files = append(files, file.String())
+				files = append(files, file)
 				continue
 			}
 
@@ -412,7 +412,7 @@ func checkMergeAndUpdate(c *Client, opt ReadTreeOptions, origidx map[IndexPath]*
 				if err != nil {
 					return err
 				}
-				files = append(files, file.String())
+				files = append(files, file)
 				continue
 			} else {
 				// There are local unmodified changes on the filesystem
@@ -426,7 +426,7 @@ func checkMergeAndUpdate(c *Client, opt ReadTreeOptions, origidx map[IndexPath]*
 					if err != nil {
 						return err
 					}
-					files = append(files, file.String())
+					files = append(files, file)
 				}
 			}
 		}

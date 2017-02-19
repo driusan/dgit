@@ -105,6 +105,12 @@ func Checkout(c *git.Client, args []string) error {
 			files = files[1:]
 		}
 	}
+
+	// Convert from string to git.File
+	gfiles := make([]git.File, len(files))
+	for i, f := range files {
+		gfiles[i] = git.File(f)
+	}
 	// Temporary hack until. This needs to parse the arguments with flag..
-	return git.Checkout(c, git.CheckoutOptions{}, thing, files)
+	return git.Checkout(c, git.CheckoutOptions{}, thing, gfiles)
 }

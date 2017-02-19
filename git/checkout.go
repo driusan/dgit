@@ -64,7 +64,7 @@ type CheckoutOptions struct {
 //
 // "thing" is the thing that the user entered on the command line to be checked out. It
 // might be a branch, a commit, or a treeish, depending on the variation above.
-func Checkout(c *Client, opts CheckoutOptions, thing string, files []string) error {
+func Checkout(c *Client, opts CheckoutOptions, thing string, files []File) error {
 	if thing == "" {
 		thing = "HEAD"
 	}
@@ -141,7 +141,7 @@ func CheckoutCommit(c *Client, opts CheckoutOptions, commit Commitish) error {
 // Implements "git checkout" subcommand of git for variations:
 //     git checkout [-f|--ours|--theirs|-m|--conflict=<style>] [<tree-ish>] [--] <paths>...
 //     git checkout [-p|--patch] [<tree-ish>] [--] [<paths>...]
-func CheckoutFiles(c *Client, opts CheckoutOptions, tree Treeish, files []string) error {
+func CheckoutFiles(c *Client, opts CheckoutOptions, tree Treeish, files []File) error {
 	// If files were specified, we don't want ReadTree to update the workdir,
 	// because we only want to (force) update the specified files.
 	//
