@@ -441,7 +441,7 @@ func writeIndexSubtree(c *Client, prefix string, entries []*IndexEntry) (Sha1, e
 			newPrefix := prefix + "/" + lastname
 
 			var islice []*IndexEntry
-			if idx == len(entries)-1 {
+			if idx == len(entries)-1 && nameBits[0] == lastname {
 				islice = entries[firstIdxForTree:]
 			} else {
 				islice = entries[firstIdxForTree:idx]
@@ -502,7 +502,7 @@ func writeIndexEntries(c *Client, prefix string, entries []*IndexEntry) (TreeID,
 		// entry but the directory changed
 		if (nameBits[0] != lastname || idx == len(entries)-1) && lastname != "" {
 			var islice []*IndexEntry
-			if idx == len(entries)-1 {
+			if idx == len(entries)-1 && nameBits[0] == lastname {
 				islice = entries[firstIdxForTree:]
 			} else {
 				islice = entries[firstIdxForTree:idx]
