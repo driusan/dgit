@@ -72,7 +72,7 @@ type PackfileIndexV2 struct {
 // reads a v2 pack file from r and tells if it has object inside it.
 // This avoids reading the entire pack file, since it only needs to
 // read up to the Sha1 table.
-func v2PackIndexHasSha1(r io.Reader, obj Sha1) bool {
+func v2PackIndexHasSha1(c *Client, pfile File, r io.Reader, obj Sha1) bool {
 	var pack PackfileIndexV2
 	binary.Read(r, binary.BigEndian, &pack.magic)
 	binary.Read(r, binary.BigEndian, &pack.Version)
@@ -80,6 +80,7 @@ func v2PackIndexHasSha1(r io.Reader, obj Sha1) bool {
 	pack.Sha1Table = make([]Sha1, pack.Fanout[255])
 	for i := 0; i < len(pack.Sha1Table); i++ {
 		binary.Read(r, binary.BigEndian, &pack.Sha1Table[i])
+		c.objectCache[pack.Sha1Table[i]] = objectLocation{false, pfile}
 	}
 
 	return pack.HasObject(obj)

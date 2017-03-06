@@ -32,7 +32,7 @@ type Index struct {
 	Objects       []*IndexEntry
 }
 type IndexEntry struct {
-	fixedIndexEntry
+	FixedIndexEntry
 
 	PathName IndexPath
 }
@@ -51,7 +51,7 @@ func NewIndex() *Index {
 	}
 }
 
-type fixedIndexEntry struct {
+type FixedIndexEntry struct {
 	Ctime     uint32 // 16
 	Ctimenano uint32 // 20
 
@@ -107,7 +107,7 @@ func (d GitDir) ReadIndex() (*Index, error) {
 }
 
 func ReadIndexEntry(file *os.File) (*IndexEntry, error) {
-	var f fixedIndexEntry
+	var f FixedIndexEntry
 	var name []byte
 	binary.Read(file, binary.BigEndian, &f)
 
@@ -226,7 +226,7 @@ func (g *Index) AddStage(c *Client, path IndexPath, s Sha1, stage Stage, mtime, 
 	}
 
 	g.Objects = append(g.Objects, &IndexEntry{
-		fixedIndexEntry{
+		FixedIndexEntry{
 			0, //uint32(csec),
 			0, //uint32(cnano),
 			mtime,
@@ -386,7 +386,7 @@ func (g Index) WriteIndex(file io.Writer) error {
 	w := io.MultiWriter(file, s)
 	binary.Write(w, binary.BigEndian, g.fixedGitIndex)
 	for _, entry := range g.Objects {
-		binary.Write(w, binary.BigEndian, entry.fixedIndexEntry)
+		binary.Write(w, binary.BigEndian, entry.FixedIndexEntry)
 		binary.Write(w, binary.BigEndian, []byte(entry.PathName))
 		padding := 8 - ((82 + len(entry.PathName) + 4) % 8)
 		p := make([]byte, padding)

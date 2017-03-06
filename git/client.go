@@ -1,6 +1,7 @@
 package git
 
 import (
+	"bufio"
 	"crypto/sha1"
 	"fmt"
 	"io/ioutil"
@@ -71,11 +72,19 @@ func (f WorkDir) String() string {
 	return string(f)
 }
 
+type objectLocation struct {
+	loose    bool
+	packfile File
+}
+
 // A Client represents a user of the git command inside of a git repo. It's
 // usually something that is trying to manipulate the repo.
 type Client struct {
 	GitDir  GitDir
 	WorkDir WorkDir
+
+	// Cache of where this client has previously found existing objects
+	objectCache map[Sha1]objectLocation
 }
 
 // Walks from the current directory to find a .git directory
@@ -122,7 +131,8 @@ func NewClient(gitDir, workDir string) (*Client, error) {
 		// TODO: Check the GIT_WORK_TREE os environment, then strip .git
 		// from the gitdir if it doesn't exist.
 	}
-	return &Client{GitDir(gitdir), WorkDir(workdir)}, nil
+	m := make(map[Sha1]objectLocation)
+	return &Client{GitDir(gitdir), WorkDir(workdir), m}, nil
 }
 
 // Returns the branchname of the HEAD branch, or the empty string if the
@@ -327,8 +337,14 @@ func (c *Client) GetHeadCommit() (CommitID, error) {
 // zero value if it's stored loosely in the repo), and possibly an error
 // if anything went wrong.
 func (c *Client) HaveObject(id Sha1) (found bool, packedfile File, err error) {
+	// If it's cached, avoid the overhead
+	if val, ok := c.objectCache[id]; ok {
+		return true, val.packfile, nil
+	}
+
 	// First the easy case
 	if f := c.GitDir.File(File(fmt.Sprintf("objects/%x/%x", id[0], id[1:]))); f.Exists() {
+		c.objectCache[id] = objectLocation{true, ""}
 		return true, "", nil
 	}
 
@@ -347,10 +363,12 @@ func (c *Client) HaveObject(id Sha1) (found bool, packedfile File, err error) {
 				log.Print(err)
 				continue
 			}
-			if v2PackIndexHasSha1(f, id) {
-				f.Close()
+			pfile := File(strings.TrimSuffix(name.String(), ".idx"))
+			buf := bufio.NewReader(f)
+			if v2PackIndexHasSha1(c, pfile, buf, id) {
 				// We want to return the pack file, not the index.
-				return true, File(strings.TrimSuffix(name.String(), ".idx")), nil
+				f.Close()
+				return true, pfile, nil
 			}
 			f.Close()
 		}

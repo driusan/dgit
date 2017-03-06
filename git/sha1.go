@@ -1,6 +1,7 @@
 package git
 
 import (
+	"bytes"
 	"encoding/hex"
 	"fmt"
 	"io"
@@ -217,55 +218,57 @@ type TreeEntry struct {
 // into subtrees. If excludeself is true, it will *not* include it's own Sha1.
 // (Only really meaningful with recurse)
 func (t TreeID) GetAllObjects(cl *Client, prefix IndexPath, recurse, excludeself bool) (map[IndexPath]TreeEntry, error) {
-	// TODO: Move this to client_hacks, or fix it to not depend on libgit
-	repo, err := libgit.OpenRepository(cl.GitDir.String())
+	o, err := cl.GetObject(Sha1(t))
 	if err != nil {
 		return nil, err
 	}
 
-	tree, err := repo.GetTree(t.String())
-	if err != nil {
-		return nil, err
+	if o.GetType() != "tree" {
+		return nil, fmt.Errorf("%s is not a tree object", t)
 	}
 
+	treecontent := o.GetContent()
+	entryStart := 0
+	var sha Sha1
 	val := make(map[IndexPath]TreeEntry)
 
-	entries := tree.ListEntries()
-	for _, o := range entries {
-		switch o.Type {
-		case libgit.ObjectBlob:
-			sha, err := Sha1FromString(o.Id.String())
+	for i := 0; i < len(treecontent); i++ {
+		// The format of each tree entry is:
+		// 	[permission] [name] \0 [20 bytes of Sha1]
+		// so if we find a \0, it means the next 20 bytes are the sha,
+		// and we need to keep track of the previous entry start to figure
+		// out the name and perm mode.
+		if treecontent[i] == 0 {
+			// Add 1 when converting the value of the sha1 because
+			// because i is currently set to the nil
+			sha, err = Sha1FromSlice(treecontent[i+1 : i+21])
 			if err != nil {
-				panic(err)
-			}
-			name := prefix + IndexPath(o.Name())
-
-			val[name] = TreeEntry{sha, EntryMode(o.EntryMode())}
-		case libgit.ObjectTree:
-			sha, err := Sha1FromString(o.Id.String())
-			if err != nil {
-				panic(err)
+				return nil, err
 			}
 
-			name := prefix + IndexPath(o.Name())
-			if !excludeself {
-				val[name] = TreeEntry{sha, EntryMode(o.EntryMode())}
+			// Split up the perm from the name based on the whitespace
+			split := bytes.SplitN(treecontent[entryStart:i], []byte{' '}, 2)
+			perm := split[0]
+			name := split[1]
+			var mode EntryMode
+			switch string(perm) {
+			case "40000":
+				mode = ModeTree
+			case "100644":
+				mode = ModeBlob
+			case "100755":
+				mode = ModeExec
+			default:
+				panic(fmt.Sprintf("Unsupported mode %v in tree %s", string(perm), t))
 			}
-			if recurse {
-				subtree := TreeID(sha)
-
-				subobjects, err := subtree.GetAllObjects(cl, name+"/", recurse, excludeself)
-				if err != nil {
-					return nil, err
-				}
-				if len(subobjects) == 0 {
-					fmt.Printf("WARNING: TREE MISSING SUBOBJECTS\n")
-				}
-				for name, entry := range subobjects {
-					val[name] = entry
-				}
+			val[IndexPath(name)] = TreeEntry{
+				Sha1:     sha,
+				FileMode: mode,
 			}
+			i += 20
+			entryStart = i + 1
 		}
+
 	}
 	return val, nil
 }
