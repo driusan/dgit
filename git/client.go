@@ -343,7 +343,7 @@ func (c *Client) HaveObject(id Sha1) (found bool, packedfile File, err error) {
 	}
 
 	// First the easy case
-	if f := c.GitDir.File(File(fmt.Sprintf("objects/%x/%x", id[0], id[1:]))); f.Exists() {
+	if f := c.GitDir.File(File(fmt.Sprintf("objects/%02x/%018x", id[0], id[1:]))); f.Exists() {
 		c.objectCache[id] = objectLocation{true, ""}
 		return true, "", nil
 	}
