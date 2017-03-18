@@ -117,7 +117,7 @@ mktree         None
 pack-objects   HappyPath     git 2.9.2              (18) No options are implemented
 prune-packed   None                                 (2)
 read-tree      Almost        git 2.9.2              (6) missing --prefix, -i, --trivial/aggressive, --exclude-per-directory, and --nosparse-checkout
-symbolic-ref   HappyPath     git 2.9.2              (4) No options, doesn't update reflog
+symbolic-ref   HappyPath     git 2.9.2              (0) All options are implemented but doesn't update reflog
 unpack-objects Almost        git 2.9.2              (3) Dryrun, strict, and max-input-size options are missing
 update-index   None                                 (25)
 update-ref     Almost        git 2.9.2              (4) missing --create-reflog -d(elete), and --stdin/-z (*does* safely maintain reflog)

@@ -30,7 +30,18 @@ func SymbolicRefGet(c *Client, opts SymbolicRefOptions, symname string) (RefSpec
 	if !strings.HasPrefix(value, "ref: ") {
 		return RefSpec(value), DetachedHead
 	}
+	if opts.Short {
+		return RefSpec(strings.TrimPrefix(value, "ref: refs/heads/")), nil
+	}
 	return RefSpec(strings.TrimPrefix(value, "ref: ")), nil
+
+}
+func SymbolicRefDelete(c *Client, opts SymbolicRefOptions, symname string) error {
+	file := c.GitDir.File(File(symname))
+	if !file.Exists() {
+		return fmt.Errorf("SymbolicRef %s does not exist.", symname)
+	}
+	return file.Remove()
 
 }
 

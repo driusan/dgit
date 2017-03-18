@@ -34,9 +34,13 @@ func SymbolicRef(c *git.Client, args []string) (git.RefSpec, error) {
 	flags.Parse(args)
 	vals := flags.Args()
 
-	switch len(args) {
+	switch len(vals) {
 	case 1:
-		return git.SymbolicRefGet(c, opts, vals[0])
+		if opts.Delete {
+			return "", git.SymbolicRefDelete(c, opts, vals[0])
+		} else {
+			return git.SymbolicRefGet(c, opts, vals[0])
+		}
 	case 2:
 		return "", git.SymbolicRefUpdate(c, opts, vals[0], git.RefSpec(vals[1]), *reason)
 	}
