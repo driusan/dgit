@@ -37,12 +37,12 @@ func SymbolicRef(c *git.Client, args []string) (git.RefSpec, error) {
 	switch len(vals) {
 	case 1:
 		if opts.Delete {
-			return "", git.SymbolicRefDelete(c, opts, vals[0])
+			return "", git.SymbolicRefDelete(c, opts, git.SymbolicRef(vals[0]))
 		} else {
-			return git.SymbolicRefGet(c, opts, vals[0])
+			return git.SymbolicRefGet(c, opts, git.SymbolicRef(vals[0]))
 		}
 	case 2:
-		return "", git.SymbolicRefUpdate(c, opts, vals[0], git.RefSpec(vals[1]), *reason)
+		return "", git.SymbolicRefUpdate(c, opts, git.SymbolicRef(vals[0]), git.RefSpec(vals[1]), *reason)
 	}
 	flag.Usage()
 	return "", fmt.Errorf("Invalid usage")

@@ -131,7 +131,7 @@ func Merge(c *Client, opts MergeOptions, others []Commitish) error {
 			refmsg = fmt.Sprintf("merge into %s: Fast-forward (go-git)", c.GetHeadBranch().BranchName())
 		}
 
-		return UpdateRef(c, UpdateRefOptions{OldValue: head.String()}, "HEAD", dstc, refmsg)
+		return UpdateRef(c, UpdateRefOptions{OldValue: head}, "HEAD", dstc, refmsg)
 	}
 
 	if opts.FastForwardOnly {

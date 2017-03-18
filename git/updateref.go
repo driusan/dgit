@@ -13,17 +13,14 @@ type UpdateRefOptions struct {
 
 	NoDeref      bool
 	CreateReflog bool
-	OldValue     string
+	OldValue     Commitish
 
 	// Not implemented
 	Stdin         io.Reader
 	NullTerminate bool
 }
 
-func updateReflog(c *Client, create bool, file File, oldvalue, newvalue string, reason string) error {
-	if len(oldvalue) != 40 || len(newvalue) != 40 {
-		return fmt.Errorf("Invalid commit value. Must be 40 character hex.")
-	}
+func updateReflog(c *Client, create bool, file File, oldvalue, newvalue Commitish, reason string) error {
 	if !file.Exists() {
 		if !create {
 			return fmt.Errorf("Can not create new reflog for %s. --create-reflog not specified.", file)
@@ -37,10 +34,25 @@ func updateReflog(c *Client, create bool, file File, oldvalue, newvalue string, 
 	commiter := c.GetAuthor(&now)
 
 	var toAppend string
+
+	var oldsha, newsha CommitID
+	var err error
+	if oldvalue != nil {
+		oldsha, err = oldvalue.CommitID(c)
+		if err != nil {
+			return err
+		}
+	}
+	if newvalue != nil {
+		newsha, err = newvalue.CommitID(c)
+		if err != nil {
+			return err
+		}
+	}
 	if reason == "" {
-		toAppend = fmt.Sprintf("%s %s %s\n", oldvalue, newvalue, commiter)
+		toAppend = fmt.Sprintf("%s %s %s\n", oldsha, newsha, commiter)
 	} else {
-		toAppend = fmt.Sprintf("%s %s %s\t%s\n", oldvalue, newvalue, commiter, reason)
+		toAppend = fmt.Sprintf("%s %s %s\t%s\n", oldsha, newsha, commiter, reason)
 	}
 	return file.Append(toAppend)
 }
@@ -48,13 +60,17 @@ func updateReflog(c *Client, create bool, file File, oldvalue, newvalue string, 
 // Safely updates ref to point to cmt under the client c, logging reason in the reflog.
 // If opts.OldValue is set, it will return an error if the current value is not OldValue.
 func UpdateRefSpec(c *Client, opts UpdateRefOptions, ref RefSpec, cmt CommitID, reason string) error {
-	if opts.OldValue != "" {
-		val, err := ref.Value(c)
+	if opts.OldValue != nil {
+		curval, err := ref.CommitID(c)
 		if err != nil {
 			return err
 		}
-		if val != opts.OldValue {
-			return fmt.Errorf("%s is not equal to %s (is %s)", ref, opts.OldValue, val)
+		oldval, err := opts.OldValue.CommitID(c)
+		if err != nil {
+			return err
+		}
+		if curval != oldval {
+			return fmt.Errorf("%s is not equal to %s (is %s)", ref, oldval, curval)
 		}
 	}
 	if opts.Delete {
@@ -63,7 +79,7 @@ func UpdateRefSpec(c *Client, opts UpdateRefOptions, ref RefSpec, cmt CommitID, 
 
 	// The RefSpec Stringer method strips out trailing newlines and junk.
 	filename := File(ref.String())
-	if err := updateReflog(c, opts.CreateReflog, File(c.GitDir)+"/logs/"+filename, opts.OldValue, cmt.String(), reason); err != nil {
+	if err := updateReflog(c, opts.CreateReflog, File(c.GitDir)+"/logs/"+filename, opts.OldValue, cmt, reason); err != nil {
 		return err
 	}
 
@@ -77,7 +93,8 @@ func UpdateRefSpec(c *Client, opts UpdateRefOptions, ref RefSpec, cmt CommitID, 
 }
 
 // Handles "git update-ref" command line. If ref is what's passed on the command-line
-// it can be either a symbolic ref, or a refspec.
+// it can be either a symbolic ref, or a refspec. We just use a string, because
+// Go doesn't support sum types.
 func UpdateRef(c *Client, opts UpdateRefOptions, ref string, cmt CommitID, reason string) error {
 	if opts.Stdin != nil {
 		return fmt.Errorf("UpdateRef batch mode not implemented")
@@ -90,7 +107,7 @@ func UpdateRef(c *Client, opts UpdateRefOptions, ref string, cmt CommitID, reaso
 
 	// It's a symbolic ref. Dereference it, unless --deref
 	if !opts.NoDeref {
-		refspec, err := SymbolicRefGet(c, SymbolicRefOptions{}, ref)
+		refspec, err := SymbolicRefGet(c, SymbolicRefOptions{}, SymbolicRef(ref))
 		if err != nil {
 			return err
 		}
@@ -98,26 +115,30 @@ func UpdateRef(c *Client, opts UpdateRefOptions, ref string, cmt CommitID, reaso
 		// the value before updating the reflog. If we're not doing
 		// anything, we shouldn't update the reflog. (It stays in
 		// UpdateRefSpec because someone else might call it directly.)
-		if opts.OldValue != "" {
-			val, err := refspec.Value(c)
+		if opts.OldValue != nil {
+			curval, err := SymbolicRef(ref).CommitID(c)
 			if err != nil {
 				return err
 			}
-			if val != opts.OldValue {
-				return fmt.Errorf("%s is not equal to %s (is %s)", ref, opts.OldValue, val)
+			oldval, err := opts.OldValue.CommitID(c)
+			if err != nil {
+				return err
+			}
+			if curval != oldval {
+				return fmt.Errorf("%s is not equal to %s (is %s)", ref, oldval, curval)
 			}
 		}
 
 		// Update the symbolic-ref reflog before doing anything. If it can't
 		// be updated, it's a fatal error and we can't update the refspec.
-		if err := updateReflog(c, true, File(c.GitDir)+"/logs/"+File(ref), opts.OldValue, cmt.String(), reason); err != nil {
+		if err := updateReflog(c, true, File(c.GitDir)+"/logs/"+File(ref), opts.OldValue, cmt, reason); err != nil {
 			return err
 		}
 		return UpdateRefSpec(c, opts, refspec, cmt, reason)
 	}
 
 	// NoDeref was specified.
-	if err := updateReflog(c, true, File(c.GitDir)+"/logs/"+File(ref), opts.OldValue, cmt.String(), reason); err != nil {
+	if err := updateReflog(c, true, File(c.GitDir)+"/logs/"+File(ref), opts.OldValue, cmt, reason); err != nil {
 		return err
 	}
 

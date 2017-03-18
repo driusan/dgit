@@ -34,6 +34,14 @@ func (r RefSpec) Value(c *Client) (string, error) {
 	return strings.TrimSpace(val), err
 }
 
+func (r RefSpec) CommitID(c *Client) (CommitID, error) {
+	v, err := r.Value(c)
+	if err != nil {
+		return CommitID{}, err
+	}
+	return CommitIDFromString(v)
+}
+
 // A Branch is a type of RefSpec that lives under refs/heads/ or refs/remotes/heads
 // Use GetBranch to get a valid branch from a branchname, don't cast from string
 type Branch RefSpec

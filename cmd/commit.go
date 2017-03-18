@@ -57,7 +57,7 @@ func Commit(c *git.Client, args []string) (string, error) {
 	}
 	refmsg := fmt.Sprintf("commit: %s (go-git)", msg)
 
-	oldHead, err := c.GetHeadID()
+	oldHead, err := c.GetHeadCommit()
 	if err != nil {
 		return "", err
 	}

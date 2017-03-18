@@ -131,11 +131,13 @@ func CheckoutCommit(c *Client, opts CheckoutOptions, commit Commitish) error {
 		return SymbolicRefUpdate(c, SymbolicRefOptions{}, "HEAD", RefSpec(b), refmsg)
 	}
 	refmsg := fmt.Sprintf("checkout: moving from %s to %s (go-git)", origB, cid)
-	origValue, err := head.Value(c)
-	if err != nil {
-		return err
-	}
-	return UpdateRef(c, UpdateRefOptions{NoDeref: true, OldValue: origValue}, "HEAD", cid, refmsg)
+	/*
+		origValue, err := head.Value(c)
+		if err != nil {
+			return err
+		}
+	*/
+	return UpdateRef(c, UpdateRefOptions{NoDeref: true, OldValue: head}, "HEAD", cid, refmsg)
 }
 
 // Implements "git checkout" subcommand of git for variations:

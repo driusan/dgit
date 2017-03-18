@@ -41,7 +41,11 @@ func UpdateRef(c *git.Client, args []string) error {
 		// 1 options with -d is meaningless, fall through to printusage
 	case 2:
 		if opts.Delete {
-			opts.OldValue = vals[1]
+			oldval, err := git.CommitIDFromString(vals[1])
+			if err != nil {
+				return err
+			}
+			opts.OldValue = oldval
 			return git.UpdateRef(c, opts, vals[0], git.CommitID{}, *reason)
 
 		}
@@ -59,7 +63,12 @@ func UpdateRef(c *git.Client, args []string) error {
 		if err != nil {
 			return fmt.Errorf("Invalid commit %s", vals[1])
 		}
-		opts.OldValue = vals[2]
+		oldval, err := git.CommitIDFromString(vals[2])
+		if err != nil {
+			return err
+		}
+		opts.OldValue = oldval
+
 		return git.UpdateRef(c, opts, vals[0], cmt, *reason)
 	}
 	flags.Usage()
