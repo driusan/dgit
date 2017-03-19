@@ -65,17 +65,20 @@ func SymbolicRefUpdate(c *Client, opts SymbolicRefOptions, symname SymbolicRef, 
 	if !strings.HasPrefix(refvalue.String(), "refs/") {
 		return fmt.Errorf("Refusing to point %s outside of refs/", symname)
 	}
-	file, err := c.GitDir.Create(File(symname))
-	if err != nil {
-		return err
-	}
-	defer file.Close()
+
 	if reason != "" {
-		reflog := c.GitDir.File(File("logs/" + symname.String()))
-		if reflog.Exists() {
-			updateReflog(c, false, reflog, symname, refvalue, reason)
+		if reflog := c.GitDir.File(File("logs/" + symname.String())); reflog.Exists() {
+			if err := updateReflog(c, false, reflog, symname, refvalue, reason); err != nil {
+				return fmt.Errorf("Error updating reflog: %v", err)
+			}
 		}
 	}
+
+	file, err := c.GitDir.Create(File(symname))
+	if err != nil {
+		return fmt.Errorf("Error creating SymbolicRef: %v", err)
+	}
+	defer file.Close()
 
 	fmt.Fprintf(file, "ref: %s", refvalue)
 	return nil
