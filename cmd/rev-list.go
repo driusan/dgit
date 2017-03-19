@@ -3,17 +3,17 @@ package cmd
 import (
 	"flag"
 	"fmt"
-	"os"
 
 	"github.com/driusan/dgit/git"
 )
 
 func RevList(c *git.Client, args []string) ([]git.Sha1, error) {
-	includeObjects := flag.Bool("objects", false, "include non-commit objects in output")
-	quiet := flag.Bool("quiet", false, "prevent printing of revisions")
-	os.Args = append([]string{"git rev-list"}, args...)
-	flag.Parse()
-	args = flag.Args()
+	flags := flag.NewFlagSet("rev-list", flag.ExitOnError)
+
+	includeObjects := flags.Bool("objects", false, "include non-commit objects in output")
+	quiet := flags.Bool("quiet", false, "prevent printing of revisions")
+	flags.Parse(args)
+	args = flags.Args()
 
 	excludeList := make(map[string]bool)
 	// First get a map of excluded commitIDs

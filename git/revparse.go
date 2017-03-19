@@ -156,7 +156,7 @@ func RevParseCommitish(c *Client, opt *RevParseOptions, arg string) (Commitish, 
 func RevParseCommit(c *Client, opt *RevParseOptions, arg string) (CommitID, error) {
 	cmt, err := RevParseCommitish(c, opt, arg)
 	if err != nil {
-		return CommitID{}, InvalidCommit
+		return CommitID{}, fmt.Errorf("Invalid commit: %s", arg)
 	}
 	return cmt.CommitID(c)
 }
@@ -192,7 +192,6 @@ func RevParse(c *Client, opt RevParseOptions, args []string) (commits []ParsedRe
 					err2 = err
 				} else {
 					commits = append(commits, ParsedRevision{Sha1(cmt), exclude})
-
 				}
 			}
 		}

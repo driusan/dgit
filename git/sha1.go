@@ -250,10 +250,22 @@ func (t TreeID) GetAllObjects(cl *Client, prefix IndexPath, recurse, excludeself
 			split := bytes.SplitN(treecontent[entryStart:i], []byte{' '}, 2)
 			perm := split[0]
 			name := split[1]
+
 			var mode EntryMode
 			switch string(perm) {
 			case "40000":
 				mode = ModeTree
+				if recurse {
+					childTree := TreeID(sha)
+					children, err := childTree.GetAllObjects(cl, "", recurse, excludeself)
+					if err != nil {
+						return nil, err
+					}
+					for child, childval := range children {
+						val[IndexPath(name)+"/"+child] = childval
+
+					}
+				}
 			case "100644":
 				mode = ModeBlob
 			case "100755":
