@@ -91,20 +91,15 @@ func (s Sha1) UncompressedSize(repo *libgit.Repository) uint64 {
 	return uint64(size)
 }
 
-func (s Sha1) PackEntryType(repo *libgit.Repository) PackEntryType {
-	id, err := libgit.NewId(s[:])
-	if err != nil {
-		panic(err)
-	}
-	t, _, _, _ := repo.GetRawObject(id, true)
-	switch t {
-	case libgit.ObjectCommit:
+func (id Sha1) PackEntryType(c *Client) PackEntryType {
+	switch id.Type(c) {
+	case "commit":
 		return OBJ_COMMIT
-	case libgit.ObjectTree:
+	case "tree":
 		return OBJ_TREE
-	case libgit.ObjectBlob:
+	case "blob":
 		return OBJ_BLOB
-	case libgit.ObjectTag:
+	case "tag":
 		return OBJ_TAG
 	default:
 		panic("Unknown Object type")
@@ -112,24 +107,12 @@ func (s Sha1) PackEntryType(repo *libgit.Repository) PackEntryType {
 }
 
 // Returns the git type of the object this Sha1 represents
-func (s Sha1) Type(c *Client) string {
-	// Temporary hack. Replace with a proper implementation.
-	repo, err := libgit.OpenRepository(c.GitDir.String())
+func (id Sha1) Type(c *Client) string {
+	obj, err := c.GetObject(id)
 	if err != nil {
-		panic(err)
-	}
-	switch s.PackEntryType(repo) {
-	case OBJ_COMMIT:
-		return "commit"
-	case OBJ_TREE:
-		return "tree"
-	case OBJ_BLOB:
-		return "blob"
-	case OBJ_TAG:
-		return "tag"
-	default:
 		return ""
 	}
+	return obj.GetType()
 }
 
 func (child CommitID) IsAncestor(c *Client, parent Commitish) bool {

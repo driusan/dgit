@@ -31,7 +31,8 @@ func SendPackfile(c *Client, w io.Writer, objects []Sha1) error {
 	binary.Write(w, binary.BigEndian, uint32(len(objects)))
 	for _, obj := range objects {
 		s := VariableLengthInt(obj.UncompressedSize(repo))
-		err := s.WriteVariable(w, obj.PackEntryType(repo))
+
+		err := s.WriteVariable(w, obj.PackEntryType(c))
 		if err != nil {
 			return err
 		}
