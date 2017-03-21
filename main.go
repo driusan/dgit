@@ -109,7 +109,11 @@ func main() {
 		}
 		fmt.Printf("%s\n", val)
 	case "clone":
-		cmd.Clone(c, args)
+		if err := cmd.Clone(c, args); err != nil {
+			fmt.Fprintf(os.Stderr, "%v\n", err)
+			os.Exit(2)
+
+		}
 	case "config":
 		cmd.Config(c, args)
 	case "fetch":

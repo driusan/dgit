@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"io/ioutil"
 	"os"
+	"strings"
 
 	"github.com/driusan/dgit/git"
 )
@@ -48,13 +49,19 @@ func Fetch(c *git.Client, args []string) {
 	}
 	for _, ref := range refs {
 		if c.GitDir != "" {
-			refloc := fmt.Sprintf("%s/%s", c.GitDir, ref.Refname.String())
-			fmt.Printf("Creating %s with %s", refloc, ref.Sha1)
-			ioutil.WriteFile(
-				refloc,
-				[]byte(ref.Sha1),
-				0644,
-			)
+			refname := ref.Refname.String()
+			if strings.HasPrefix(refname, "refs/heads") {
+				os.MkdirAll(c.GitDir.File(git.File("refs/remotes/"+args[0])).String(), 0755)
+				refname = strings.Replace(refname, "refs/heads/", "refs/remotes/"+args[0]+"/", 1)
+				refloc := fmt.Sprintf("%s/%s", c.GitDir, refname)
+				fmt.Printf("Creating %s with %s", refloc, ref.Sha1)
+				ioutil.WriteFile(
+					refloc,
+					[]byte(ref.Sha1),
+					0644,
+				)
+			}
+
 		}
 	}
 }

@@ -164,6 +164,7 @@ func (s SmartHTTPServerRetriever) parseUploadPackInfoRefs(r io.Reader) ([]*Refer
 
 	}
 	wantAtLeastOne := false
+	var wants, haves []string
 	for _, ref := range references {
 		var line string
 		sha1, err := Sha1FromString(ref.Sha1)
@@ -174,10 +175,12 @@ func (s SmartHTTPServerRetriever) parseUploadPackInfoRefs(r io.Reader) ([]*Refer
 		if have, _, _ := s.C.HaveObject(sha1); have == false {
 			if ref.Refname.String() == "HEAD" || ref.Refname.HasPrefix("refs/heads") {
 				line = fmt.Sprintf("want %s", ref.Sha1)
+				wants = append(wants, fmt.Sprintf("%.4x%s\n", len(line)+5, line))
 				wantAtLeastOne = true
 			}
 		} else {
 			line = fmt.Sprintf("have %s", ref.Sha1)
+			haves = append(haves, fmt.Sprintf("%.4x%s\n", len(line)+5, line))
 		}
 		if sentData == false {
 			if len(responseCapabilities) > 0 {
@@ -185,17 +188,16 @@ func (s SmartHTTPServerRetriever) parseUploadPackInfoRefs(r io.Reader) ([]*Refer
 			}
 			sentData = true
 		}
-		if line != "" {
-			postData += fmt.Sprintf("%.4x%s\n", len(line)+5, line)
-		}
 	}
+	postData = strings.Join(wants, "") + "0000"
+	postData += strings.Join(haves, "")
 	if noDone {
-		return references, postData + "0000", nil
+		return references, postData, nil
 	}
 	if !wantAtLeastOne {
 		return references, "", nil
 	}
-	return references, postData + "00000009done\n", nil
+	return references, postData + "0009done\n", nil
 }
 
 func readLine(prompt string) string {
@@ -298,7 +300,7 @@ func (s SmartHTTPServerRetriever) NegotiatePack() ([]*Reference, io.ReadCloser, 
 		return refs, nil, err
 	}
 	response := loadLine(r2.Body)
-	if response != "NAK\n" {
+	if response != "NAK\n" && !strings.HasPrefix(response, "ACK") {
 		panic(response)
 	}
 
