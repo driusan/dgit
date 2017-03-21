@@ -40,7 +40,7 @@ func (h HashDiff) ExternalDiff(c *Client, s1, s2 TreeEntry, f File, opts DiffCom
 	if err != nil {
 		return "", err
 	}
-	//defer os.Remove(tmpfile1.Name())
+	defer os.Remove(tmpfile1.Name())
 
 	var emptySha Sha1
 	if s1.Sha1 != emptySha {
