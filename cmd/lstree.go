@@ -32,12 +32,12 @@ func LsTree(c *git.Client, args []string) error {
 		return fmt.Errorf("Missing tree")
 	}
 
-	commitId, err := RevParse(c, []string{args[0]})
+	treeID, err := git.RevParseTreeish(c, &git.RevParseOptions{}, args[0])
 	if err != nil {
 		return err
 	}
 
-	tree, err := git.ExpandTreeIntoIndexesById(c, commitId[0].Id.String(), recursepaths, showtrees)
+	tree, err := git.ExpandGitTreeIntoIndexes(c, treeID, recursepaths, showtrees)
 	if err != nil {
 		return err
 	}

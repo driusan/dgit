@@ -546,3 +546,16 @@ func (g Index) WriteTree(c *Client) (TreeID, error) {
 	}
 	return sha1, nil
 }
+
+// Replaces the index of Client with the the tree from the provided Treeish.
+// if PreserveStatInfo is true, the stat information in the index won't be
+// modified for existing entries.
+func (g *Index) ResetIndex(c *Client, tree Treeish) error {
+	newEntries, err := ExpandGitTreeIntoIndexes(c, tree, true, false)
+	if err != nil {
+		return err
+	}
+	g.NumberIndexEntries = uint32(len(newEntries))
+	g.Objects = newEntries
+	return nil
+}

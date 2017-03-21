@@ -312,11 +312,7 @@ func (t TreeID) TreeID(cl *Client) (TreeID, error) {
 // Converts the Tree into an IndexEntries, to simplify comparisons between
 // Trees and Indexes
 func GetIndexMap(c *Client, t Treeish) (map[IndexPath]*IndexEntry, error) {
-	treeid, err := t.TreeID(c)
-	if err != nil {
-		return nil, err
-	}
-	indexentries, err := ExpandTreeIntoIndexesById(c, treeid.String(), true, false)
+	indexentries, err := ExpandGitTreeIntoIndexes(c, t, true, false)
 	if err != nil {
 		return nil, err
 	}
