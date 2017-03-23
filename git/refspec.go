@@ -53,11 +53,15 @@ func (b Branch) String() string {
 
 // Returns a valid Branch object for an existing branch.
 func GetBranch(c *Client, branchname string) (Branch, error) {
-	b := Branch("refs/heads/" + branchname)
-	if !b.Exists(c) {
-		return "", InvalidBranch
+	if b := Branch("refs/heads/" + branchname); b.Exists(c) {
+		return b, nil
 	}
-	return b, nil
+
+	// remote branches are branches too!
+	if b := Branch("refs/remotes/" + branchname); b.Exists(c) {
+		return b, nil
+	}
+	return "", InvalidBranch
 }
 
 // Returns true if the branch exists under c's GitDir
