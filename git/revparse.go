@@ -39,10 +39,10 @@ func (pr ParsedRevision) IsAncestor(c *Client, parent Commitish) bool {
 	return com.IsAncestor(c, parent)
 }
 
-func (pr ParsedRevision) Ancestors(c *Client) []CommitID {
+func (pr ParsedRevision) Ancestors(c *Client) ([]CommitID, error) {
 	comm, err := pr.CommitID(c)
 	if err != nil {
-		return nil
+		return nil, err
 	}
 	return comm.Ancestors(c)
 }

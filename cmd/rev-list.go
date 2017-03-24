@@ -24,10 +24,13 @@ func RevList(c *git.Client, args []string) ([]git.Sha1, error) {
 		if rev[0] == '^' && len(rev) > 1 {
 			commits, err := RevParse(c, []string{rev[1:]})
 			if err != nil {
-				panic(rev + ":" + err.Error())
+				return nil, fmt.Errorf("%s:%v", rev, err)
 			}
 			for _, commit := range commits {
-				ancestors := commit.Ancestors(c)
+				ancestors, err := commit.Ancestors(c)
+				if err != nil {
+					return nil, fmt.Errorf("%s:%v", rev, err)
+				}
 				for _, allC := range ancestors {
 					excludeList[git.Sha1(allC).String()] = true
 					if *includeObjects {
@@ -59,7 +62,10 @@ func RevList(c *git.Client, args []string) ([]git.Sha1, error) {
 			panic(err)
 		}
 		com := commits[0]
-		ancestors := com.Ancestors(c)
+		ancestors, err := com.Ancestors(c)
+		if err != nil {
+			return nil, err
+		}
 		for _, allC := range ancestors {
 			if _, ok := excludeList[git.Sha1(allC).String()]; !ok {
 				if !*quiet {

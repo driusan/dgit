@@ -115,45 +115,120 @@ func (id Sha1) Type(c *Client) string {
 	return obj.GetType()
 }
 
+// Returns all direct parents of commit c.
+func (cmt CommitID) Parents(c *Client) ([]CommitID, error) {
+	obj, err := c.GetObject(Sha1(cmt))
+	if err != nil {
+		return nil, err
+	}
+	val := obj.GetContent()
+	reader := bytes.NewBuffer(val)
+	var parents []CommitID
+	for line, err := reader.ReadBytes('\n'); err == nil; line, err = reader.ReadBytes('\n') {
+		line = bytes.TrimSuffix(line, []byte{'\n'})
+		if len(line) == 0 {
+			return parents, nil
+		}
+		if bytes.HasPrefix(line, []byte("parent ")) {
+			pc := string(bytes.TrimPrefix(line, []byte("parent ")))
+			parent, err := CommitIDFromString(pc)
+			if err != nil {
+				return nil, err
+			}
+			parents = append(parents, parent)
+		}
+	}
+	return parents, nil
+}
+
 func (child CommitID) IsAncestor(c *Client, parent Commitish) bool {
 	p, err := parent.CommitID(c)
 	if err != nil {
 		return false
 	}
-	ancestors := p.Ancestors(c)
-	for _, c := range ancestors {
-		if c == child {
-			return true
-		}
+
+	ancestorMap, err := p.AncestorMap(c)
+	if err != nil {
+		return false
 	}
-	return false
+
+	_, ok := ancestorMap[child]
+	return ok
 }
 
-func (s CommitID) Ancestors(c *Client) (commits []CommitID) {
-	// TODO: Replace this with Parent(n) which returns the nth parent,
-	// then improve the efficiency of everywhere that uses this. For now
-	// we still depend on libgit. :(
-	repo, err := libgit.OpenRepository(c.GitDir.String())
+var ancestorMapCache map[CommitID]map[CommitID]struct{}
+
+// AncestorMap returns a map of empty structs (which can be interpreted as a set)
+// of ancestors of a CommitID.
+// 
+// It's useful if you want to know all the ancestors of s, but don't particularly
+// care about their order. Since commits parents can never be changed, multiple
+// calls to AncestorMap are cached and the cost of calculating the ancestory tree
+// is only incurred the first time.
+func (s CommitID) AncestorMap(c *Client) (map[CommitID]struct{}, error) {
+	if cached, ok := ancestorMapCache[s]; ok {
+		return cached, nil
+	}
+	m := make(map[CommitID]struct{})
+	parents, err := s.Parents(c)
 	if err != nil {
-		return nil
+		return nil, err
+	}
+	var empty struct{}
+
+	m[s] = empty
+
+	for _, val := range parents {
+		m[val] = empty
 	}
 
-	lgCommits, err := repo.CommitsBefore(s.String())
-	if err != nil {
-		return nil
-	}
-	for e := lgCommits.Front(); e != nil; e = e.Next() {
-		c, ok := e.Value.(*libgit.Commit)
-		if ok {
-			sha, err := Sha1FromString(c.Id.String())
-			if err != nil {
-				continue
-			}
-
-			commits = append(commits, CommitID(sha))
-
+	for _, p := range parents {
+		grandparents, err := p.AncestorMap(c)
+		if err != nil {
+			return nil, err
+		}
+		for k, _ := range grandparents {
+			m[k] = empty
 		}
 	}
+
+	if ancestorMapCache == nil {
+		ancestorMapCache = make(map[CommitID]map[CommitID]struct{})
+	}
+	ancestorMapCache[s] = m
+
+	return m, nil
+
+}
+
+var ancestorCache map[CommitID][]CommitID
+
+func (s CommitID) Ancestors(c *Client) (commits []CommitID, err error) {
+	if cached, ok := ancestorCache[s]; ok {
+		return cached, nil
+	}
+
+	parents, err := s.Parents(c)
+	if err != nil {
+		return nil, err
+	}
+	commits = append(commits, s)
+	commits = append(commits, parents...)
+
+	for _, p := range parents {
+		grandparents, err := p.Ancestors(c)
+		if err != nil {
+			return nil, err
+		}
+
+
+		commits = append(commits, grandparents...)
+	}
+	if ancestorCache == nil {
+		ancestorCache = make(map[CommitID][]CommitID)
+	}
+	ancestorCache[s] = commits
+
 	return
 }
 
@@ -162,7 +237,10 @@ func NearestCommonParent(c *Client, com, other Commitish) (CommitID, error) {
 	if err != nil {
 		return CommitID{}, err
 	}
-	ancestors := s.Ancestors(c)
+	ancestors, err := s.Ancestors(c)
+	if err != nil {
+		return CommitID{}, err
+	}
 	for _, commit := range ancestors {
 		// This is a horrible algorithm. TODO: Do something better than O(n^3)
 		if commit.IsAncestor(c, other) {
