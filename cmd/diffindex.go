@@ -14,6 +14,9 @@ func DiffIndex(c *git.Client, args []string) error {
 	flags.BoolVar(&options.Cached, "cached", false, "Do not compare the filesystem, only the index")
 
 	args, err := parseCommonDiffFlags(c, &options.DiffCommonOptions, false, flags, args)
+	if err != nil {
+		return err
+	}
 
 	if len(args) < 1 {
 		return fmt.Errorf("Must provide a treeish to git diff-index")
