@@ -11,7 +11,6 @@ import (
 	"time"
 
 	"github.com/driusan/dgit/zlib"
-	libgit "github.com/driusan/git"
 )
 
 type Sha1 [20]byte
@@ -67,30 +66,24 @@ func (s CommitID) CommitID(c *Client) (CommitID, error) {
 }
 
 // Writes the object to w in compressed form
-func (s Sha1) CompressedWriter(repo *libgit.Repository, w io.Writer) error {
-	id, err := libgit.NewId(s[:])
+func (s Sha1) CompressedWriter(c *Client, w io.Writer) error {
+	obj, err := c.GetObject(s)
 	if err != nil {
 		return err
 	}
-
-	_, _, uncompressed, err := repo.GetRawObject(id, false)
 	zw := zlib.NewWriter(w)
 	defer zw.Close()
-	tee := io.TeeReader(uncompressed, zw)
+	tee := io.TeeReader(bytes.NewReader(obj.GetContent()), zw)
 	ioutil.ReadAll(tee)
 	return nil
 }
 
-func (s Sha1) UncompressedSize(repo *libgit.Repository) uint64 {
-	id, err := libgit.NewId(s[:])
-	if err != nil {
-		panic(err)
-	}
-	_, size, _, err := repo.GetRawObject(id, true)
+func (s Sha1) UncompressedSize(c *Client) uint64 {
+	obj, err := c.GetObject(s)
 	if err != nil {
 		return 0
 	}
-	return uint64(size)
+	return uint64(obj.GetSize())
 }
 
 func (id Sha1) PackEntryType(c *Client) PackEntryType {
@@ -449,17 +442,12 @@ func (t TreeID) GetAllObjects(cl *Client, prefix IndexPath, recurse, excludeself
 }
 
 func (c CommitID) TreeID(cl *Client) (TreeID, error) {
-	// TODO: Move this to client_hacks, or fix it to not depend on libgit
-	repo, err := libgit.OpenRepository(cl.GitDir.String())
+	obj, err := cl.GetCommitObject(c)
 	if err != nil {
 		return TreeID{}, err
 	}
-
-	commit, err := repo.GetCommit(fmt.Sprintf("%s", c))
-	if err != nil {
-		return TreeID{}, err
-	}
-	s, err := Sha1FromString(commit.Tree.String())
+	treeStr := obj.GetHeader("tree")
+	s, err := Sha1FromString(treeStr)
 	return TreeID(s), err
 }
 

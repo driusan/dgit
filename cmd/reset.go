@@ -8,7 +8,7 @@ import (
 )
 
 func Reset(c *git.Client, args []string) {
-	commitId, err := c.GetHeadID()
+	commitId, err := c.GetHeadCommit()
 	var resetPaths = false
 	var mode string = "mixed"
 	if err != nil {
@@ -37,7 +37,7 @@ func Reset(c *git.Client, args []string) {
 				fmt.Fprintf(os.Stderr, "Can not find commit %s\n", val)
 				return
 			}
-			commitId = commits[0].Id.String()
+			commitId = git.CommitID(commits[0].Id)
 		} else {
 			switch val {
 			case "--soft":
@@ -73,7 +73,7 @@ func Reset(c *git.Client, args []string) {
 			// don't do anything for soft reset other than update
 			// the head reference
 		case "hard":
-			ReadTree(c, []string{commitId})
+			ReadTree(c, []string{commitId.String()})
 			err := c.ResetWorkTree()
 			if err != nil {
 				fmt.Fprintf(os.Stderr, "Error updating head reference: %s\n", err)
@@ -82,7 +82,7 @@ func Reset(c *git.Client, args []string) {
 		case "mixed":
 			fallthrough
 		default:
-			ReadTree(c, []string{commitId})
+			ReadTree(c, []string{commitId.String()})
 		}
 
 	}

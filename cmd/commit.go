@@ -12,8 +12,8 @@ import (
 func Commit(c *git.Client, args []string) (string, error) {
 	// get the parent commit, if it exists
 	var commitTreeArgs []string
-	if parentCommit, err := c.GetHeadID(); err == nil {
-		commitTreeArgs = []string{"-p", parentCommit}
+	if parentCommit, err := c.GetHeadCommit(); err == nil {
+		commitTreeArgs = []string{"-p", parentCommit.String()}
 	}
 
 	// extract the message parameters that get passed directly
