@@ -62,6 +62,21 @@ func (c GitCommitObject) GetSize() int {
 func (c GitCommitObject) String() string {
 	return string(c.content)
 }
+func (c GitCommitObject) GetHeader(header string) string {
+	headerPrefix := []byte(header + " ")
+	reader := bytes.NewBuffer(c.content)
+	for line, err := reader.ReadBytes('\n'); err == nil; line, err = reader.ReadBytes('\n') {
+		if len(line) == 0 || len(line) == 1 {
+			// EOF or just a '\n', separating the headers from the body
+			return ""
+		}
+		if bytes.HasPrefix(line, headerPrefix) {
+			line = bytes.TrimSuffix(line, []byte{'\n'})
+			return string(bytes.TrimPrefix(line, headerPrefix))
+		}
+	}
+	return ""
+}
 
 type GitTreeObject struct {
 	size    int
@@ -141,6 +156,11 @@ func (c *Client) getPackedObject(packfile File, sha1 Sha1) (GitObject, error) {
 	return getPackFileObject(idx, data, sha1)
 }
 
+func (c *Client) GetCommitObject(commit CommitID) (GitCommitObject, error) {
+	o, err := c.GetObject(Sha1(commit))
+	gco := o.(GitCommitObject)
+	return gco, err
+}
 func (c *Client) GetObject(sha1 Sha1) (GitObject, error) {
 	found, packfile, err := c.HaveObject(sha1)
 	if err != nil {

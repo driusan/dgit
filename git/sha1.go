@@ -6,7 +6,9 @@ import (
 	"fmt"
 	"io"
 	"io/ioutil"
+	"strconv"
 	"strings"
+	"time"
 
 	"github.com/driusan/dgit/zlib"
 	libgit "github.com/driusan/git"
@@ -160,7 +162,7 @@ var ancestorMapCache map[CommitID]map[CommitID]struct{}
 
 // AncestorMap returns a map of empty structs (which can be interpreted as a set)
 // of ancestors of a CommitID.
-// 
+//
 // It's useful if you want to know all the ancestors of s, but don't particularly
 // care about their order. Since commits parents can never be changed, multiple
 // calls to AncestorMap are cached and the cost of calculating the ancestory tree
@@ -201,6 +203,98 @@ func (s CommitID) AncestorMap(c *Client) (map[CommitID]struct{}, error) {
 
 }
 
+var tzCache map[string]*time.Location
+
+func (cmt CommitID) GetDate(c *Client) (time.Time, error) {
+	obj, err := c.GetCommitObject(cmt)
+	if err != nil {
+		return time.Time{}, err
+	}
+	authorStr := obj.GetHeader("author")
+
+	if authorStr == "" {
+		return time.Time{}, fmt.Errorf("Commit %s does not have an author", cmt)
+	}
+
+	// authorStr is in the format:
+	//    John Smith <jsmith@example.com> unixtime timezone
+	//
+	// we just split on space and rejoin the use the second last element
+	// to get the date/time. It's not very elegant, and it discards time
+	// zone information since time.Unix() doesn't allow us to specify time
+	// zone and there's no way to set it on a time after the fact.
+	authorPieces := strings.Split(authorStr, " ")
+	if len(authorPieces) < 3 {
+		return time.Time{}, fmt.Errorf("Could not parse author %s", authorStr)
+
+	}
+
+	// BUG(driusan): converting date to time.Time does not take timezone into
+	// account.
+	unixTime, err := strconv.ParseInt(authorPieces[len(authorPieces)-2], 10, 64)
+	if err != nil {
+		return time.Time{}, err
+	}
+	t := time.Unix(unixTime, 0)
+	timeZone := authorPieces[len(authorPieces)-1]
+	if loc, ok := tzCache[timeZone]; ok {
+		return t.In(loc), nil
+	}
+	tzHours, err := strconv.ParseInt(timeZone[:len(timeZone)-2], 10, 64)
+	if err != nil {
+		panic(err)
+	}
+	loc := time.FixedZone(timeZone, int(tzHours*60*60))
+	if tzCache == nil {
+		tzCache = make(map[string]*time.Location)
+
+	}
+	tzCache[timeZone] = loc
+	return t.In(loc), nil
+
+}
+
+func (cmt CommitID) GetCommitMessage(c *Client) (string, error) {
+	obj, err := c.GetCommitObject(cmt)
+	if err != nil {
+		return "", err
+	}
+	for i, c := range obj.content {
+		if c == '\n' && obj.content[i+1] == '\n' {
+			return string(obj.content[i+2:]), nil
+		}
+	}
+	return "", nil
+}
+
+// Returns the author of the commit (with no time information attached) to
+// the person object.
+func (cmt CommitID) GetAuthor(c *Client) (Person, error) {
+	obj, err := c.GetCommitObject(cmt)
+	if err != nil {
+		return Person{}, err
+	}
+	authorStr := obj.GetHeader("author")
+
+	if authorStr == "" {
+		return Person{}, fmt.Errorf("Could not parse author %s from commit %s", authorStr, cmt)
+	}
+
+	// authorStr is in the format:
+	//    John Smith <jsmith@example.com> unixtime timezone
+	authorPieces := strings.Split(authorStr, " ")
+	if len(authorPieces) < 3 {
+		return Person{}, fmt.Errorf("Commit %s does not have an author", cmt)
+	}
+
+	// FIXME: This should use
+	email := authorPieces[len(authorPieces)-3]
+	email = email[1 : len(email)-1] // strip off the < >
+	author := strings.Join(authorPieces[:len(authorPieces)-3], " ")
+	return Person{author, email, nil}, nil
+
+}
+
 var ancestorCache map[CommitID][]CommitID
 
 func (s CommitID) Ancestors(c *Client) (commits []CommitID, err error) {
@@ -213,7 +307,6 @@ func (s CommitID) Ancestors(c *Client) (commits []CommitID, err error) {
 		return nil, err
 	}
 	commits = append(commits, s)
-	commits = append(commits, parents...)
 
 	for _, p := range parents {
 		grandparents, err := p.Ancestors(c)
@@ -221,12 +314,21 @@ func (s CommitID) Ancestors(c *Client) (commits []CommitID, err error) {
 			return nil, err
 		}
 
-
-		commits = append(commits, grandparents...)
+	duplicateCheck:
+		for _, gp := range grandparents {
+			for _, cmt := range commits {
+				if cmt == gp {
+					continue duplicateCheck
+				}
+			}
+			commits = append(commits, gp)
+		}
 	}
+
 	if ancestorCache == nil {
 		ancestorCache = make(map[CommitID][]CommitID)
 	}
+
 	ancestorCache[s] = commits
 
 	return
