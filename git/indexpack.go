@@ -305,7 +305,7 @@ func (idx PackfileIndexV2) HasObject(s Sha1) bool {
 	// Packfiles are designed so that we could do a binary search here, but
 	// we don't need that optimization yet, so just do a linear search through
 	// the objects with the same first byte.
-	for i := startIdx - 1; idx.Sha1Table[i][0] == s[0]; i-- {
+	for i := startIdx - 1; idx.Sha1Table[i][0] == s[0] && i > 0; i-- {
 		if s == idx.Sha1Table[i] {
 			return true
 		}
