@@ -3,18 +3,12 @@ package git
 import (
 	"crypto/sha1"
 	"encoding/binary"
-	libgit "github.com/driusan/git"
 	"io"
 )
 
 // Writes a packfile to w of the objects objects from the client's
 // GitDir.
 func SendPackfile(c *Client, w io.Writer, objects []Sha1) error {
-	repo, err := libgit.OpenRepository(c.GitDir.String())
-	if err != nil {
-		return err
-	}
-
 	sha := sha1.New()
 	w = io.MultiWriter(w, sha)
 	n, err := w.Write([]byte{'P', 'A', 'C', 'K'})
@@ -30,14 +24,14 @@ func SendPackfile(c *Client, w io.Writer, objects []Sha1) error {
 	// Size
 	binary.Write(w, binary.BigEndian, uint32(len(objects)))
 	for _, obj := range objects {
-		s := VariableLengthInt(obj.UncompressedSize(repo))
+		s := VariableLengthInt(obj.UncompressedSize(c))
 
 		err := s.WriteVariable(w, obj.PackEntryType(c))
 		if err != nil {
 			return err
 		}
 
-		err = obj.CompressedWriter(repo, w)
+		err = obj.CompressedWriter(c, w)
 		if err != nil {
 			return err
 		}

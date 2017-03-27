@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"io"
 	"io/ioutil"
+	"sort"
 	"strconv"
 	"strings"
 	"time"
@@ -199,6 +200,14 @@ func (s CommitID) AncestorMap(c *Client) (map[CommitID]struct{}, error) {
 var tzCache map[string]*time.Location
 
 func (cmt CommitID) GetDate(c *Client) (time.Time, error) {
+	if cached, ok := ancestorDateCache[cmt]; ok {
+		return cached, nil
+	}
+
+	if ancestorDateCache == nil {
+		ancestorDateCache = make(map[CommitID]time.Time)
+	}
+
 	obj, err := c.GetCommitObject(cmt)
 	if err != nil {
 		return time.Time{}, err
@@ -222,8 +231,6 @@ func (cmt CommitID) GetDate(c *Client) (time.Time, error) {
 
 	}
 
-	// BUG(driusan): converting date to time.Time does not take timezone into
-	// account.
 	unixTime, err := strconv.ParseInt(authorPieces[len(authorPieces)-2], 10, 64)
 	if err != nil {
 		return time.Time{}, err
@@ -243,7 +250,11 @@ func (cmt CommitID) GetDate(c *Client) (time.Time, error) {
 
 	}
 	tzCache[timeZone] = loc
-	return t.In(loc), nil
+	date := t.In(loc)
+
+	ancestorDateCache[cmt] = date
+
+	return date, nil
 
 }
 
@@ -288,9 +299,50 @@ func (cmt CommitID) GetAuthor(c *Client) (Person, error) {
 
 }
 
-var ancestorCache map[CommitID][]CommitID
+func (s CommitID) Ancestors(c *Client) ([]CommitID, error) {
+	ancestors, err := s.ancestors(c)
+	if err != nil {
+		return nil, err
+	}
+	if ancestorDateCache == nil {
+		ancestorDateCache = make(map[CommitID]time.Time)
 
-func (s CommitID) Ancestors(c *Client) (commits []CommitID, err error) {
+	}
+
+	sort.Slice(ancestors, func(i, j int) bool {
+		var iDate, jDate time.Time
+		var ok bool
+		if ancestors[i].IsAncestor(c, ancestors[j]) {
+			return false
+		}
+		if ancestors[j].IsAncestor(c, ancestors[i]) {
+			return true
+		}
+		if iDate, ok = ancestorDateCache[ancestors[i]]; !ok {
+			var err error
+			iDate, err = ancestors[i].GetDate(c)
+			if err != nil {
+				panic(err)
+			}
+			ancestorDateCache[ancestors[i]] = iDate
+		}
+		if jDate, ok = ancestorDateCache[ancestors[j]]; !ok {
+			var err error
+			jDate, err = ancestors[j].GetDate(c)
+			if err != nil {
+				panic(err)
+			}
+			ancestorDateCache[ancestors[j]] = jDate
+		}
+		return jDate.Before(iDate)
+	})
+	return ancestors, nil
+}
+
+var ancestorCache map[CommitID][]CommitID
+var ancestorDateCache map[CommitID]time.Time
+
+func (s CommitID) ancestors(c *Client) (commits []CommitID, err error) {
 	if cached, ok := ancestorCache[s]; ok {
 		return cached, nil
 	}
@@ -302,7 +354,7 @@ func (s CommitID) Ancestors(c *Client) (commits []CommitID, err error) {
 	commits = append(commits, s)
 
 	for _, p := range parents {
-		grandparents, err := p.Ancestors(c)
+		grandparents, err := p.ancestors(c)
 		if err != nil {
 			return nil, err
 		}
