@@ -99,8 +99,8 @@ func Merge(c *Client, opts MergeOptions, others []Commitish) error {
 	commitsWithHead := []Commitish{head}
 	commitsWithHead = append(commitsWithHead, others...)
 
-	// Find the mergebase
-	base, err := MergeBaseOctopus(c, commitsWithHead)
+	// Find the mergebase. Use --octopus if there's more than 2 commits.
+	base, err := MergeBase(c, MergeBaseOptions{Octopus: len(commitsWithHead) > 2}, commitsWithHead)
 	if err != nil {
 		return err
 	}
