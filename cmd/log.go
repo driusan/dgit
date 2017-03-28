@@ -43,17 +43,28 @@ func printCommit(c *git.Client, cmt git.CommitID) {
 }
 
 func Log(c *git.Client, args []string) error {
-	if len(args) != 0 {
-		fmt.Fprintf(os.Stderr, "Usage: go-git log\nNo options are currently supported.\n")
+	if len(args) >= 2 {
+		fmt.Fprintf(os.Stderr, "Usage: %s log [commitish]\n", os.Args[0])
 		return errors.New("No options are currently supported for log")
 	}
 
-	head, err := c.GetHeadCommit()
+	var commit git.Commitish
+	var err error
+	if len(args) == 0 {
+		commit, err = git.RevParseCommitish(c, &git.RevParseOptions{}, "HEAD")
+	} else {
+		commit, err = git.RevParseCommitish(c, &git.RevParseOptions{}, args[0])
+	}
 	if err != nil {
 		return err
 	}
 
-	ancestors, err := head.Ancestors(c)
+	cmt, err := commit.CommitID(c)
+	if err != nil {
+		return err
+	}
+
+	ancestors, err := cmt.Ancestors(c)
 	if err != nil {
 		return err
 	}
