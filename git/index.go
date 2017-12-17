@@ -430,22 +430,76 @@ func writeIndexSubtree(c *Client, prefix string, entries []*IndexEntry) (Sha1, e
 	lastname := ""
 	firstIdxForTree := -1
 
+	//	fmt.Printf("Prefix: %v\n", prefix)
 	for idx, obj := range entries {
 		relativename := strings.TrimPrefix(obj.PathName.String(), prefix+"/")
-		//	fmt.Printf("This name: %s\n", relativename)
+		//fmt.Printf("This name: %s\n", relativename)
 		nameBits := strings.Split(relativename, "/")
 
-		// Either it's the last entry and we haven't written a tree yet, or it's not the last
-		// entry but the directory changed
-		if (nameBits[0] != lastname || idx == len(entries)-1) && lastname != "" {
-			newPrefix := prefix + "/" + lastname
+		if len(nameBits) == 0 {
+			panic("did not reach base case for subtree recursion")
+		} else if len(nameBits) == 1 {
+			// Base case: we've recursed all the way down to there being no prefix.
+			// write the blob to the tree.
+			if firstIdxForTree >= 0 {
+				var newPrefix string
+				if prefix == "" {
+					newPrefix = lastname
+				} else {
+					newPrefix = prefix + "/" + lastname
+				}
 
+				// Get the index entries which compose this tree
+				var islice []*IndexEntry
+				islice = entries[firstIdxForTree:idx]
+
+				// Get the sha1 for the tree with the prefix stripped.
+				subsha1, err := writeIndexSubtree(c, newPrefix, islice)
+				if err != nil && err != ObjectExists {
+					panic(err)
+				}
+
+				// Write the object
+				fmt.Fprintf(content, "%o %s\x00", 0040000, lastname)
+				content.Write(subsha1[:])
+
+			}
+			fmt.Fprintf(content, "%o %s\x00", obj.Mode, nameBits[0])
+			content.Write(obj.Sha1[:])
+			lastname = ""
+			firstIdxForTree = -1
+		} else if (nameBits[0] != lastname && lastname != "") || idx == len(entries)-1 {
+			// Either the name of the first part of the directory changed or we've reached
+			// the end. Either way, we've found the end of this tree, so write it out.
+			var newPrefix string
+			if prefix == "" {
+				newPrefix = lastname
+			} else {
+				newPrefix = prefix + "/" + lastname
+			}
+
+			// Get the index entries which compose this tree
 			var islice []*IndexEntry
-			if idx == len(entries)-1 && nameBits[0] == lastname {
+			if firstIdxForTree == -1 {
+				// There was only 1 entry.
+				islice = entries[idx : idx+1]
+				if prefix == "" {
+					newPrefix = nameBits[0]
+				} else {
+					newPrefix = prefix + "/" + nameBits[0]
+				}
+				lastname = nameBits[0]
+			} else if idx == len(entries)-1 && nameBits[0] == lastname {
+				// We've reached the end, so the slice goes from the first index
+				// to the end
 				islice = entries[firstIdxForTree:]
 			} else {
+				// the name changed, so the slice goes from the first index until
+				// this index.
 				islice = entries[firstIdxForTree:idx]
 			}
+
+			// Get the sha1 for the tree with the prefix stripped.
 			subsha1, err := writeIndexSubtree(c, newPrefix, islice)
 			if err != nil && err != ObjectExists {
 				panic(err)
@@ -456,7 +510,12 @@ func writeIndexSubtree(c *Client, prefix string, entries []*IndexEntry) (Sha1, e
 			content.Write(subsha1[:])
 
 			if idx == len(entries)-1 && lastname != nameBits[0] {
-				newPrefix := prefix + "/" + nameBits[0]
+				var newPrefix string
+				if prefix == "" {
+					newPrefix = nameBits[0]
+				} else {
+					newPrefix = prefix + "/" + nameBits[0]
+				}
 				subsha1, err := writeIndexSubtree(c, newPrefix, entries[len(entries)-1:])
 				if err != nil && err != ObjectExists {
 					panic(err)
@@ -465,22 +524,15 @@ func writeIndexSubtree(c *Client, prefix string, entries []*IndexEntry) (Sha1, e
 				// Write the object
 				fmt.Fprintf(content, "%o %s\x00", 0040000, nameBits[0])
 				content.Write(subsha1[:])
-
 			}
 			// Reset the data keeping track of what this tree is.
-			lastname = ""
-			firstIdxForTree = -1
-		}
-		if len(nameBits) == 1 {
-			//write the blob for the file portion
-			fmt.Fprintf(content, "%o %s\x00", obj.Mode, nameBits[0])
-			content.Write(obj.Sha1[:])
-			lastname = ""
-			firstIdxForTree = -1
+			lastname = nameBits[0]
+			firstIdxForTree = idx
 		} else {
-			// calculate the sub-indexes to recurse on for this tree
+			// Keep track of the last thing we saw for the next loop iteration.
 			lastname = nameBits[0]
 			if firstIdxForTree == -1 {
+				// This is the first thing we saw since the last tree.
 				firstIdxForTree = idx
 			}
 		}
@@ -488,52 +540,10 @@ func writeIndexSubtree(c *Client, prefix string, entries []*IndexEntry) (Sha1, e
 
 	return c.WriteObject("tree", content.Bytes())
 }
+
 func writeIndexEntries(c *Client, prefix string, entries []*IndexEntry) (TreeID, error) {
-	content := bytes.NewBuffer(nil)
-	// [mode] [file/folder name]\0[SHA-1 of referencing blob or tree as [20]byte]
-
-	lastname := ""
-	firstIdxForTree := -1
-
-	for idx, obj := range entries {
-		nameBits := strings.Split(obj.PathName.String(), "/")
-
-		// Either it's the last entry and we haven't written a tree yet, or it's not the last
-		// entry but the directory changed
-		if (nameBits[0] != lastname || idx == len(entries)-1) && lastname != "" {
-			var islice []*IndexEntry
-			if idx == len(entries)-1 && nameBits[0] == lastname {
-				islice = entries[firstIdxForTree:]
-			} else {
-				islice = entries[firstIdxForTree:idx]
-			}
-			subsha1, err := writeIndexSubtree(c, lastname, islice)
-			if err != nil && err != ObjectExists {
-				panic(err)
-			}
-			// Write the object
-			fmt.Fprintf(content, "%o %s\x00", 0040000, lastname)
-			content.Write(subsha1[:])
-
-			// Reset the data keeping track of what this tree is.
-			lastname = ""
-			firstIdxForTree = -1
-		}
-		if len(nameBits) == 1 {
-			//write the blob for the file portion
-			fmt.Fprintf(content, "%o %s\x00", obj.Mode, obj.PathName)
-			content.Write(obj.Sha1[:])
-			lastname = ""
-		} else {
-			lastname = nameBits[0]
-			if firstIdxForTree == -1 {
-				firstIdxForTree = idx
-			}
-		}
-	}
-
-	tid, err := c.WriteObject("tree", content.Bytes())
-	return TreeID(tid), err
+	s, err := writeIndexSubtree(c, "", entries)
+	return TreeID(s), err
 }
 
 // WriteTree writes the current index to a tree object.

@@ -351,7 +351,9 @@ func (c *Client) HaveObject(id Sha1) (found bool, packedfile File, err error) {
 	// Then, check if it's in a pack file.
 	files, err := ioutil.ReadDir(c.GitDir.File("objects/pack").String())
 	if err != nil {
-		return false, "", err
+		// The pack directory doesn't exist. It's not an error, but it definitely
+		// doesn't have the file..
+		return false, "", nil
 	}
 	for _, fi := range files {
 		if filepath.Ext(fi.Name()) == ".idx" {
