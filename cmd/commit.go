@@ -42,7 +42,7 @@ func Commit(c *git.Client, args []string) (string, error) {
 	commitTreeArgs = append(commitTreeArgs, messages...)
 
 	// write the current index tree and get the SHA1
-	treeSha1 := WriteTree(c)
+	treeSha1 := WriteTree(c, nil)
 	commitTreeArgs = append(commitTreeArgs, treeSha1)
 
 	// write the commit tree

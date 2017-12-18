@@ -12,7 +12,6 @@ func UpdateRef(c *git.Client, args []string) error {
 	flags := flag.NewFlagSet("update-ref", flag.ExitOnError)
 	flags.Usage = func() {
 		flag.Usage()
-		fmt.Fprintf(os.Stderr, "\nupdate-ref options:\n\n")
 		flags.PrintDefaults()
 	}
 

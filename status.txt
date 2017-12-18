@@ -121,7 +121,7 @@ symbolic-ref   Done          git 2.9.2              This updates the reflog, but
 unpack-objects Almost        git 2.9.2              (3) Dryrun, strict, and max-input-size options are missing
 update-index   None                                 (25)
 update-ref     Almost        git 2.9.2              (4) missing --create-reflog -d(elete), and --stdin/-z (*does* safely maintain reflog)
-write-tree     Almost        git 2.9.2              (2) Missing --missing-ok and --prefix
+write-tree     Done          git 2.9.2              Second thing to be done!
 
 Interrogation Plumbing Commands (These are second highest priority now)
 Command	Status	Reference git version  Notes

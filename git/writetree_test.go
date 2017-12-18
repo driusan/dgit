@@ -305,7 +305,7 @@ func TestWriteIndex(t *testing.T) {
 	}
 
 	for i, tc := range testcases {
-		treeid, err := writeIndexEntries(c, "", tc.IndexObjects)
+		treeid, err := writeTree(c, "", tc.IndexObjects)
 		if err != nil && err != ObjectExists {
 			t.Error(err)
 			continue
@@ -315,7 +315,7 @@ func TestWriteIndex(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		if treeid != TreeID(expected) {
+		if treeid != expected {
 			t.Errorf("Unexpected hash for test case %d: got %v want %v", i, treeid, expected)
 		}
 
