@@ -1,8 +1,8 @@
 package git
 
 import (
-	"fmt"
 	"bytes"
+	"fmt"
 	"strings"
 )
 

@@ -233,9 +233,9 @@ func (s *SmartHTTPServerRetriever) getRefs(service, expectedmime string) (io.Rea
 		req.SetBasicAuth(s.username, s.password)
 	}
 	resp, err := http.DefaultClient.Do(req)
-	if resp.Header.Get("Content-Type") != expectedmime {
+	if err != nil || resp.Header.Get("Content-Type") != expectedmime {
 		// If it didn't work, close the body and try again at "url.git"
-		if err != nil {
+		if err != nil && resp != nil && resp.Body != nil {
 			resp.Body.Close()
 		}
 		s.Location = s.Location + ".git"
