@@ -2,6 +2,7 @@ package git
 
 import (
 	"fmt"
+	"bytes"
 	"strings"
 )
 

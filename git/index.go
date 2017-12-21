@@ -1,7 +1,6 @@
 package git
 
 import (
-	"bytes"
 	"crypto/sha1"
 	"encoding/binary"
 	"errors"
@@ -10,7 +9,6 @@ import (
 	"io/ioutil"
 	"os"
 	"sort"
-	"strings"
 )
 
 var InvalidIndex error = errors.New("Invalid index")
