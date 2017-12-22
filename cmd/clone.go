@@ -2,7 +2,6 @@ package cmd
 
 import (
 	"fmt"
-	"io/ioutil"
 	"os"
 	"strings"
 
@@ -58,23 +57,36 @@ func Clone(c *git.Client, args []string) error {
 	if err := os.MkdirAll(c.GitDir.File("logs").String(), 0755); err != nil {
 		return err
 	}
-	if err := ioutil.WriteFile(c.GitDir.File("logs/HEAD").String(), []byte{}, 0644); err != nil {
-		return err
-	}
-	// The references were unpacked into refs/remotes/origin/, there's
-	// still no master branch set up, so copy refs/remotes/origin/master
-	// into refs/heads/master before doing a reset.
-	remoteMaster, err := ioutil.ReadFile(c.GitDir.File("refs/remotes/origin/master").String())
+
+	cmtish, err := git.RevParseCommitish(c, &git.RevParseOptions{}, "origin/master")
 	if err != nil {
 		return err
 	}
-	if err := ioutil.WriteFile(c.GitDir.File("refs/heads/master").String(), remoteMaster, 0644); err != nil {
+	cmt, err := cmtish.CommitID(c)
+	if err != nil {
 		return err
 	}
 
-	// This needs to be done after writing the above, or updateRefLog will
-	// complain that refs/heads/master doesn't exist.
-	if err := git.SymbolicRefUpdate(c, git.SymbolicRefOptions{}, "HEAD", "refs/heads/master", "clone: "+args[0]); err != nil {
+	// Update the master branch to point to the same commit as origin/master
+	if err := git.UpdateRefSpec(
+		c,
+		git.UpdateRefOptions{CreateReflog: true, OldValue: git.CommitID{}},
+		git.RefSpec("refs/heads/master"),
+		cmt,
+		"clone: "+args[0],
+	); err != nil {
+		return err
+	}
+
+	// HEAD is already pointing to refs/heads/master from init, but the logs/HEAD
+	// reflog isn't created yet. We can cheat by just copying the one created for
+	// the master branch by UpdateRefSpec above.
+	reflog, err := c.GitDir.ReadFile("logs/refs/heads/master")
+	if err != nil {
+		return err
+	}
+
+	if err := c.GitDir.WriteFile("logs/HEAD", reflog, 0755); err != nil {
 		return err
 	}
 

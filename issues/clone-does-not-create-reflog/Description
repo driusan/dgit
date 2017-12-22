@@ -1,2 +1,0 @@
-"dgit clone" creates a reflog for head, but not for each of the branches
-that it cloned in .git/logs/refs/heads

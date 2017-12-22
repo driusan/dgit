@@ -61,7 +61,7 @@ filter-branch  None
 mergetool      None
 pack-refs      None
 prune          None
-reflog         None                                 SymbolicRef needs to maintain the reflog first
+reflog         None
 relink         None
 remote         None
 repack         None
@@ -117,7 +117,7 @@ mktree         None                                 (1)
 pack-objects   HappyPath     git 2.9.2              (18) No options are implemented
 prune-packed   None                                 (3)
 read-tree      Almost        git 2.9.2              (6) missing --prefix, -i, --trivial/aggressive, --exclude-per-directory, and --nosparse-checkout
-symbolic-ref   Done          git 2.9.2              (1 bug in issues/ directory wrt reflog)
+symbolic-ref   Done          git 2.9.2
 unpack-objects Almost        git 2.9.2              (3) Dryrun, strict, and max-input-size options are missing
 update-index   None                                 (25)
 update-ref     Almost        git 2.9.2              (2) missing -d(elete), and --stdin/-z

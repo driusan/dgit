@@ -64,6 +64,11 @@ func (g GitDir) WriteFile(f File, data []byte, perm os.FileMode) error {
 	return ioutil.WriteFile(g.File(f).String(), data, perm)
 }
 
+// ReadFile reads a file under the GitDir and returns the contents.
+func (g GitDir) ReadFile(f File) ([]byte, error) {
+	return ioutil.ReadFile(g.File(f).String())
+}
+
 // WorkDir is the top level of the work directory of the current process, or
 // the empty string if the --bare option is provided
 type WorkDir File
