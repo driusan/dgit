@@ -1,2 +1,0 @@
-Only the basic "git status" command is implemented, none of the plumbing
-options such as -z are present.

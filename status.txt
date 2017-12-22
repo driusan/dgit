@@ -106,22 +106,22 @@ Where there is a (n) in front of the notes, it means the number of options missi
 Command	Status	Reference git version  Notes
 -------        ------        ---------------------  -----
 apply          None                                 (26)
-checkout-index Done          git 2.9.2              This is the first thing to be done!
-commit-tree    Almost        git 2.9.2              (3) missing -s to sign commits
+checkout-index Done          git 2.9.2
+commit-tree    Almost        git 2.9.2              (1) missing -s to sign commits
 hash-object    Almost        git 2.9.2              (2) --literally and --no-filters are implied
 index-pack     Almost        git 2.9.2              (7) -v, -o, and --stdin are implemented. Most of the other options are for internal use by git (but --fix-thin is probably a good idea to add.) 
 merge-file     None                                 (11)
 merge-index    None                                 (3) It's not clear how this is useful
-mktag          None                                 (1) There's only a happy path!
-mktree         None
+mktag          None                                 (1)
+mktree         None                                 (1)
 pack-objects   HappyPath     git 2.9.2              (18) No options are implemented
-prune-packed   None                                 (2)
+prune-packed   None                                 (3)
 read-tree      Almost        git 2.9.2              (6) missing --prefix, -i, --trivial/aggressive, --exclude-per-directory, and --nosparse-checkout
-symbolic-ref   Done          git 2.9.2              This updates the reflog, but only if it already exists. (Just like real git).. but clone and "initial commit" to a repo don't create the HEAD reflog like the real git client does, so the reflog will only work if you manually create .git/logs/HEAD or you're working in a repo that was initially created by the real git client.
+symbolic-ref   Done          git 2.9.2              (1 bug in issues/ directory wrt reflog)
 unpack-objects Almost        git 2.9.2              (3) Dryrun, strict, and max-input-size options are missing
 update-index   None                                 (25)
-update-ref     Almost        git 2.9.2              (4) missing --create-reflog -d(elete), and --stdin/-z (*does* safely maintain reflog)
-write-tree     Done          git 2.9.2              Second thing to be done!
+update-ref     Almost        git 2.9.2              (2) missing -d(elete), and --stdin/-z
+write-tree     Done          git 2.9.2
 
 Interrogation Plumbing Commands (These are second highest priority now)
 Command	Status	Reference git version  Notes

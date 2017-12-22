@@ -1,0 +1,4 @@
+"dgit status" should be a wrapper around git.LsFiles(), rather than duplicating
+the work.
+
+It should also be done in the git/ package, not the cmd package.
