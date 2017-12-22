@@ -45,6 +45,7 @@ func findUntrackedFilesFromDir(c *git.Client, root, parent, dir string, tracked 
 	}
 	return
 }
+
 func findUntrackedFiles(c *git.Client, tracked map[git.IndexPath]bool) []git.File {
 	if c.WorkDir == "" {
 		return nil
@@ -58,7 +59,13 @@ func findUntrackedFiles(c *git.Client, tracked map[git.IndexPath]bool) []git.Fil
 // same code as Status. Status() just parses command line options and calls
 // this.
 func getStatus(c *git.Client, prefix string) (string, error) {
+	var msg string
+	h, hErr := c.GetHeadCommit()
+	if hErr != nil {
+		msg = "No commits yet\n\n"
+	}
 
+	// FIXME: This should use dgit ls-files
 	idx, err := c.GitDir.ReadIndex()
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "%v\n", err)
@@ -70,13 +77,12 @@ func getStatus(c *git.Client, prefix string) (string, error) {
 
 	headFiles := make(map[git.IndexPath]git.Sha1)
 	// This isn't very efficiently implemented, but it works(ish).
-	h, err := c.GetHeadCommit()
-	if err != nil {
-		return "", err
-	}
-	head, err := git.ExpandGitTreeIntoIndexes(c, h, true, false)
-	if err != nil {
-		return "", err
+	var head []*git.IndexEntry
+	if hErr == nil {
+		head, err = git.ExpandGitTreeIntoIndexes(c, h, true, false)
+		if err != nil {
+			return "", err
+		}
 	}
 	for _, head := range head {
 		headFiles[head.PathName] = head.Sha1
@@ -179,8 +185,6 @@ func getStatus(c *git.Client, prefix string) (string, error) {
 		}
 	}
 
-	var msg string
-
 	untracked := findUntrackedFiles(c, fileInIndex)
 	if len(stagedFiles) != 0 {
 		msg += fmt.Sprintf("%sChanges to be committed:\n", prefix)
@@ -263,11 +267,23 @@ func getStatus(c *git.Client, prefix string) (string, error) {
 	}
 	return msg, nil
 }
+
 func Status(c *git.Client, args []string) error {
+	// FIXME: Include "Your branch is up to date with ..." line if applicable.
+
 	s, err := getStatus(c, "")
 	if err != nil {
 		return err
 	}
-	fmt.Printf("%s", s)
+	var branchMsg string
+	branchName, err := git.SymbolicRefGet(c, git.SymbolicRefOptions{Short: true}, "HEAD")
+	if err != nil {
+		// FIXME: The message should be "HEAD detached at commitID" not just
+		// a generic "in detached head state" error
+		branchMsg = err.Error()
+	} else {
+		branchMsg = fmt.Sprintf("On branch %s", branchName)
+	}
+	fmt.Printf("%s\n\n%s\n", branchMsg, s)
 	return nil
 }

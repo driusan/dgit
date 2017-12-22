@@ -50,8 +50,8 @@ func SymbolicRefGet(c *Client, opts SymbolicRefOptions, symname SymbolicRef) (Re
 		return RefSpec(strings.TrimPrefix(value, "ref: refs/heads/")), nil
 	}
 	return RefSpec(strings.TrimPrefix(value, "ref: ")), nil
-
 }
+
 func SymbolicRefDelete(c *Client, opts SymbolicRefOptions, symname SymbolicRef) error {
 	file := c.GitDir.File(File(symname))
 	if !file.Exists() {
