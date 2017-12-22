@@ -61,12 +61,12 @@ func updateReflog(c *Client, create bool, file File, oldvalue, newvalue Commitis
 // If opts.OldValue is set, it will return an error if the current value is not OldValue.
 func UpdateRefSpec(c *Client, opts UpdateRefOptions, ref RefSpec, cmt CommitID, reason string) error {
 	if opts.OldValue != nil {
-		curval, err := ref.CommitID(c)
+		oldval, err := opts.OldValue.CommitID(c)
 		if err != nil {
 			return err
 		}
-		oldval, err := opts.OldValue.CommitID(c)
-		if err != nil {
+		curval, err := ref.CommitID(c)
+		if err != nil && oldval != (CommitID{}) {
 			return err
 		}
 		if curval != oldval {
@@ -117,7 +117,7 @@ func UpdateRef(c *Client, opts UpdateRefOptions, ref string, cmt CommitID, reaso
 		// UpdateRefSpec because someone else might call it directly.)
 		if opts.OldValue != nil {
 			curval, err := SymbolicRef(ref).CommitID(c)
-			if err != nil {
+			if err != nil && opts.OldValue != (CommitID{}) {
 				return err
 			}
 			oldval, err := opts.OldValue.CommitID(c)

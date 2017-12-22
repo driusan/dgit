@@ -53,13 +53,13 @@ func Commit(c *git.Client, args []string) (string, error) {
 	file := c.GitDir.File("COMMIT_EDITMSG")
 	msg, _ := file.ReadFirstLine()
 	if msg == "" {
-		msg = "commit from go-git"
+		msg = "commit from dgit"
 	}
 	refmsg := fmt.Sprintf("commit: %s (go-git)", msg)
 
 	oldHead, err := c.GetHeadCommit()
 	if err != nil {
-		return "", err
+		oldHead = git.CommitID{}
 	}
 	err = git.UpdateRef(c, git.UpdateRefOptions{OldValue: oldHead, CreateReflog: true}, "HEAD", commitSha1, refmsg)
 	return commitSha1.String(), err
