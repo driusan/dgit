@@ -13,6 +13,10 @@ import (
 
 func CommitTree(c *git.Client, args []string) (git.CommitID, error) {
 	content := bytes.NewBuffer(nil)
+	if len(args) == 0 {
+		// This doesn't use the flag package, because -m or -p can be specified multiple times
+		return git.CommitID{}, fmt.Errorf("Usage: %s commit-tree [(-p <sha1>)...] [-m <message>] [-F <file>]  <sha1>", os.Args[0])
+	}
 
 	var parents []string
 	var messageString, messageFile string
