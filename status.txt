@@ -11,7 +11,7 @@ Main Porcelain Commands:
 Command	Status	Reference git version  Notes
 -------        ------        ---------------------  -----
 add            HappyPath     git 2.9.2              (6) Missing --patch, --edit, --interactive, --intent-to-add, --ignore-errors, --ignore-missing, and --no-warn-embedded-repo
-                                                    (4) Passed to update-index or ls-files, but missing plumbing support: --force, --verbose, --refresh, --chmod
+                                                    (3) Passed to update-index or ls-files, but missing plumbing support: --force, --refresh, --chmod
 am             None
 archive        None
 branch         HappyPath     git 2.9.2
@@ -120,7 +120,7 @@ prune-packed   None                                 (3)
 read-tree      Almost        git 2.9.2              (6) missing --prefix, -i, --trivial/aggressive, --exclude-per-directory, and --nosparse-checkout
 symbolic-ref   Done          git 2.9.2
 unpack-objects Almost        git 2.9.2              (3) Dryrun, strict, and max-input-size options are missing
-update-index   HappyPath     git 2.14.2             (23) Only --add and --remove are implemented
+update-index   HappyPath     git 2.14.2             (22) Only --add, --remove and --verbose are implemented
 update-ref     Almost        git 2.9.2              (2) missing -d(elete), and --stdin/-z
 write-tree     Done          git 2.9.2
 

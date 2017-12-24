@@ -52,6 +52,12 @@ type UpdateIndexOptions struct {
 	CacheInfo CacheInfo
 
 	Stdin io.Reader
+
+	// With the official git client "git add -v" saysing "remove 'foo'"
+	// while "git update-index --verbose" says "add 'foo'" when removing
+	// a file. This is a hack so that we can have the same behaviour without
+	// having to duplicate code.
+	correctRemoveMsg bool
 }
 
 // This implements the git update-index command. It updates the index
@@ -66,14 +72,21 @@ func UpdateIndex(c *Client, idx *Index, opts UpdateIndexOptions, files []File) (
 		if !file.Exists() {
 			if opts.Remove {
 				idx.RemoveFile(ipath)
+				if opts.Verbose {
+					if opts.correctRemoveMsg {
+						fmt.Printf("remove '%v'\n", file.String())
+					} else {
+						fmt.Printf("add '%v'\n", file.String())
+					}
+				}
 			} else {
 				return nil, fmt.Errorf("%v does not exist and --remove not passed", file)
 			}
 		}
 
-		if file, err := os.Open(file.String()); err == nil {
-			defer file.Close()
-			if err := idx.AddFile(c, file, opts.Add); err != nil {
+		if osfile, err := os.Open(file.String()); err == nil {
+			defer osfile.Close()
+			if err := idx.AddFile(c, osfile, opts.Add); err != nil {
 				if !opts.Add {
 					// This is making invalid assumptions that the only
 					// thing that might go wrong is that createEntry was
@@ -84,6 +97,10 @@ func UpdateIndex(c *Client, idx *Index, opts UpdateIndexOptions, files []File) (
 				// return the error
 				return nil, err
 			}
+			if opts.Verbose {
+				fmt.Printf("add '%v'\n", file)
+			}
+
 		}
 	}
 	return idx, nil

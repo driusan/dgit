@@ -74,6 +74,8 @@ func Add(c *Client, opts AddOptions, files []File) error {
 		Verbose: opts.Verbose,
 		Refresh: opts.Refresh,
 		Chmod:   opts.Chmod,
+
+		correctRemoveMsg: true,
 	}
 	idx, err := c.GitDir.ReadIndex()
 	if err != nil {
