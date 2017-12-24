@@ -26,7 +26,12 @@ func DiffIndex(c *git.Client, args []string) error {
 	if err != nil {
 		return err
 	}
-	diffs, err := git.DiffIndex(c, options, treeish, args[1:])
+
+	files := make([]git.File, len(args)-1, len(args)-1)
+	for i, f := range args[1:] {
+		files[i] = git.File(f)
+	}
+	diffs, err := git.DiffIndex(c, options, treeish, files)
 	if err != nil {
 		return err
 	}

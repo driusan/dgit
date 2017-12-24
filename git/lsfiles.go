@@ -1,27 +1,50 @@
 package git
 
 import (
-	//"fmt"
 	"io/ioutil"
+	"path/filepath"
 	"strings"
 )
 
 // Finds things that aren't tracked, and creates fake IndexEntrys for them to be merged into
 // the output if --others is passed.
-func findUntrackedFilesFromDir(c *Client, root, parent, dir string, tracked map[IndexPath]bool) (untracked []*IndexEntry) {
-	files, err := ioutil.ReadDir(dir)
+func findUntrackedFilesFromDir(c *Client, root, parent, dir File, tracked map[IndexPath]bool) (untracked []*IndexEntry) {
+	files, err := ioutil.ReadDir(dir.String())
 	if err != nil {
 		return nil
 	}
 	for _, fi := range files {
+		fname := File(fi.Name())
 		if fi.IsDir() {
 			if fi.Name() == ".git" {
 				continue
 			}
-			recurseFiles := findUntrackedFilesFromDir(c, root, parent+"/"+fi.Name(), dir+"/"+fi.Name(), tracked)
+			var newparent, newdir File
+			if parent == "" {
+				newparent = fname
+			} else {
+				newparent = parent + "/" + fname
+			}
+			if dir == "" {
+				newdir = fname
+			} else {
+				newdir = dir + "/" + fname
+			}
+			recurseFiles := findUntrackedFilesFromDir(c, root, newparent, newdir, tracked)
 			untracked = append(untracked, recurseFiles...)
 		} else {
-			indexPath := IndexPath(strings.TrimPrefix(parent+"/"+fi.Name(), root))
+			var filePath File
+			if parent == "" {
+				filePath = File(strings.TrimPrefix(fname.String(), root.String()))
+
+			} else {
+				filePath = File(strings.TrimPrefix((parent + "/" + fname).String(), root.String()))
+			}
+			indexPath, err := filePath.IndexPath(c)
+			if err != nil {
+				panic(err)
+			}
+			indexPath = IndexPath(filePath)
 
 			if _, ok := tracked[indexPath]; !ok {
 				untracked = append(untracked, &IndexEntry{PathName: indexPath})
@@ -43,11 +66,15 @@ type LsFilesOptions struct {
 
 	// Show stage status instead of just file name
 	Stage bool
+
+	// Exclude standard patterns (ie. .gitignore and .git/info/exclude)
+	// (Not implemented.)
+	ExcludeStandard bool
 }
 
 // LsFiles implements the git ls-files command. It returns an array of files
 // that match the options passed.
-func LsFiles(c *Client, opt *LsFilesOptions, files []string) ([]*IndexEntry, error) {
+func LsFiles(c *Client, opt LsFilesOptions, files []File) ([]*IndexEntry, error) {
 	var fs []*IndexEntry
 	index, err := c.GitDir.ReadIndex()
 	if err != nil {
@@ -68,10 +95,22 @@ func LsFiles(c *Client, opt *LsFilesOptions, files []string) ([]*IndexEntry, err
 			return nil, err
 		}
 
-		if strings.HasPrefix(f.String(), "../") {
+		if opt.Others {
+			filesInIndex[entry.PathName] = true
+		}
+
+		if strings.HasPrefix(f.String(), "../") || len(files) > 0 {
 			skip := true
 			for _, explicit := range files {
-				if strings.HasPrefix(f.String(), explicit) {
+				eAbs, err := filepath.Abs(explicit.String())
+				if err != nil {
+					return nil, err
+				}
+				fAbs, err := filepath.Abs(f.String())
+				if err != nil {
+					return nil, err
+				}
+				if strings.HasPrefix(fAbs, eAbs) {
 					skip = false
 					break
 				}
@@ -79,10 +118,6 @@ func LsFiles(c *Client, opt *LsFilesOptions, files []string) ([]*IndexEntry, err
 			if skip {
 				continue
 			}
-		}
-
-		if opt.Others {
-			filesInIndex[entry.PathName] = true
 		}
 
 		if opt.Cached {
@@ -108,9 +143,35 @@ func LsFiles(c *Client, opt *LsFilesOptions, files []string) ([]*IndexEntry, err
 	}
 
 	if opt.Others {
-		wd := string(c.WorkDir)
+		wd := File(c.WorkDir)
 		others := findUntrackedFilesFromDir(c, wd+"/", wd, wd, filesInIndex)
-		fs = append(fs, others...)
+		for _, file := range others {
+			f, err := file.PathName.FilePath(c)
+			if err != nil {
+				return nil, err
+			}
+			if strings.HasPrefix(f.String(), "../") || len(files) > 0 {
+				skip := true
+				for _, explicit := range files {
+					eAbs, err := filepath.Abs(explicit.String())
+					if err != nil {
+						return nil, err
+					}
+					fAbs, err := filepath.Abs(f.String())
+					if err != nil {
+						return nil, err
+					}
+					if strings.HasPrefix(fAbs, eAbs) {
+						skip = false
+						break
+					}
+				}
+				if skip {
+					continue
+				}
+			}
+			fs = append(fs, file)
+		}
 	}
 
 	return fs, nil

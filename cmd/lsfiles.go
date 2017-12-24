@@ -60,16 +60,28 @@ func LsFiles(c *git.Client, args []string) error {
 		}
 	}
 
-	fmt.Printf("%v\n", options)
-	files, err := git.LsFiles(c, &options, oargs)
+	rargs := make([]git.File, len(oargs), len(oargs))
+	for i := range oargs {
+		rargs[i] = git.File(oargs[i])
+	}
+
+	files, err := git.LsFiles(c, options, rargs)
 	if err != nil {
 		return err
 	}
+
+	// LsFiles converted them to IndexEntries so that it could return the
+	// stage, sha1, and mode if --stage was passed. We need to convert them
+	// back to relative paths.
 	for _, file := range files {
+		path, err := file.PathName.FilePath(c)
+		if err != nil {
+			return err
+		}
 		if options.Stage {
-			fmt.Printf("%o %v %v %v\n", file.Mode, file.Sha1, file.Stage(), file.PathName)
+			fmt.Printf("%o %v %v %v\n", file.Mode, file.Sha1, file.Stage(), path)
 		} else {
-			fmt.Printf("%v\n", file.PathName)
+			fmt.Println(path)
 		}
 	}
 	return err

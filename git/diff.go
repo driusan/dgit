@@ -10,7 +10,7 @@ type DiffOptions struct {
 
 // DiffFiles implements the git diff-files command.
 // It compares the file system to the index.
-func Diff(c *Client, opt DiffOptions, paths []string) ([]HashDiff, error) {
+func Diff(c *Client, opt DiffOptions, paths []File) ([]HashDiff, error) {
 	if opt.Staged {
 		head, err := c.GetHeadCommit()
 		if err != nil {

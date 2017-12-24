@@ -26,10 +26,10 @@ type DiffFilesOptions struct {
 
 // DiffFiles implements the git diff-files command.
 // It compares the file system to the index.
-func DiffFiles(c *Client, opt DiffFilesOptions, paths []string) ([]HashDiff, error) {
+func DiffFiles(c *Client, opt DiffFilesOptions, paths []File) ([]HashDiff, error) {
 	indexentries, err := LsFiles(
 		c,
-		&LsFilesOptions{
+		LsFilesOptions{
 			Cached: true, Deleted: true, Modified: true,
 		},
 		paths,

@@ -13,7 +13,11 @@ func Diff(c *git.Client, args []string) error {
 
 	args, err := parseCommonDiffFlags(c, &options.DiffCommonOptions, true, flags, args)
 
-	diffs, err := git.Diff(c, options, args)
+	files := make([]git.File, len(args), len(args))
+	for i := range args {
+		files[i] = git.File(args[i])
+	}
+	diffs, err := git.Diff(c, options, files)
 	if err != nil {
 		return err
 	}

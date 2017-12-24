@@ -76,7 +76,10 @@ func main() {
 			os.Exit(4)
 		}
 	case "add":
-		cmd.Add(c, args)
+		if err := cmd.Add(c, args); err != nil {
+			fmt.Fprintln(os.Stderr, err)
+			os.Exit(4)
+		}
 	case "commit":
 		sha1, err := cmd.Commit(c, args)
 		if err != nil {

@@ -10,7 +10,8 @@ Status:
 Main Porcelain Commands:
 Command	Status	Reference git version  Notes
 -------        ------        ---------------------  -----
-add            HappyPath     git 2.9.2              (13) Can not add directories, only files
+add            HappyPath     git 2.9.2              (6) Missing --patch, --edit, --interactive, --intent-to-add, --ignore-errors, --ignore-missing, and --no-warn-embedded-repo
+                                                    (4) Passed to update-index or ls-files, but missing plumbing support: --force, --verbose, --refresh, --chmod
 am             None
 archive        None
 branch         HappyPath     git 2.9.2
@@ -26,19 +27,19 @@ clean          None
 clone          HappyPath     git 2.9.2
 commit         HappyPath     git 2.9.2              Most options not implemented
 describe       None
-diff           HappyPath	 git 2.9.2              Only "git diff" and "git diff --staged" are implemented
+diff           HappyPath     git 2.9.2              Only "git diff" and "git diff --staged" are implemented
 fetch          HappyPath     git 2.9.2
 format-patch   None
 gc             None
 grep           None
 gui            None
-init           HappyPath     git 2.9.2              (5)
+init           HappyPath     git 2.9.2              (5) needs to be moved from cmd/ to git/
 log            HappyPath     git 2.9.2
 merge          HappyPath     git 2.9.2              fast-forward only (read-tree can do a three-way merge, but can't be incorporated into the porcelain until it deals with conflicts)
 mv             None
 notes          None
 pull           None
-push           HappyPath     git 2.9.2              must invoke as go-git push Branchname. No options. Https only.
+push           HappyPath     git 2.9.2              must invoke as dgit push Branchname. No options. Https only.
 rebase         None
 reset          HappyPath     git 2.9.2              soft/mixed/hard implemented, missing "-- pathspec"
 revert         None

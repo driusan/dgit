@@ -103,6 +103,8 @@ func UpdateIndex(c *git.Client, args []string) error {
 	}
 
 	switch *chmod {
+	case "":
+		opts.Chmod.Modify = false
 	case "+x":
 		opts.Chmod.Modify = true
 		opts.Chmod.Value = true
@@ -144,11 +146,13 @@ func UpdateIndex(c *git.Client, args []string) error {
 		opts.SkipWorktree.Value = false
 	}
 
-	ci, err := parseCacheInfo(*cacheinfo)
-	if err != nil {
-		return err
+	if *cacheinfo != "" {
+		ci, err := parseCacheInfo(*cacheinfo)
+		if err != nil {
+			return err
+		}
+		opts.CacheInfo = ci
 	}
-	opts.CacheInfo = ci
 
 	vals := flags.Args()
 	files := make([]git.File, len(vals), len(vals))

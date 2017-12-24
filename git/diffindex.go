@@ -10,7 +10,7 @@ type DiffIndexOptions struct {
 	Cached bool
 }
 
-func DiffIndex(c *Client, opt DiffIndexOptions, tree Treeish, paths []string) ([]HashDiff, error) {
+func DiffIndex(c *Client, opt DiffIndexOptions, tree Treeish, paths []File) ([]HashDiff, error) {
 	t, err := tree.TreeID(c)
 	if err != nil {
 		return nil, err
