@@ -71,17 +71,24 @@ type FixedIndexEntry struct {
 	Flags uint16 // 74
 }
 
+// Reads the index file from the GitDir and returns a Index object.
+// If the index file does not exist, it will return a new empty Index.
 func (d GitDir) ReadIndex() (*Index, error) {
 	file, err := d.Open("index")
 	if err != nil {
-		return &Index{
-			fixedGitIndex{
-				[4]byte{'D', 'I', 'R', 'C'},
-				2, // version 2
-				0, // no entries
-			},
-			make([]*IndexEntry, 0),
-		}, err
+		if os.IsNotExist(err) {
+			// Is the file doesn't exist, treat it
+			// as a new empty index.
+			return &Index{
+				fixedGitIndex{
+					[4]byte{'D', 'I', 'R', 'C'},
+					2, // version 2
+					0, // no entries
+				},
+				make([]*IndexEntry, 0),
+			}, nil
+		}
+		return nil, err
 	}
 	defer file.Close()
 
