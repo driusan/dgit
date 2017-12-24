@@ -177,11 +177,11 @@ const (
 
 // Adds an entry to the index with Sha1 s and stage stage during a merge.
 // If an entry already exists for this pathname/stage, it will be overwritten,
-// otherwise it will be added.
+// otherwise it will be added if createEntry is true, and return an error if not.
 //
 // As a special case, if something is added as Stage0, then Stage1-3 entries
 // will be removed.
-func (g *Index) AddStage(c *Client, path IndexPath, s Sha1, stage Stage, mtime, mtimenano, size uint32) error {
+func (g *Index) AddStage(c *Client, path IndexPath, s Sha1, stage Stage, mtime, mtimenano, size uint32, createEntry bool) error {
 	if stage == Stage0 {
 		defer g.RemoveUnmergedStages(c, path)
 	}
@@ -199,6 +199,9 @@ func (g *Index) AddStage(c *Client, path IndexPath, s Sha1, stage Stage, mtime, 
 		}
 	}
 
+	if !createEntry {
+		return fmt.Errorf("%v not found in index", path)
+	}
 	// There was no path/stage combo already in the index. Add it.
 
 	// According to the git documentation:
@@ -270,15 +273,15 @@ func (g *Index) RemoveUnmergedStages(c *Client, path IndexPath) error {
 // To write it to disk after calling this, use GitIndex.WriteIndex
 //
 // This will do the following:
-// write git object blob of file contents to .git/objects
-// normalize os.File name to path relative to gitRoot
-// search GitIndex for normalized name
+// 1. write git object blob of file contents to .git/objects
+// 2. normalize os.File name to path relative to gitRoot
+// 3. search GitIndex for normalized name
 //	if GitIndexEntry found
 //		update GitIndexEntry to point to the new object blob
 // 	else
-// 		add new GitIndexEntry if not found
+// 		add new GitIndexEntry if not found and createEntry is true, error otherwise
 //
-func (g *Index) AddFile(c *Client, file *os.File) error {
+func (g *Index) AddFile(c *Client, file *os.File, createEntry bool) error {
 	contents, err := ioutil.ReadAll(file)
 	if err != nil {
 		return err
@@ -311,6 +314,7 @@ func (g *Index) AddFile(c *Client, file *os.File) error {
 		uint32(modTime.Unix()),
 		uint32(modTime.Nanosecond()),
 		uint32(fstat.Size()),
+		createEntry,
 	)
 }
 
@@ -432,4 +436,13 @@ func (g *Index) ResetIndex(c *Client, tree Treeish) error {
 	g.NumberIndexEntries = uint32(len(newEntries))
 	g.Objects = newEntries
 	return nil
+}
+
+func (g Index) String() string {
+	ret := ""
+
+	for _, i := range g.Objects {
+		ret += fmt.Sprintf("%v %v %v\n", i.Mode, i.Sha1, i.PathName)
+	}
+	return ret
 }

@@ -113,14 +113,14 @@ func ReadTreeMerge(c *Client, opt ReadTreeOptions, stage1, stage2, stage3 Treeis
 		// If both stage2 and stage3 are the same, the work has been done in
 		// both branches, so collapse to stage0 (use our changes)
 		if samePath(ours, theirs, path) {
-			idx.AddStage(c, path, ours[path].Sha1, Stage0, ours[path].Mtime, ours[path].Mtimenano, ours[path].Fsize)
+			idx.AddStage(c, path, ours[path].Sha1, Stage0, ours[path].Mtime, ours[path].Mtimenano, ours[path].Fsize, true)
 			continue
 		}
 
 		// If stage1 and stage2 are the same, our branch didn't do anything,
 		// but theirs did, so take their changes.
 		if samePath(base, ours, path) {
-			idx.AddStage(c, path, theirs[path].Sha1, Stage0, theirs[path].Mtime, theirs[path].Mtimenano, theirs[path].Fsize)
+			idx.AddStage(c, path, theirs[path].Sha1, Stage0, theirs[path].Mtime, theirs[path].Mtimenano, theirs[path].Fsize, true)
 			continue
 		}
 
@@ -128,7 +128,7 @@ func ReadTreeMerge(c *Client, opt ReadTreeOptions, stage1, stage2, stage3 Treeis
 		// so take our changes
 		if samePath(base, theirs, path) {
 			if o, ok := ours[path]; ok {
-				idx.AddStage(c, path, o.Sha1, Stage0, o.Mtime, o.Mtimenano, o.Fsize)
+				idx.AddStage(c, path, o.Sha1, Stage0, o.Mtime, o.Mtimenano, o.Fsize, true)
 				continue
 			}
 		}
@@ -140,13 +140,13 @@ func ReadTreeMerge(c *Client, opt ReadTreeOptions, stage1, stage2, stage3 Treeis
 		idx.RemoveFile(path)
 
 		if b, ok := base[path]; ok {
-			idx.AddStage(c, path, b.Sha1, Stage1, b.Mtime, b.Mtimenano, b.Fsize)
+			idx.AddStage(c, path, b.Sha1, Stage1, b.Mtime, b.Mtimenano, b.Fsize, true)
 		}
 		if o, ok := ours[path]; ok {
-			idx.AddStage(c, path, o.Sha1, Stage2, o.Mtime, o.Mtimenano, o.Fsize)
+			idx.AddStage(c, path, o.Sha1, Stage2, o.Mtime, o.Mtimenano, o.Fsize, true)
 		}
 		if t, ok := theirs[path]; ok {
-			idx.AddStage(c, path, t.Sha1, Stage3, t.Mtime, t.Mtimenano, t.Fsize)
+			idx.AddStage(c, path, t.Sha1, Stage3, t.Mtime, t.Mtimenano, t.Fsize, true)
 		}
 	}
 	if err := checkMergeAndUpdate(c, opt, origMap, idx); err != nil {

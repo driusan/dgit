@@ -211,6 +211,11 @@ func main() {
 			fmt.Fprintln(os.Stderr, err)
 			os.Exit(4)
 		}
+	case "update-index":
+		if err := cmd.UpdateIndex(c, args); err != nil {
+			fmt.Fprintln(os.Stderr, err)
+			os.Exit(4)
+		}
 	case "unpack-objects":
 		if err := cmd.UnpackObjects(c, args); err != nil {
 			fmt.Fprintln(os.Stderr, err)

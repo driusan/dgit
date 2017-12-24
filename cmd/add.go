@@ -22,7 +22,7 @@ func Add(c *git.Client, args []string) error {
 		}
 		if file, err := os.Open(arg); err == nil {
 			defer file.Close()
-			gindex.AddFile(c, file)
+			gindex.AddFile(c, file, true)
 		}
 	}
 	f, err := c.GitDir.Create(git.File("index"))
