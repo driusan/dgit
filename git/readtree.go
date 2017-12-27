@@ -104,7 +104,6 @@ func ReadTreeMerge(c *Client, opt ReadTreeOptions, stage1, stage2, stage3 Treeis
 	}
 
 	for path, _ := range allObjects {
-
 		// All three trees are the same, don't do anything to the index.
 		if samePath(base, ours, path) && samePath(base, theirs, path) {
 			continue

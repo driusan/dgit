@@ -12,7 +12,8 @@ import (
 func Commit(c *git.Client, args []string) (string, error) {
 	// get the parent commit, if it exists
 	var commitTreeArgs []string
-	if parentCommit, err := c.GetHeadCommit(); err == nil {
+	parentCommit, err := c.GetHeadCommit()
+	if err == nil {
 		commitTreeArgs = []string{"-p", parentCommit.String()}
 	}
 
@@ -28,7 +29,13 @@ func Commit(c *git.Client, args []string) (string, error) {
 		}
 	}
 	if !msgIncluded {
-		s, err := getStatus(c, "# ")
+		s, err := git.StatusLong(
+			c,
+			parentCommit,
+			nil,
+			git.StatusUntrackedAll,
+			"# ",
+		)
 		if err != nil {
 			return "", err
 		}

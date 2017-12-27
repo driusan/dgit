@@ -31,6 +31,10 @@ func LsFiles(c *git.Client, args []string) error {
 	stage := flags.Bool("stage", false, "Show staged content")
 	s := flags.Bool("s", false, "Alias of --stage")
 
+	unmerged := flags.Bool("unmerged", false, "Show unmerged files. Implies --stage")
+	u := flags.Bool("u", false, "Alias of --unmerged")
+
+	flags.BoolVar(&options.Directory, "directory", false, "Show only directory, not its contents if a directory is untracked")
 	flags.Parse(args)
 	oargs := flags.Args()
 
@@ -39,15 +43,20 @@ func LsFiles(c *git.Client, args []string) error {
 	rdeleted := *deleted || *d
 	rmodified := *modified || *m
 	rothers := *others || *o
+	runmerged := *unmerged || *u
 
 	options.Deleted = rdeleted
 	options.Modified = rmodified
 	options.Others = rothers
 	options.Ignored = *ignored || *i
 	options.Stage = *stage || *s
+	if runmerged {
+		options.Unmerged = true
+		options.Stage = true
+	}
 
 	// If -u, -m or -o are given, cached is turned off.
-	if rdeleted || rmodified || rothers {
+	if rdeleted || rmodified || rothers || runmerged {
 		options.Cached = false
 		// Check if --cache was explicitly given, in which case it shouldn't
 		// have been turned off. (flag doesn't provide any way to differentiate
@@ -81,7 +90,11 @@ func LsFiles(c *git.Client, args []string) error {
 		if options.Stage {
 			fmt.Printf("%o %v %v %v\n", file.Mode, file.Sha1, file.Stage(), path)
 		} else {
-			fmt.Println(path)
+			if path.IsDir() {
+				fmt.Println(path + "/")
+			} else {
+				fmt.Println(path)
+			}
 		}
 	}
 	return err

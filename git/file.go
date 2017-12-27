@@ -20,6 +20,10 @@ func (f File) Exists() bool {
 	return true
 }
 
+func (f File) String() string {
+	return string(f)
+}
+
 // Appends the value val to the end of the file f.
 // Not that f must already exist.
 func (f File) Append(val string) error {
@@ -33,10 +37,6 @@ func (f File) Append(val string) error {
 	defer fi.Close()
 	fmt.Fprintf(fi, "%s", val)
 	return nil
-}
-
-func (f File) String() string {
-	return string(f)
 }
 
 // Normalizes the file name that's relative to the current working directory
@@ -54,9 +54,18 @@ func (f File) IndexPath(c *Client) (IndexPath, error) {
 
 // Returns stat information for the given file.
 func (f File) Stat() (os.FileInfo, error) {
-	return os.Stat(f.String())
+	return os.Stat(string(f))
 }
 
+func (f File) IsDir() bool {
+	stat, err := f.Stat()
+	if err != nil {
+		// If we couldn't stat it, it's not a directory..
+		return false
+	}
+	return stat.IsDir()
+
+}
 func (f File) Create() error {
 	dir := File(filepath.Dir(f.String()))
 	if !dir.Exists() {

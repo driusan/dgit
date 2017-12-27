@@ -26,19 +26,25 @@ func DiffIndex(c *Client, opt DiffIndexOptions, tree Treeish, paths []File) ([]H
 
 	for _, entry := range index.Objects {
 		f, err := entry.PathName.FilePath(c)
+		if err != nil {
+			return nil, err
+		}
 		treeSha, ok := treeObjects[entry.PathName]
 		var fssha Sha1
+		mode := ModeBlob
 		if !opt.Cached {
 			fssha, _, err = HashFile("blob", f.String())
 			if err != nil {
-				return nil, err
+				mode = 0
 			}
+			// err means file was deleted, which isn't really an error, so ignore
+			// it.
 		} else {
 			fssha = entry.Sha1
 		}
 
 		if entry.Sha1 != fssha {
-			val = append(val, HashDiff{entry.PathName, treeObjects[entry.PathName], TreeEntry{Sha1: Sha1{}, FileMode: ModeBlob}})
+			val = append(val, HashDiff{entry.PathName, treeObjects[entry.PathName], TreeEntry{Sha1: Sha1{}, FileMode: mode}})
 		} else if !ok {
 			val = append(val, HashDiff{entry.PathName, TreeEntry{}, TreeEntry{Sha1: entry.Sha1, FileMode: entry.Mode}})
 		} else if entry.Sha1 != treeSha.Sha1 {

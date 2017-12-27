@@ -8,7 +8,7 @@ import (
 
 // Finds things that aren't tracked, and creates fake IndexEntrys for them to be merged into
 // the output if --others is passed.
-func findUntrackedFilesFromDir(c *Client, root, parent, dir File, tracked map[IndexPath]bool) (untracked []*IndexEntry) {
+func findUntrackedFilesFromDir(c *Client, root, parent, dir File, tracked map[IndexPath]bool, recursedir bool) (untracked []*IndexEntry) {
 	files, err := ioutil.ReadDir(dir.String())
 	if err != nil {
 		return nil
@@ -18,6 +18,25 @@ func findUntrackedFilesFromDir(c *Client, root, parent, dir File, tracked map[In
 		if fi.IsDir() {
 			if fi.Name() == ".git" {
 				continue
+			}
+			if !recursedir {
+				// This isn't very efficient, but let's us implement git ls-files --directory
+				// without too many changes.
+				indexPath, err := (parent + "/" + fname).IndexPath(c)
+				if err != nil {
+					panic(err)
+				}
+				dirHasTracked := false
+				for path := range tracked {
+					if strings.HasPrefix(path.String(), indexPath.String()) {
+						dirHasTracked = true
+						break
+					}
+				}
+				if !dirHasTracked {
+					untracked = append(untracked, &IndexEntry{PathName: indexPath})
+					continue
+				}
 			}
 			var newparent, newdir File
 			if parent == "" {
@@ -30,7 +49,8 @@ func findUntrackedFilesFromDir(c *Client, root, parent, dir File, tracked map[In
 			} else {
 				newdir = dir + "/" + fname
 			}
-			recurseFiles := findUntrackedFilesFromDir(c, root, newparent, newdir, tracked)
+
+			recurseFiles := findUntrackedFilesFromDir(c, root, newparent, newdir, tracked, recursedir)
 			untracked = append(untracked, recurseFiles...)
 		} else {
 			var filePath File
@@ -67,6 +87,13 @@ type LsFilesOptions struct {
 	// Show stage status instead of just file name
 	Stage bool
 
+	// Show files which are unmerged. Implies Stage.
+	Unmerged bool
+
+	// If a directory is classified as "other", show only its name, not
+	// its contents
+	Directory bool
+
 	// Exclude standard patterns (ie. .gitignore and .git/info/exclude)
 	// (Not implemented.)
 	ExcludeStandard bool
@@ -86,7 +113,6 @@ func LsFiles(c *Client, opt LsFilesOptions, files []File) ([]*IndexEntry, error)
 	var filesInIndex map[IndexPath]bool
 	if opt.Others {
 		filesInIndex = make(map[IndexPath]bool)
-
 	}
 
 	for _, entry := range index.Objects {
@@ -140,11 +166,16 @@ func LsFiles(c *Client, opt LsFilesOptions, files []File) ([]*IndexEntry, error)
 			}
 		}
 
+		if opt.Unmerged && entry.Stage() != Stage0 {
+			fs = append(fs, entry)
+
+		}
+
 	}
 
 	if opt.Others {
 		wd := File(c.WorkDir)
-		others := findUntrackedFilesFromDir(c, wd+"/", wd, wd, filesInIndex)
+		others := findUntrackedFilesFromDir(c, wd+"/", wd, wd, filesInIndex, !opt.Directory)
 		for _, file := range others {
 			f, err := file.PathName.FilePath(c)
 			if err != nil {

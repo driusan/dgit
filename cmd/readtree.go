@@ -80,7 +80,7 @@ func ReadTree(c *git.Client, args []string) error {
 		if err != nil {
 			return err
 		}
-		stage3, err := git.RevParseTreeish(c, &git.RevParseOptions{}, args[0])
+		stage3, err := git.RevParseTreeish(c, &git.RevParseOptions{}, args[2])
 		if err != nil {
 			return err
 		}
