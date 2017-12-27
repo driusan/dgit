@@ -57,7 +57,10 @@ func main() {
 
 	switch subcommand {
 	case "init":
-		cmd.Init(c, args)
+		if err := cmd.Init(c, args); err != nil {
+			fmt.Fprintf(os.Stderr, "%v\n", err)
+			os.Exit(4)
+		}
 	case "branch":
 		cmd.Branch(c, args)
 	case "checkout":

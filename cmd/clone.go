@@ -41,7 +41,10 @@ func Clone(c *git.Client, args []string) error {
 		}
 	}
 
-	c = Init(c, []string{dirName})
+	c, err := git.Init(c, git.InitOptions{Quiet: true}, dirName)
+	if err != nil {
+		return err
+	}
 
 	Config(c, []string{"--set", "remote.origin.url", repoid})
 	Config(c, []string{"--set", "branch.master.remote", "origin"})

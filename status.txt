@@ -33,7 +33,7 @@ format-patch   None
 gc             None
 grep           None
 gui            None
-init           HappyPath     git 2.9.2              (5) needs to be moved from cmd/ to git/
+init           HappyPath     git 2.9.2              (3) only --quiet and --bare implemented
 log            HappyPath     git 2.9.2
 merge          HappyPath     git 2.9.2              fast-forward only (read-tree can do a three-way merge, but can't be incorporated into the porcelain until it deals with conflicts)
 mv             None
