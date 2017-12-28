@@ -41,12 +41,9 @@ type StatusOptions struct {
 }
 
 func Status(c *Client, opts StatusOptions, files []File) (string, error) {
-	// FIXME: This should be used to show branch information, it shouldn't
-	// be an error before the first commit.
-	head, err := c.GetHeadCommit()
-	if err != nil {
-		return "", err
-	}
+	// It's not an error in status if there hasn't been a commit yet, so
+	// discard the error.
+	head, _ := c.GetHeadCommit()
 
 	if opts.Short || opts.Porcelain > 0 || opts.ShowStash || opts.Verbose || opts.Ignored || opts.NullTerminate || opts.Column != "default" {
 		return "", fmt.Errorf("Unsupported option for Status")
@@ -78,7 +75,7 @@ func StatusBranch(c *Client, head Commitish, lineprefix string) (string, error) 
 func StatusLong(c *Client, head Treeish, files []File, untracked StatusUntrackedMode, lineprefix string) (string, error) {
 	// If no head commit: "no changes yet", else branch info
 	// Changes to be committed: dgit diff-index --cached HEAD
-	// Unmerged: ??? (git ls-files -u?)
+	// Unmerged: git ls-files -u
 	// Changes not staged: dgit diff-files
 	// Untracked: dgit ls-files -o
 
@@ -99,9 +96,52 @@ func StatusLong(c *Client, head Treeish, files []File, untracked StatusUntracked
 		unmergedMap[fname] = true
 	}
 
-	staged, err := DiffIndex(c, DiffIndexOptions{Cached: true}, head, files)
-	if err != nil {
-		return "", err
+	var staged []HashDiff
+	var summary string
+	if head == (CommitID{}) {
+		// There is no head commit to compare against, so just say
+		// everything in the cache (which isn't unmerged) is new
+		staged, err := LsFiles(c, LsFilesOptions{Cached: true}, files)
+		if err != nil {
+			return "", err
+		}
+		var stagedMsg string
+		if len(staged) > 0 {
+			for _, f := range staged {
+				fname, err := f.PathName.FilePath(c)
+				if err != nil {
+					return "", err
+				}
+
+				if _, ok := unmergedMap[fname]; ok {
+					// There's a merge conflict, it'l show up in "Unmerged"
+					continue
+				}
+				stagedMsg += fmt.Sprintf("%v\tnew file:\t%v\n", lineprefix, fname)
+			}
+		}
+
+		if stagedMsg != "" {
+			ret += fmt.Sprintf("%vChanges to be committed:\n", lineprefix)
+			ret += fmt.Sprintf("%v  (use \"git reset HEAD <file>...\" to unstage)\n", lineprefix)
+			ret += fmt.Sprintf("%v\n", lineprefix)
+			ret += stagedMsg
+			ret += fmt.Sprintf("%v\n", lineprefix)
+		} else {
+			// FIXME: This 1) isn't the right message if there's unmerged entries and
+			//    2) should go at the end, not the beginning of the status.
+			if len(unmerged) == 0 {
+				summary = fmt.Sprintf("%vnothing to commit. (create/copy files and use \"git add\" to track)\n", lineprefix)
+			} else {
+				summary = fmt.Sprintf("%vno changes added to commit. (use \"git add\" and/or \"git commit -a\")\n", lineprefix)
+			}
+		}
+
+	} else if head != nil {
+		staged, err = DiffIndex(c, DiffIndexOptions{Cached: true}, head, files)
+		if err != nil {
+			return "", err
+		}
 	}
 
 	// Staged
@@ -179,7 +219,7 @@ func StatusLong(c *Client, head Treeish, files []File, untracked StatusUntracked
 					// If this is a Stage2, and the previous wasn't Stage1,
 					// then we know the next one must be Stage3 or read-tree
 					// would have handled it as a trivial merge.
-					ret += fmt.Sprintf("%v\tmodified by both:\t%v\n", lineprefix, fname)
+					ret += fmt.Sprintf("%v\tboth added:\t%v\n", lineprefix, fname)
 				}
 				// If the previous was Stage1, it was handled by the previous
 				// loop iteration.
@@ -265,5 +305,9 @@ func StatusLong(c *Client, head Treeish, files []File, untracked StatusUntracked
 			ret += fmt.Sprintf("%v\n", lineprefix)
 		}
 	}
+	if ret == "" {
+		ret = fmt.Sprintf("%vnothing to commit, working tree clean\n", lineprefix)
+	}
+	ret += summary
 	return ret, nil
 }
