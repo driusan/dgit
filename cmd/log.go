@@ -42,6 +42,29 @@ func printCommit(c *git.Client, cmt git.CommitID) {
 	fmt.Printf("\n")
 }
 
+var visited map[git.CommitID]bool
+
+func walkParents(c *git.Client, cmt git.CommitID) error {
+	if visited[cmt] {
+		return nil
+	}
+	visited[cmt] = true
+	printCommit(c, cmt)
+	parents, err := cmt.Parents(c)
+	if err != nil {
+		return err
+	}
+	for _, p := range parents {
+		if _, visited := visited[p]; visited {
+			continue
+		}
+		if err := walkParents(c, p); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
 func Log(c *git.Client, args []string) error {
 	if len(args) >= 2 {
 		fmt.Fprintf(os.Stderr, "Usage: %s log [commitish]\n", os.Args[0])
@@ -64,14 +87,8 @@ func Log(c *git.Client, args []string) error {
 		return err
 	}
 
-	ancestors, err := cmt.Ancestors(c)
-	if err != nil {
-		return err
-	}
+	visited = make(map[git.CommitID]bool)
 
-	for _, cmt := range ancestors {
-		printCommit(c, cmt)
-	}
-	return nil
+	return walkParents(c, cmt)
 
 }
