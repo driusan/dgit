@@ -1,30 +1,31 @@
 package cmd
 
 import (
-	"bytes"
 	"fmt"
 	"io/ioutil"
 	"os"
 	"strings"
-	"time"
 
 	"github.com/driusan/dgit/git"
 )
 
 func CommitTree(c *git.Client, args []string) (git.CommitID, error) {
-	content := bytes.NewBuffer(nil)
 	if len(args) == 0 {
 		// This doesn't use the flag package, because -m or -p can be specified multiple times
 		return git.CommitID{}, fmt.Errorf("Usage: %s commit-tree [(-p <sha1>)...] [-m <message>] [-F <file>]  <sha1>", os.Args[0])
 	}
 
-	var parents []string
+	var parents []git.CommitID
 	var messageString, messageFile string
 	var skipNext bool
-	var tree string
+	var tree git.Treeish
 	for idx, val := range args {
 		if idx == 0 && val[0] != '-' {
-			tree = val
+			treeid, err := git.RevParseTreeish(c, &git.RevParseOptions{}, args[len(args)-1])
+			if err != nil {
+				return git.CommitID{}, err
+			}
+			tree = treeid
 			continue
 		}
 
@@ -34,7 +35,15 @@ func CommitTree(c *git.Client, args []string) (git.CommitID, error) {
 		}
 		switch val {
 		case "-p":
-			parents = append(parents, args[idx+1])
+			pid, err := git.RevParseCommitish(c, &git.RevParseOptions{}, args[idx+1])
+			if err != nil {
+				return git.CommitID{}, err
+			}
+			pcid, err := pid.CommitID(c)
+			if err != nil {
+				return git.CommitID{}, err
+			}
+			parents = append(parents, pcid)
 			skipNext = true
 		case "-m":
 			messageString += "\n" + args[idx+1] + "\n"
@@ -61,34 +70,12 @@ func CommitTree(c *git.Client, args []string) (git.CommitID, error) {
 		messageString = "\n" + string(m)
 	}
 
-	lines := strings.Split(messageString, "\n")
-	var strippedLines []string
-	for _, line := range lines {
-		if len(line) >= 1 && line[0] == '#' {
-			continue
+	if tree == nil {
+		treeid, err := git.RevParseTreeish(c, &git.RevParseOptions{}, args[len(args)-1])
+		if err != nil {
+			return git.CommitID{}, err
 		}
-		strippedLines = append(strippedLines, line)
+		tree = treeid
 	}
-	messageString = strings.Join(strippedLines, "\n")
-	if strings.TrimSpace(messageString) == "" {
-		return git.CommitID{}, fmt.Errorf("Aborting due to empty commit message")
-	}
-
-	if tree == "" {
-		tree = args[len(args)-1]
-	}
-	// TODO: Validate tree id
-	fmt.Fprintf(content, "tree %s\n", tree)
-	for _, val := range parents {
-		fmt.Fprintf(content, "parent %s\n", val)
-	}
-
-	now := time.Now()
-	author := c.GetAuthor(&now)
-	fmt.Fprintf(content, "author %s\n", author)
-	fmt.Fprintf(content, "committer %s\n", author)
-	fmt.Fprintf(content, "%s", messageString)
-	fmt.Printf("%s", content.Bytes())
-	sha1, err := c.WriteObject("commit", content.Bytes())
-	return git.CommitID(sha1), err
+	return git.CommitTree(c, git.CommitTreeOptions{}, tree, parents, strings.TrimSpace(messageString))
 }

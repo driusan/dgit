@@ -225,12 +225,17 @@ func (p Person) String() string {
 	if p.Time == nil {
 		return fmt.Sprintf("%s <%s>", p.Name, p.Email)
 	}
-	_, tzoff := p.Time.Zone()
+	return fmt.Sprintf("%s <%s> %s", p.Name, p.Email, timeToGitTime(*p.Time))
+
+}
+
+func timeToGitTime(t time.Time) string {
+	_, tzoff := t.Zone()
 	// for some reason t.Zone() returns the timezone offset in seconds
 	// instead of hours, so convert it to an hour format string
 	tzStr := fmt.Sprintf("%+03d00", tzoff/(60*60))
-	return fmt.Sprintf("%s <%s> %d %s", p.Name, p.Email, p.Time.Unix(), tzStr)
-
+	val := fmt.Sprintf("%d %s", t.Unix(), tzStr)
+	return val
 }
 
 // Returns the author that should be used for a commit message.
@@ -240,15 +245,67 @@ func (c *Client) GetAuthor(t *time.Time) Person {
 	if home == "" {
 		home = os.Getenv("home") // On some OSes, it is home
 	}
-	configFile, err := os.Open(home + "/.gitconfig")
-	config := ParseConfig(configFile)
-	if err != nil {
-		panic(err)
+	person := Person{}
+	name := os.Getenv("GIT_AUTHOR_NAME")
+	email := os.Getenv("GIT_AUTHOR_EMAIL")
+	var config GitConfig
+	if name == "" || email == "" {
+		// If either name or email come from the config, only parse
+		// it once.
+		configFile, err := os.Open(home + "/.gitconfig")
+		config = ParseConfig(configFile)
+		if err != nil {
+			panic(err)
+		}
+	}
+	if name != "" {
+		person.Name = name
+	} else {
+		person.Name = config.GetConfig("user.name")
 	}
 
-	name := config.GetConfig("user.name")
-	email := config.GetConfig("user.email")
-	return Person{name, email, t}
+	if email != "" {
+		person.Email = email
+	} else {
+		person.Email = config.GetConfig("user.email")
+	}
+	person.Time = t
+	return person
+}
+
+// Returns the author that should be used for a commit message.
+// If time t is provided,
+func (c *Client) GetCommitter(t *time.Time) Person {
+	home := os.Getenv("HOME")
+	if home == "" {
+		home = os.Getenv("home") // On some OSes, it is home
+	}
+	person := Person{}
+	name := os.Getenv("GIT_COMMITTER_NAME")
+	email := os.Getenv("GIT_COMMITTER_EMAIL")
+	var config GitConfig
+	if name == "" || email == "" {
+		// If either name or email come from the config, only parse
+		// it once.
+		configFile, err := os.Open(home + "/.gitconfig")
+		config = ParseConfig(configFile)
+		if err != nil {
+			panic(err)
+		}
+	}
+	if name != "" {
+		person.Name = name
+	} else {
+		person.Name = config.GetConfig("user.name")
+	}
+
+	if email != "" {
+		person.Email = email
+	} else {
+		person.Email = config.GetConfig("user.email")
+	}
+	person.Time = t
+	return person
 }
 
 // Resets the index to the Treeish tree and save the results in
