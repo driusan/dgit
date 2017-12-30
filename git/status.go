@@ -82,13 +82,16 @@ func StatusLong(c *Client, head Treeish, files []File, untracked StatusUntracked
 	var ret string
 	index, _ := c.GitDir.ReadIndex()
 
+	var lsfiles []File
 	if len(files) == 0 {
-		files = []File{File(c.WorkDir)}
+		lsfiles = []File{File(c.WorkDir)}
+	} else {
+		lsfiles = files
 	}
 	// Start by getting a list of unmerged and keeping them in a map, so
 	// that we can exclude them from the non-"unmerged"
 	unmergedMap := make(map[File]bool)
-	unmerged, err := LsFiles(c, LsFilesOptions{Unmerged: true}, files)
+	unmerged, err := LsFiles(c, LsFilesOptions{Unmerged: true}, lsfiles)
 	if err != nil {
 		return "", err
 	}
@@ -105,7 +108,7 @@ func StatusLong(c *Client, head Treeish, files []File, untracked StatusUntracked
 	if head == (CommitID{}) {
 		// There is no head commit to compare against, so just say
 		// everything in the cache (which isn't unmerged) is new
-		staged, err := LsFiles(c, LsFilesOptions{Cached: true}, files)
+		staged, err := LsFiles(c, LsFilesOptions{Cached: true}, lsfiles)
 		if err != nil {
 			return "", err
 		}
@@ -242,7 +245,7 @@ func StatusLong(c *Client, head Treeish, files []File, untracked StatusUntracked
 		ret += fmt.Sprintf("%v\n", lineprefix)
 	}
 	// Not staged changes
-	notstaged, err := DiffFiles(c, DiffFilesOptions{}, files)
+	notstaged, err := DiffFiles(c, DiffFilesOptions{}, lsfiles)
 	if err != nil {
 		return "", err
 	}
@@ -286,7 +289,7 @@ func StatusLong(c *Client, head Treeish, files []File, untracked StatusUntracked
 			lsfilesopts.Directory = true
 		}
 
-		untracked, err := LsFiles(c, lsfilesopts, files)
+		untracked, err := LsFiles(c, lsfilesopts, lsfiles)
 		if err != nil {
 			return "", err
 		}
