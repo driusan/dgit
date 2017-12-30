@@ -388,12 +388,14 @@ func (g *Index) RemoveFile(file IndexPath) {
 }
 
 // This will write a new index file to w by doing the following:
-// 1. Sort the objects in g.Index to ascending order based on name
+// 1. Sort the objects in g.Index to ascending order based on name and update
+//    g.NumberIndexEntries
 // 2. Write g.fixedGitIndex to w
 // 3. for each entry in g.Objects, write it to w.
 // 4. Write the Sha1 of the contents of what was written
 func (g Index) WriteIndex(file io.Writer) error {
 	sort.Sort(ByPath(g.Objects))
+	g.NumberIndexEntries = uint32(len(g.Objects))
 	s := sha1.New()
 	w := io.MultiWriter(file, s)
 	binary.Write(w, binary.BigEndian, g.fixedGitIndex)
