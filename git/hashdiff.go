@@ -10,8 +10,9 @@ import (
 
 // A HashDiff represents a single line in a git diff-index type output.
 type HashDiff struct {
-	Name     IndexPath
-	Src, Dst TreeEntry
+	Name             IndexPath
+	Src, Dst         TreeEntry
+	SrcSize, DstSize uint
 }
 
 func (h HashDiff) String() string {

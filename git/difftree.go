@@ -86,7 +86,7 @@ func DiffTree(c *Client, opt *DiffTreeOptions, tree1, tree2 Treeish, paths []str
 
 	for name, sha := range tree1Objects {
 		if osha := tree2Objects[name]; sha != osha {
-			val = append(val, HashDiff{name, sha, osha})
+			val = append(val, HashDiff{name, sha, osha, 0, 0})
 		}
 	}
 
@@ -94,7 +94,7 @@ func DiffTree(c *Client, opt *DiffTreeOptions, tree1, tree2 Treeish, paths []str
 	// would have gotten caught by the above ranging.
 	for name, sha := range tree2Objects {
 		if _, ok := tree1Objects[name]; !ok {
-			val = append(val, HashDiff{name, TreeEntry{Sha1{}, 0}, sha})
+			val = append(val, HashDiff{name, TreeEntry{Sha1{}, 0}, sha, 0, 0})
 		}
 	}
 

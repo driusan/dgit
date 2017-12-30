@@ -9,6 +9,7 @@ import (
 	"io/ioutil"
 	"os"
 	"sort"
+	"time"
 )
 
 var InvalidIndex error = errors.New("Invalid index")
@@ -188,10 +189,14 @@ const (
 //
 // As a special case, if something is added as Stage0, then Stage1-3 entries
 // will be removed.
-func (g *Index) AddStage(c *Client, path IndexPath, s Sha1, stage Stage, mtime, mtimenano, size uint32, createEntry bool) error {
+func (g *Index) AddStage(c *Client, path IndexPath, s Sha1, stage Stage, size uint32, createEntry bool) error {
 	if stage == Stage0 {
 		defer g.RemoveUnmergedStages(c, path)
 	}
+
+	modTime := time.Now()
+	mtime := uint32(modTime.Unix())
+	mtimenano := uint32(modTime.Nanosecond())
 
 	// Update the existing stage, if it exists.
 	for _, entry := range g.Objects {
@@ -312,14 +317,12 @@ func (g *Index) AddFile(c *Client, file *os.File, createEntry bool) error {
 		return fmt.Errorf("Add can't handle directories. yet.")
 	}
 
-	modTime := fstat.ModTime()
+	//modTime := fstat.ModTime()
 	return g.AddStage(
 		c,
 		name,
 		hash,
 		Stage0,
-		uint32(modTime.Unix()),
-		uint32(modTime.Nanosecond()),
 		uint32(fstat.Size()),
 		createEntry,
 	)
@@ -436,7 +439,7 @@ func (g ByPath) Less(i, j int) bool {
 // if PreserveStatInfo is true, the stat information in the index won't be
 // modified for existing entries.
 func (g *Index) ResetIndex(c *Client, tree Treeish) error {
-	newEntries, err := ExpandGitTreeIntoIndexes(c, tree, true, false)
+	newEntries, err := expandGitTreeIntoIndexes(c, tree, true, false)
 	if err != nil {
 		return err
 	}

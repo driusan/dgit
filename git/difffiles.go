@@ -48,12 +48,12 @@ func DiffFiles(c *Client, opt DiffFilesOptions, paths []File) ([]HashDiff, error
 		if err != nil || !f.Exists() {
 			// If there was an error, treat it as a non-existant file
 			// and just use the empty Sha1
-			val = append(val, HashDiff{idx.PathName, idxtree, fs})
+			val = append(val, HashDiff{idx.PathName, idxtree, fs, uint(idx.Fsize), 0})
 			continue
 		}
 		stat, err := f.Stat()
 		if err != nil {
-			val = append(val, HashDiff{idx.PathName, idxtree, fs})
+			val = append(val, HashDiff{idx.PathName, idxtree, fs, uint(idx.Fsize), uint(stat.Size())})
 			continue
 		}
 
@@ -69,9 +69,9 @@ func DiffFiles(c *Client, opt DiffFilesOptions, paths []File) ([]HashDiff, error
 		default:
 			fs.FileMode = ModeBlob
 		}
-		fsHash, _, err := HashFile("blob", f.String())
+		fsHash, data, err := HashFile("blob", f.String())
 		if err != nil {
-			val = append(val, HashDiff{idx.PathName, idxtree, fs})
+			val = append(val, HashDiff{idx.PathName, idxtree, fs, uint(idx.Fsize), uint(len(data))})
 			continue
 		}
 		fs.Sha1 = fsHash
@@ -79,7 +79,7 @@ func DiffFiles(c *Client, opt DiffFilesOptions, paths []File) ([]HashDiff, error
 			// the hash isn't in the git object store, so set it back to 0
 			// after the comparison is done
 			fs.Sha1 = Sha1{}
-			val = append(val, HashDiff{idx.PathName, idxtree, fs})
+			val = append(val, HashDiff{idx.PathName, idxtree, fs, uint(idx.Fsize), 0})
 		}
 	}
 

@@ -119,17 +119,20 @@ func RevParseTreeish(c *Client, opt *RevParseOptions, arg string) (Treeish, erro
 	}
 
 	// Check if it's a symbolic ref
-	var b Branch
-	r, err := SymbolicRefGet(c, SymbolicRefOptions{}, SymbolicRef(arg))
-	if err == nil {
-		// It was a symbolic ref, convert it to a branch.
-		b = Branch(r)
-		return b, nil
+	if r, err := SymbolicRefGet(c, SymbolicRefOptions{}, SymbolicRef(arg)); err == nil {
+		// It was a symbolic ref, convert it to a branch so that it's
+		// a treeish.
+		if b := Branch(r); b.Exists(c) {
+			return b, nil
+		}
 	}
 
 	// arg was not a Sha or a symbolic ref, it might still be a branch.
 	// (This will return an error if arg is an invalid branch.)
-	return GetBranch(c, arg)
+	if b, err := GetBranch(c, arg); err == nil {
+		return b, nil
+	}
+	return nil, fmt.Errorf("Invalid or unhandled treeish format.")
 }
 
 // RevParse will parse a single revision into a Commitish object.

@@ -1,89 +1,34 @@
 package cmd
 
 import (
-	"fmt"
-	"os"
+	"flag"
 
 	"github.com/driusan/dgit/git"
 )
 
-func Reset(c *git.Client, args []string) {
-	commitId, err := c.GetHeadCommit()
-	var resetPaths = false
-	var mode string = "mixed"
-	if err != nil {
-		fmt.Fprintf(os.Stderr, "Couldn't find HEAD commit.\n")
+func Reset(c *git.Client, args []string) error {
+	flags := flag.NewFlagSet("reset", flag.ExitOnError)
+	flags.Usage = func() {
+		flag.Usage()
+		flags.PrintDefaults()
 	}
-	for _, val := range args {
-		if _, err := os.Stat(val); err == nil {
-			resetPaths = true
-			panic("TODO: I'm not prepared to handle git reset <paths>")
-		}
-		// The better way to do this would have been:
-		// git reset [treeish] <paths>:
-		//  stat val
-		//      if valid file:
-		//          reset index to status at [treeish]
-		// (opposite of git add)
-		//
 
-		// Expand the parameter passed to a CommitID. We need
-		// the CommitID that it refers to no matter what mode
-		// we're in, but if we've already found a path already
-		// then the time for a treeish option is past.
-		if val[0] != '-' && resetPaths == false {
-			commits, err := RevParse(c, []string{val})
-			if err != nil || len(commits) < 1 {
-				fmt.Fprintf(os.Stderr, "Can not find commit %s\n", val)
-				return
-			}
-			commitId = git.CommitID(commits[0].Id)
-		} else {
-			switch val {
-			case "--soft":
-				mode = "soft"
-			case "--mixed":
-				mode = "mixed"
-			case "--hard":
-				mode = "hard"
-			default:
-				fmt.Fprintf(os.Stderr, "Unknown option: %s", val)
-			}
-		}
+	opts := git.ResetOptions{}
+
+	flags.BoolVar(&opts.Quiet, "q", false, "Only report errors")
+
+	flags.BoolVar(&opts.Soft, "soft", false, "Do not touch the index or working tree, but reset the head to commit")
+	flags.BoolVar(&opts.Mixed, "mixed", false, "Reset the index but not the working tree")
+	flags.BoolVar(&opts.Hard, "hard", false, "Reset both the index and working tree.")
+	flags.BoolVar(&opts.Merge, "merge", false, "Reset the index and update working tree for files different between <commit> and HEAD, but not those different between index and working tree")
+	flags.BoolVar(&opts.Keep, "keep", false, "Like --merge, but abort if any files have local changes instead of leaving them")
+
+	flags.Parse(args)
+
+	args = flags.Args()
+	files := make([]git.File, 0, len(args))
+	for _, f := range args {
+		files = append(files, git.File(f))
 	}
-	if resetPaths == false {
-		// no paths were found. This is the form
-		//  git reset [mode] commit
-		// First, update the head reference for all modes
-		branchName := c.GetHeadBranch()
-		err := c.GitDir.WriteFile(git.File(branchName.String()),
-			[]byte(fmt.Sprintf("%s", commitId)),
-			0644,
-		)
-		if err != nil {
-			fmt.Fprintf(os.Stderr, "Error updating head reference: %s\n", err)
-			return
-		}
-
-		// mode: soft: do not touch working tree or index
-		//       mixed (default): reset the index but not working tree
-		//       hard: reset the index and the working tree
-		switch mode {
-		case "soft":
-			// don't do anything for soft reset other than update
-			// the head reference
-		case "hard":
-			ReadTree(c, []string{commitId.String()})
-			err := c.ResetWorkTree()
-			if err != nil {
-				fmt.Fprintf(os.Stderr, "Error updating head reference: %s\n", err)
-
-			}
-		case "mixed":
-			fallthrough
-		default:
-			ReadTree(c, []string{commitId.String()})
-		}
-
-	}
+	return git.Reset(c, opts, files)
 }

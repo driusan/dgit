@@ -16,11 +16,13 @@ func Diff(c *Client, opt DiffOptions, paths []File) ([]HashDiff, error) {
 		if err != nil {
 			return nil, err
 		}
+		index, _ := c.GitDir.ReadIndex()
 		return DiffIndex(c,
 			DiffIndexOptions{
 				DiffCommonOptions: opt.DiffCommonOptions,
 				Cached:            true,
 			},
+			index,
 			head,
 			paths)
 	}

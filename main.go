@@ -125,7 +125,10 @@ func main() {
 	case "fetch":
 		cmd.Fetch(c, args)
 	case "reset":
-		cmd.Reset(c, args)
+		if err := cmd.Reset(c, args); err != nil {
+			fmt.Fprintf(os.Stderr, "%v\n", err)
+			os.Exit(2)
+		}
 	case "merge-file":
 		if err := cmd.MergeFile(c, args); err != nil {
 			fmt.Fprintf(os.Stderr, "%v\n", err)

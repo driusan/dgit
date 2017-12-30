@@ -31,7 +31,8 @@ func DiffIndex(c *git.Client, args []string) error {
 	for i, f := range args[1:] {
 		files[i] = git.File(f)
 	}
-	diffs, err := git.DiffIndex(c, options, treeish, files)
+	index, _ := c.GitDir.ReadIndex()
+	diffs, err := git.DiffIndex(c, options, index, treeish, files)
 	if err != nil {
 		return err
 	}

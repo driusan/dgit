@@ -80,7 +80,11 @@ func StatusLong(c *Client, head Treeish, files []File, untracked StatusUntracked
 	// Untracked: dgit ls-files -o
 
 	var ret string
+	index, _ := c.GitDir.ReadIndex()
 
+	if len(files) == 0 {
+		files = []File{File(c.WorkDir)}
+	}
 	// Start by getting a list of unmerged and keeping them in a map, so
 	// that we can exclude them from the non-"unmerged"
 	unmergedMap := make(map[File]bool)
@@ -138,7 +142,7 @@ func StatusLong(c *Client, head Treeish, files []File, untracked StatusUntracked
 		}
 
 	} else if head != nil {
-		staged, err = DiffIndex(c, DiffIndexOptions{Cached: true}, head, files)
+		staged, err = DiffIndex(c, DiffIndexOptions{Cached: true}, index, head, files)
 		if err != nil {
 			return "", err
 		}

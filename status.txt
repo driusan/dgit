@@ -40,7 +40,7 @@ notes          None
 pull           None
 push           HappyPath     git 2.9.2              must invoke as dgit push Branchname. No options. Https only.
 rebase         None
-reset          HappyPath     git 2.9.2              soft/mixed/hard implemented, missing "-- pathspec"
+reset          Almost        git 2.9.2              -N not parsed, -p, --merge, and --keep not implemented. 
 revert         None
 rm             None                                 Can use rm; git add instead.
 shortlog       None
@@ -133,7 +133,7 @@ diff-tree      HappyPath     git 2.9.2              (~53) Only -r option is impl
 for-each-ref   None
 ls-files       HappyPath     git 2.9.2              (16) Only --cached, --deleted, --modified, --others, --staged, --unmerged, and --directory implemented
 ls-remote      None
-ls-tree        Almost        git 2.9.2              (2) missing --full-name, --full-tree, and not context sensitive wrt the current working directory.
+ls-tree        Done          git 2.9.2
 merge-base     HappyPath     git 2.9.2              only --octopus and --is-ancestor options
 name-rev       None
 pack-redundant None

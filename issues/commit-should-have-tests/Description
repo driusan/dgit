@@ -1,7 +1,0 @@
-commit should have tests which ensure that the commit is created, the and the
-appropriate reflogs are updated.
-
-At a minimum there should be a test for:
-1. Initial commit
-2. A normal commit
-3. A commit in detached head state.

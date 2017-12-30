@@ -515,7 +515,7 @@ func (t TreeID) TreeID(cl *Client) (TreeID, error) {
 // Converts the Tree into an IndexEntries, to simplify comparisons between
 // Trees and Indexes
 func GetIndexMap(c *Client, t Treeish) (map[IndexPath]*IndexEntry, error) {
-	indexentries, err := ExpandGitTreeIntoIndexes(c, t, true, false)
+	indexentries, err := expandGitTreeIntoIndexes(c, t, true, false)
 	if err != nil {
 		return nil, err
 	}

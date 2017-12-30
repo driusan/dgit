@@ -6,6 +6,7 @@ import (
 	"io"
 	"io/ioutil"
 	"os"
+	"path"
 	"strconv"
 	"strings"
 )
@@ -112,6 +113,11 @@ func checkoutFile(c *Client, entry *IndexEntry, opts CheckoutIndexOptions) error
 	}
 	if !opts.NoCreate {
 		fmode := os.FileMode(entry.Mode)
+		if path := path.Dir(f.String()); path != "." {
+			if err := os.MkdirAll(path, 0755); err != nil {
+				return err
+			}
+		}
 		err := ioutil.WriteFile(f.String(), obj.GetContent(), fmode)
 		if err != nil {
 			return err

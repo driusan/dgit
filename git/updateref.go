@@ -92,7 +92,7 @@ func UpdateRefSpec(c *Client, opts UpdateRefOptions, ref RefSpec, cmt CommitID, 
 	return nil
 }
 
-// Handles "git update-ref" command line. If ref is what's passed on the command-line
+// Handles "git update-ref" command line. ref is what's passed on the command-line
 // it can be either a symbolic ref, or a refspec. We just use a string, because
 // Go doesn't support sum types.
 func UpdateRef(c *Client, opts UpdateRefOptions, ref string, cmt CommitID, reason string) error {
