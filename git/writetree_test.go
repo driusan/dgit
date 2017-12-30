@@ -19,12 +19,14 @@ func TestWriteIndex(t *testing.T) {
 	testcases := []struct {
 		IndexObjects []*IndexEntry
 		Sha1         string
+		ExpectError  bool
 	}{
 		{
 			nil,
 			// An empty tree hashes to this, not 0 (even with the official git client), because
 			// of the type prefix in the blob.
 			"4b825dc642cb6eb9a060e54bf8d69288fbee4904",
+			false,
 		},
 		// Simple case, a single file
 		{
@@ -38,6 +40,7 @@ func TestWriteIndex(t *testing.T) {
 			},
 			},
 			"6a09c59ce8eb1b5b4f89450103e67ff9b3a3b1ae",
+			false,
 		},
 		// Same as case 1, but with the executable bit set.
 		{
@@ -51,6 +54,7 @@ func TestWriteIndex(t *testing.T) {
 			},
 			},
 			"e10d3585c7b4bec6b573e40d6a0c097a7e790abe",
+			false,
 		},
 		// A symlink from bar to foo.
 		{
@@ -64,6 +68,7 @@ func TestWriteIndex(t *testing.T) {
 			},
 			},
 			"985badfa7a966612b9f9adadbaa6a30aa3e0b1f5",
+			false,
 		},
 		// Simple case, two files
 		{
@@ -86,6 +91,7 @@ func TestWriteIndex(t *testing.T) {
 				},
 			},
 			"89ff1a2aefcbff0f09197f0fd8beeb19a7b6e51c",
+			false,
 		},
 		// A single file in a subdirectory
 		{
@@ -99,6 +105,7 @@ func TestWriteIndex(t *testing.T) {
 			},
 			},
 			"7b74f9ae4e4f7232e386fd8bcb9a240e6713fadf",
+			false,
 		},
 		// Two files in a subdirectory
 		{
@@ -121,6 +128,7 @@ func TestWriteIndex(t *testing.T) {
 				},
 			},
 			"e3331a4b901802f18658544c4ae320de93ab14ef",
+			false,
 		},
 		// Both a file and a subtree
 		{
@@ -143,6 +151,7 @@ func TestWriteIndex(t *testing.T) {
 				},
 			},
 			"17278814743a70ed99aca0271ecdf5b544f10e5b",
+			false,
 		},
 		// A file and a subtree with multiple entries
 		{
@@ -173,6 +182,7 @@ func TestWriteIndex(t *testing.T) {
 				},
 			},
 			"18473c7faa0d4bb4913fd41a6768dbcf5fa70723",
+			false,
 		},
 		// A deep subtree
 		{
@@ -187,6 +197,7 @@ func TestWriteIndex(t *testing.T) {
 				},
 			},
 			"cc1846d0911b1790fd15859ffdf48598cb46b7b0",
+			false,
 		},
 		// Two different subtrees
 		{
@@ -209,6 +220,7 @@ func TestWriteIndex(t *testing.T) {
 				},
 			},
 			"65de833961e3dc313b13a2cf0a35a3bab772fc0b",
+			false,
 		},
 		// Tree followed by a file.
 		{
@@ -231,6 +243,7 @@ func TestWriteIndex(t *testing.T) {
 				},
 			},
 			"615b1bd6b48087f25d16cc78279ea48ce5b1b59d",
+			false,
 		},
 		{
 			[]*IndexEntry{
@@ -260,6 +273,7 @@ func TestWriteIndex(t *testing.T) {
 				},
 			},
 			"8b9f58ced67de613a7570726233ec83fa56a3d52",
+			false,
 		},
 		// A file sandwiched between 2 trees
 		{
@@ -290,6 +304,53 @@ func TestWriteIndex(t *testing.T) {
 				},
 			},
 			"18a6e5a95bb59e96dba722025de6abc692661bb6",
+			false,
+		},
+		// An index with any non-stage0 entry should produce an error
+		{
+			[]*IndexEntry{
+				&IndexEntry{
+					PathName: IndexPath("foo"),
+					FixedIndexEntry: FixedIndexEntry{
+						Mode:  ModeBlob,
+						Fsize: 4,
+						Sha1:  hashString("bar\n"),
+						Flags: uint16(Stage1) << 12,
+					},
+				},
+			},
+			"",
+			true,
+		},
+		{
+			[]*IndexEntry{
+				&IndexEntry{
+					PathName: IndexPath("foo"),
+					FixedIndexEntry: FixedIndexEntry{
+						Mode:  ModeBlob,
+						Fsize: 4,
+						Sha1:  hashString("bar\n"),
+						Flags: uint16(Stage2) << 12,
+					},
+				},
+			},
+			"",
+			true,
+		},
+		{
+			[]*IndexEntry{
+				&IndexEntry{
+					PathName: IndexPath("foo"),
+					FixedIndexEntry: FixedIndexEntry{
+						Mode:  ModeBlob,
+						Fsize: 4,
+						Sha1:  hashString("bar\n"),
+						Flags: uint16(Stage3) << 12,
+					},
+				},
+			},
+			"",
+			true,
 		},
 	}
 
@@ -307,7 +368,13 @@ func TestWriteIndex(t *testing.T) {
 	for i, tc := range testcases {
 		treeid, err := writeTree(c, "", tc.IndexObjects)
 		if err != nil && err != ObjectExists {
-			t.Error(err)
+			if !tc.ExpectError {
+				t.Error(err)
+			}
+			continue
+		}
+		if tc.ExpectError && (err == nil || err == ObjectExists) {
+			t.Errorf("Case %d Stage %v: Expected error, got none")
 			continue
 		}
 
