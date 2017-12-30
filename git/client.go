@@ -336,9 +336,7 @@ func (c *Client) WriteObject(objType string, rawdata []byte) (Sha1, error) {
 			return Sha1{}, err
 
 		}
-
-		return Sha1(sha), ObjectExists
-
+		return Sha1(sha), nil
 	}
 	directory := fmt.Sprintf("%x", sha[0:1])
 	file := fmt.Sprintf("%x", sha[1:])

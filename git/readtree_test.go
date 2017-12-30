@@ -60,7 +60,7 @@ func TestReadTreeMergeConflict(t *testing.T) {
 		t.Fatal(err)
 	}
 	nofoo, err := writeTree(c, "", index.Objects)
-	if err != nil && err != ObjectExists {
+	if err != nil {
 		t.Fatal(err)
 	}
 

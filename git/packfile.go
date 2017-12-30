@@ -2,7 +2,6 @@ package git
 
 import (
 	"bytes"
-	"errors"
 	"fmt"
 	"io"
 
@@ -10,7 +9,6 @@ import (
 )
 
 var debug bool = false
-var ObjectExists = errors.New("Object already exists")
 
 type PackfileHeader struct {
 	Signature [4]byte
@@ -244,8 +242,7 @@ func writeResolvedObject(c *Client, t PackEntryType, rawdata []byte) (Sha1, erro
 		return Sha1{}, fmt.Errorf("Unknown type: %s", t)
 	}
 	sha, err := c.WriteObject(t.String(), rawdata)
-	if err != nil && err != ObjectExists {
-		println(err)
+	if err != nil {
 		return sha, err
 	}
 	return sha, nil

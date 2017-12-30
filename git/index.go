@@ -299,7 +299,7 @@ func (g *Index) AddFile(c *Client, file *os.File, createEntry bool) error {
 		return err
 	}
 	hash, err := c.WriteObject("blob", contents)
-	if err != nil && err != ObjectExists {
+	if err != nil {
 		fmt.Fprintf(os.Stderr, "Error storing object: %s", err)
 		return err
 	}

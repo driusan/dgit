@@ -41,23 +41,19 @@ type StatusOptions struct {
 }
 
 func Status(c *Client, opts StatusOptions, files []File) (string, error) {
-	// It's not an error in status if there hasn't been a commit yet, so
-	// discard the error.
-	head, _ := c.GetHeadCommit()
-
 	if opts.Short || opts.Porcelain > 0 || opts.ShowStash || opts.Verbose || opts.Ignored || opts.NullTerminate || opts.Column != "default" {
 		return "", fmt.Errorf("Unsupported option for Status")
 	}
 	var ret string
 	if opts.Branch || opts.Long {
-		branch, err := StatusBranch(c, head, "")
+		branch, err := StatusBranch(c, "")
 		if err != nil {
 			return "", err
 		}
 		ret += branch
 	}
 	if opts.Long {
-		status, err := StatusLong(c, head, files, opts.UntrackedMode, "")
+		status, err := StatusLong(c, files, opts.UntrackedMode, "")
 		if err != nil {
 			return "", err
 		}
@@ -66,13 +62,13 @@ func Status(c *Client, opts StatusOptions, files []File) (string, error) {
 	return ret, nil
 }
 
-func StatusBranch(c *Client, head Commitish, lineprefix string) (string, error) {
+func StatusBranch(c *Client, lineprefix string) (string, error) {
 	// FIXME: Implement this.
 	return "", nil
 }
 
 // Return a string of the status
-func StatusLong(c *Client, head Treeish, files []File, untracked StatusUntrackedMode, lineprefix string) (string, error) {
+func StatusLong(c *Client, files []File, untracked StatusUntrackedMode, lineprefix string) (string, error) {
 	// If no head commit: "no changes yet", else branch info
 	// Changes to be committed: dgit diff-index --cached HEAD
 	// Unmerged: git ls-files -u
@@ -105,7 +101,7 @@ func StatusLong(c *Client, head Treeish, files []File, untracked StatusUntracked
 
 	var staged []HashDiff
 	var summary string
-	if head == (CommitID{}) {
+	if head, err := c.GetHeadCommit(); err != nil {
 		// There is no head commit to compare against, so just say
 		// everything in the cache (which isn't unmerged) is new
 		staged, err := LsFiles(c, LsFilesOptions{Cached: true}, lsfiles)
@@ -144,7 +140,7 @@ func StatusLong(c *Client, head Treeish, files []File, untracked StatusUntracked
 			}
 		}
 
-	} else if head != nil {
+	} else {
 		staged, err = DiffIndex(c, DiffIndexOptions{Cached: true}, index, head, files)
 		if err != nil {
 			return "", err

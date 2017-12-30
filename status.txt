@@ -24,7 +24,7 @@ checkout       Almost        git 2.9.2              (15) Many options are missin
 cherry-pick    None          git 2.9.2
 clean          None
 clone          HappyPath     git 2.9.2
-commit         HappyPath     git 2.9.2              Most options not implemented
+commit         HappyPath     git 2.9.2              (32) Only -a, -m, -F, --allow-empty-message implemented
 describe       None
 diff           HappyPath     git 2.9.2              Only "git diff" and "git diff --staged" are implemented
 fetch          HappyPath     git 2.9.2

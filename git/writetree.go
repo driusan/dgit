@@ -53,11 +53,7 @@ func WriteTree(c *Client, opts WriteTreeOptions) (Sha1, error) {
 			}
 		}
 	}
-	sha1, err := writeTree(c, opts.Prefix, objs)
-	if err == ObjectExists {
-		return sha1, nil
-	}
-	return sha1, err
+	return writeTree(c, opts.Prefix, objs)
 }
 
 func writeTree(c *Client, prefix string, entries []*IndexEntry) (Sha1, error) {
@@ -95,7 +91,7 @@ func writeTree(c *Client, prefix string, entries []*IndexEntry) (Sha1, error) {
 
 				// Get the sha1 for the tree with the prefix stripped.
 				subsha1, err := writeTree(c, newPrefix, islice)
-				if err != nil && err != ObjectExists {
+				if err != nil {
 					panic(err)
 				}
 
@@ -141,7 +137,7 @@ func writeTree(c *Client, prefix string, entries []*IndexEntry) (Sha1, error) {
 
 			// Get the sha1 for the tree with the prefix stripped.
 			subsha1, err := writeTree(c, newPrefix, islice)
-			if err != nil && err != ObjectExists {
+			if err != nil {
 				panic(err)
 			}
 
@@ -157,7 +153,7 @@ func writeTree(c *Client, prefix string, entries []*IndexEntry) (Sha1, error) {
 					newPrefix = prefix + "/" + nameBits[0]
 				}
 				subsha1, err := writeTree(c, newPrefix, entries[len(entries)-1:])
-				if err != nil && err != ObjectExists {
+				if err != nil {
 					panic(err)
 				}
 

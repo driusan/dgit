@@ -23,10 +23,10 @@ type AddOptions struct {
 }
 
 // Add implements the "git add" plumbing command.
-func Add(c *Client, opts AddOptions, files []File) error {
+func Add(c *Client, opts AddOptions, files []File) (*Index, error) {
 	if len(files) == 0 {
 		if !opts.All && !opts.Update {
-			return fmt.Errorf("Nothing to add. Did you mean \"git add .\"")
+			return nil, fmt.Errorf("Nothing to add. Did you mean \"git add .\"")
 		}
 		if opts.Update || opts.All {
 			// LsFiles by default only shows things from under the
@@ -57,13 +57,13 @@ func Add(c *Client, opts AddOptions, files []File) error {
 
 	fileIdxs, err := LsFiles(c, lsOpts, files)
 	if err != nil {
-		return err
+		return nil, err
 	}
 	fles := make([]File, len(fileIdxs), len(fileIdxs))
 	for i, f := range fileIdxs {
 		file, err := f.PathName.FilePath(c)
 		if err != nil {
-			return err
+			return nil, err
 		}
 		fles[i] = file
 	}
@@ -79,20 +79,20 @@ func Add(c *Client, opts AddOptions, files []File) error {
 	}
 	idx, err := c.GitDir.ReadIndex()
 	if err != nil {
-		return err
+		return nil, err
 	}
 	newidx, err := UpdateIndex(c, idx, updateIndexOpts, fles)
 	if err != nil {
-		return err
+		return nil, err
 	}
 
 	if !opts.DryRun {
 		f, err := c.GitDir.Create(File("index"))
 		if err != nil {
-			return err
+			return nil, err
 		}
 		defer f.Close()
-		return newidx.WriteIndex(f)
+		return newidx, newidx.WriteIndex(f)
 	}
-	return nil
+	return newidx, nil
 }

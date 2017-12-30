@@ -367,13 +367,13 @@ func TestWriteIndex(t *testing.T) {
 
 	for i, tc := range testcases {
 		treeid, err := writeTree(c, "", tc.IndexObjects)
-		if err != nil && err != ObjectExists {
+		if err != nil {
 			if !tc.ExpectError {
 				t.Error(err)
 			}
 			continue
 		}
-		if tc.ExpectError && (err == nil || err == ObjectExists) {
+		if tc.ExpectError && err == nil {
 			t.Errorf("Case %d Stage %v: Expected error, got none")
 			continue
 		}

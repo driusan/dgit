@@ -1,37 +1,58 @@
 package cmd
 
 import (
-	"fmt"
+	"io/ioutil"
 	"log"
+	"strings"
 
 	"github.com/driusan/dgit/git"
 )
 
+func parseCommitFile(filename string) (string, error) {
+	data, err := ioutil.ReadFile(filename)
+	if err != nil {
+		return "", err
+	}
+	lines := strings.Split(string(data), "\n")
+	var strippedLines []string
+	for _, line := range lines {
+		if len(line) >= 1 && line[0] == '#' {
+			continue
+		}
+		strippedLines = append(strippedLines, line)
+	}
+	return strings.Join(strippedLines, "\n"), nil
+}
+
 // Commit implements the command "git commit" in the repository pointed
 // to by c.
 func Commit(c *git.Client, args []string) (string, error) {
-	// get the parent commit, if it exists
-	var commitTreeArgs []string
-	parentCommit, err := c.GetHeadCommit()
-	if err == nil {
-		commitTreeArgs = []string{"-p", parentCommit.String()}
-	}
-
 	// extract the message parameters that get passed directly
 	//to commit-tree
 	var messages []string
 	var msgIncluded bool
+	var opts git.CommitOptions
 	for idx, val := range args {
 		switch val {
-		case "-m", "-F":
+		case "-m", "--message":
 			msgIncluded = true
-			messages = append(messages, args[idx:idx+2]...)
+			messages = append(messages, args[idx+1])
+		case "-F", "--file":
+			msgIncluded = true
+			msgFile, err := parseCommitFile(args[idx+1])
+			if err != nil {
+				return "", err
+			}
+			messages = append(messages, msgFile)
+		case "--allow-empty-message":
+			opts.AllowEmptyMessage = true
+		case "-a", "--all":
+			opts.All = true
 		}
 	}
 	if !msgIncluded {
 		s, err := git.StatusLong(
 			c,
-			parentCommit,
 			nil,
 			git.StatusUntrackedAll,
 			"# ",
@@ -44,30 +65,17 @@ func Commit(c *git.Client, args []string) (string, error) {
 		if err := c.ExecEditor(c.GitDir.File("COMMIT_EDITMSG")); err != nil {
 			log.Println(err)
 		}
-		commitTreeArgs = append(commitTreeArgs, "-F", c.GitDir.File("COMMIT_EDITMSG").String())
+		msg, err := parseCommitFile(c.GitDir.String() + "/COMMIT_EDITMSG")
+		if err != nil {
+			return "", err
+		}
+
+		messages = append(messages, msg)
 	}
-	commitTreeArgs = append(commitTreeArgs, messages...)
-
-	// write the current index tree and get the SHA1
-	treeSha1 := WriteTree(c, nil)
-	commitTreeArgs = append(commitTreeArgs, treeSha1)
-
-	// write the commit tree
-	commitSha1, err := CommitTree(c, commitTreeArgs)
+	messageString := strings.Join(messages, "\n")
+	cmt, err := git.Commit(c, opts, strings.TrimSpace(messageString), nil)
 	if err != nil {
 		return "", err
 	}
-	file := c.GitDir.File("COMMIT_EDITMSG")
-	msg, _ := file.ReadFirstLine()
-	if msg == "" {
-		msg = "commit from dgit"
-	}
-	refmsg := fmt.Sprintf("commit: %s (go-git)", msg)
-
-	oldHead, err := c.GetHeadCommit()
-	if err != nil {
-		oldHead = git.CommitID{}
-	}
-	err = git.UpdateRef(c, git.UpdateRefOptions{OldValue: oldHead, CreateReflog: true}, "HEAD", commitSha1, refmsg)
-	return commitSha1.String(), err
+	return cmt.String(), nil
 }

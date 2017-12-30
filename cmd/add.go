@@ -115,5 +115,6 @@ func Add(c *git.Client, args []string) error {
 	for i := range remaining {
 		files[i] = git.File(remaining[i])
 	}
-	return git.Add(c, opts, files)
+	_, err := git.Add(c, opts, files)
+	return err
 }
