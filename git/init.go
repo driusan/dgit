@@ -37,14 +37,14 @@ func Init(c *Client, opts InitOptions, dir string) (*Client, error) {
 	}
 
 	if !opts.Bare {
-		if err := os.Mkdir(".git", 0755); err != nil {
+		if err := os.Mkdir(dir+"/.git", 0755); err != nil {
 			return nil, err
 		}
 		if c != nil {
 			c.GitDir = GitDir(dir + "/.git")
 			c.WorkDir = WorkDir(dir)
 		} else {
-			c2, err := NewClient(".git", dir)
+			c2, err := NewClient(dir+"/.git", dir)
 			if err != nil {
 				return nil, err
 			}
