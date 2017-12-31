@@ -51,7 +51,7 @@ func main() {
 		os.Exit(3)
 	}
 	if c != nil && c.GitDir == "" && requiresGitDir(subcommand) {
-		fmt.Fprintf(os.Stderr, "Could not find .git directory\n", err)
+		fmt.Fprint(os.Stderr, "Could not find .git directory\n")
 		os.Exit(4)
 	}
 

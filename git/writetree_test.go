@@ -374,7 +374,7 @@ func TestWriteIndex(t *testing.T) {
 			continue
 		}
 		if tc.ExpectError && err == nil {
-			t.Errorf("Case %d Stage %v: Expected error, got none")
+			t.Errorf("Case %d: Expected error, got none", i)
 			continue
 		}
 
