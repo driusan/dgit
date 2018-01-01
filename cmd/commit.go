@@ -3,26 +3,9 @@ package cmd
 import (
 	"io/ioutil"
 	"log"
-	"strings"
 
 	"github.com/driusan/dgit/git"
 )
-
-func parseCommitFile(filename string) (string, error) {
-	data, err := ioutil.ReadFile(filename)
-	if err != nil {
-		return "", err
-	}
-	lines := strings.Split(string(data), "\n")
-	var strippedLines []string
-	for _, line := range lines {
-		if len(line) >= 1 && line[0] == '#' {
-			continue
-		}
-		strippedLines = append(strippedLines, line)
-	}
-	return strings.Join(strippedLines, "\n"), nil
-}
 
 // Commit implements the command "git commit" in the repository pointed
 // to by c.
@@ -51,6 +34,10 @@ func Commit(c *git.Client, args []string) (string, error) {
 				message = "\n" + string(f) + "\n"
 			}
 			opts.NoEdit = true
+		case "--amend":
+			opts.Amend = true
+		case "--reset-author":
+			opts.ResetAuthor = true
 		case "--allow-empty":
 			opts.AllowEmpty = true
 		case "--allow-empty-message":

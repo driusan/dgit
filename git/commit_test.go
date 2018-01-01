@@ -117,7 +117,7 @@ func TestUnmergedCommit(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	//	defer os.RemoveAll(gitdir)
+	defer os.RemoveAll(gitdir)
 
 	c, err := Init(nil, InitOptions{Quiet: true}, gitdir)
 	if err != nil {
@@ -176,7 +176,6 @@ func TestUnmergedCommit(t *testing.T) {
 	}
 }
 
-/*
 // TestSimpleCommits tests that an initial commit works,
 // and that a second commit using it as a parent works.
 // It also tests that the second commit can be done while
@@ -186,7 +185,7 @@ func TestCommitAmend(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	//defer os.RemoveAll(dir)
+	defer os.RemoveAll(dir)
 
 	// Init a repo to test an initial commit in.
 	c, err := Init(nil, InitOptions{Quiet: true}, dir)
@@ -263,13 +262,77 @@ func TestCommitAmend(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	expected, err = CommitIDFromString("f379502e6874625280c5a51cfa916af0b3e968b5")
+	expected, err = CommitIDFromString("ef1985dcfdec1e1b3225d6536e1662d28adecf2f")
 	if err != nil {
 		t.Fatal(err)
 	}
 	if cid != expected {
-		t.Errorf("Unexpected hash for second commit. got %v want %v", cid, expected)
+		t.Errorf("Unexpected hash for amended commit. got %v want %v", cid, expected)
 	}
-}
+	cid, err = Commit(c, CommitOptions{Amend: true, ResetAuthor: true}, "Changed foo to bar", nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	expected, err = CommitIDFromString("bde182793e07d43a99565fd102a74437d5762ede")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if cid != expected {
+		t.Errorf("Unexpected hash for amended commit. got %v want %v", cid, expected)
+	}
 
-*/
+	if err := ioutil.WriteFile(dir+"/foo.txt", []byte("foo\n"), 0644); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := Add(c, AddOptions{}, []File{"foo.txt"}); err != nil {
+		t.Fatal(err)
+	}
+
+	cid, err = Commit(c, CommitOptions{}, "Back to the footure", nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	expected, err = CommitIDFromString("6da09b27e260087d6559268fda99369fe6104ced")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if cid != expected {
+		t.Errorf("Unexpected hash for amended commit. got %v want %v", cid, expected)
+	}
+	if err := ioutil.WriteFile(dir+"/foo.txt", []byte("baz\n"), 0644); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := Add(c, AddOptions{}, []File{"foo.txt"}); err != nil {
+		t.Fatal(err)
+	}
+
+	cid, err = Commit(c, CommitOptions{Amend: true}, "Remove bad pun.", nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	expected, err = CommitIDFromString("eb36fff82a7c1cee518fa0f73548f3d9a873220b")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if cid != expected {
+		t.Errorf("Unexpected hash for amended commit. got %v want %v", cid, expected)
+	}
+
+	if err := os.Setenv("GIT_AUTHOR_NAME", "Foobar"); err != nil {
+		t.Fatal(err)
+	}
+	cid, err = Commit(c, CommitOptions{Amend: true, ResetAuthor: true}, "Remove bad pun.", nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	expected, err = CommitIDFromString("51fb69956f6ea3a8500109a5f1b282ba548cdbf0")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if cid != expected {
+		t.Errorf("Unexpected hash for amended commit. got %v want %v", cid, expected)
+	}
+
+	// FIXME: Add tests for when the tree doesn't get modified and --allow-empty
+	// isn't set, also add tests for merge commit amends
+}

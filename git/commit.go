@@ -2,6 +2,7 @@ package git
 
 import (
 	"fmt"
+	"os"
 	"regexp"
 	"strings"
 	"time"
@@ -12,14 +13,15 @@ type CommitOptions struct {
 	Patch bool
 
 	ResetAuthor bool
-	Date        time.Time
-	Author      Person
+	Amend       bool
+
+	Date   time.Time
+	Author Person
 
 	Signoff           bool
 	NoVerify          bool
 	AllowEmpty        bool
 	AllowEmptyMessage bool
-	Amend             bool
 
 	NoPostRewrite bool
 	Include       bool
@@ -88,9 +90,45 @@ func Commit(c *Client, opts CommitOptions, message CommitMessage, files []File) 
 	// Write the commit object
 	var parents []CommitID
 	oldHead, err := c.GetHeadCommit()
-	if err == nil || err == DetachedHead {
+	if opts.Amend {
+		parents, err = oldHead.Parents(c)
+		if err != nil {
+			return CommitID{}, err
+		}
+		author, err := oldHead.GetAuthor(c)
+		if err != nil {
+			return CommitID{}, err
+		}
+		if !opts.ResetAuthor {
+			// Back up the environment variables that commit uses to
+			// communicate with commit-tree, so that nothing external
+			// changes to the caller of this script.
+			defer func(oldauthorname, oldauthoremail, oldauthordate string) {
+				os.Setenv("GIT_AUTHOR_NAME", oldauthorname)
+				os.Setenv("GIT_AUTHOR_EMAIL", oldauthoremail)
+				os.Setenv("GIT_AUTHOR_DATE", oldauthordate)
+
+			}(
+				os.Getenv("GIT_AUTHOR_NAME"),
+				os.Getenv("GIT_AUTHOR_EMAIL"),
+				os.Getenv("GIT_AUTHOR_DATE"),
+			)
+			os.Setenv("GIT_AUTHOR_NAME", author.Name)
+			os.Setenv("GIT_AUTHOR_EMAIL", author.Email)
+			date, err := oldHead.GetDate(c)
+			if err != nil {
+				return CommitID{}, err
+			}
+			os.Setenv("GIT_AUTHOR_DATE", date.Format("Mon, 02 Jan 2006 15:04:05 -0700"))
+		} else {
+			if c.GetAuthor(nil) != author {
+				goto skipemptycheck
+			}
+		}
+	} else if err == nil || err == DetachedHead {
 		parents = append(parents, oldHead)
 	}
+
 	if !opts.AllowEmpty {
 		if oldtree, err := oldHead.TreeID(c); err == nil {
 			if oldtree == treeid {
@@ -98,6 +136,7 @@ func Commit(c *Client, opts CommitOptions, message CommitMessage, files []File) 
 			}
 		}
 	}
+skipemptycheck:
 	cleanMessage, err := message.Cleanup(opts.CleanupMode, !opts.NoEdit)
 	if err != nil {
 		return CommitID{}, err
