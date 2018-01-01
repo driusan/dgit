@@ -374,7 +374,7 @@ func TestWriteIndex(t *testing.T) {
 			continue
 		}
 		if tc.ExpectError && err == nil {
-			t.Errorf("Case %d: Expected error, got none", i)
+			t.Errorf("Case %d Stage %v: Expected error, got none")
 			continue
 		}
 
@@ -382,7 +382,7 @@ func TestWriteIndex(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		if treeid != expected {
+		if treeid != TreeID(expected) {
 			t.Errorf("Unexpected hash for test case %d: got %v want %v", i, treeid, expected)
 		}
 

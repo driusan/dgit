@@ -58,7 +58,7 @@ func TestSimpleCommits(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	expected, err := CommitIDFromString("02831f447cd60fc8288dc630e135e240d4369666")
+	expected, err := CommitIDFromString("dace19089043791b92c4421453e314274a6abcda")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -81,7 +81,7 @@ func TestSimpleCommits(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	expected, err = CommitIDFromString("f379502e6874625280c5a51cfa916af0b3e968b5")
+	expected, err = CommitIDFromString("6060b31388226cc5e3f14166dbe061f68ff180f2")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -101,7 +101,7 @@ func TestSimpleCommits(t *testing.T) {
 	if _, err := Add(c, AddOptions{}, []File{"foo.txt"}); err != nil {
 		t.Fatal(err)
 	}
-	cid, err = Commit(c, CommitOptions{}, "Changed foo to bar", nil)
+	cid, err = Commit(c, CommitOptions{}, "Changed foo to bar\n", nil)
 	if err != nil {
 		t.Fatal("Commit with detached head error:", err)
 	}
@@ -175,3 +175,101 @@ func TestUnmergedCommit(t *testing.T) {
 		t.Error("Was able to commit an index with unresolved conflicts.")
 	}
 }
+
+/*
+// TestSimpleCommits tests that an initial commit works,
+// and that a second commit using it as a parent works.
+// It also tests that the second commit can be done while
+// in a detached head mode.
+func TestCommitAmend(t *testing.T) {
+	dir, err := ioutil.TempDir("", "gitcommitamend")
+	if err != nil {
+		t.Fatal(err)
+	}
+	//defer os.RemoveAll(dir)
+
+	// Init a repo to test an initial commit in.
+	c, err := Init(nil, InitOptions{Quiet: true}, dir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Chdir(dir); err != nil {
+		t.Fatal(err)
+	}
+	if err := ioutil.WriteFile(dir+"/foo.txt", []byte("foo\n"), 0644); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := Add(c, AddOptions{}, []File{"foo.txt"}); err != nil {
+		t.Fatal(err)
+	}
+
+	// Set the environment variables used by CommitTree to a known value,
+	// to ensure repeatable tests.
+	if err := os.Setenv("GIT_COMMITTER_NAME", "John Smith"); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Setenv("GIT_COMMITTER_EMAIL", "test@example.com"); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Setenv("GIT_AUTHOR_NAME", "John Smith"); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Setenv("GIT_AUTHOR_EMAIL", "test@example.com"); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Setenv("GIT_COMMITTER_DATE", "Mon, 02 Jan 2006 15:04:05 -0700"); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Setenv("GIT_AUTHOR_DATE", "Mon, 02 Jan 2006 15:04:05 -0700"); err != nil {
+		t.Fatal(err)
+	}
+
+	initialCmt, err := Commit(c, CommitOptions{}, "Initial commit", nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	expected, err := CommitIDFromString("dace19089043791b92c4421453e314274a6abcda")
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if initialCmt != expected {
+		t.Errorf("Unexpected hash for expected commit. got %v want %v", initialCmt, expected)
+	}
+
+	// Pretend time passed and the author changed. The author date shouldn't
+	// be honoured (without --reset-author), it should come from the initial
+	// commit. The committer date should be honoured.
+	if err := os.Setenv("GIT_AUTHOR_NAME", "Joan Smith"); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Setenv("GIT_AUTHOR_EMAIL", "tester@example.com"); err != nil {
+		t.Fatal(err)
+	}
+
+	if err := os.Setenv("GIT_AUTHOR_DATE", "Mon, 02 Jan 2007 15:54:05 -0700"); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Setenv("GIT_COMMITTER_DATE", "Mon, 02 Jan 2007 15:54:05 -0700"); err != nil {
+		t.Fatal(err)
+	}
+	if err := ioutil.WriteFile(dir+"/foo.txt", []byte("bar\n"), 0644); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := Add(c, AddOptions{}, []File{"foo.txt"}); err != nil {
+		t.Fatal(err)
+	}
+	cid, err := Commit(c, CommitOptions{Amend: true}, "Changed foo to bar", nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	expected, err = CommitIDFromString("f379502e6874625280c5a51cfa916af0b3e968b5")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if cid != expected {
+		t.Errorf("Unexpected hash for second commit. got %v want %v", cid, expected)
+	}
+}
+
+*/

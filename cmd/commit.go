@@ -29,28 +29,43 @@ func parseCommitFile(filename string) (string, error) {
 func Commit(c *git.Client, args []string) (string, error) {
 	// extract the message parameters that get passed directly
 	//to commit-tree
-	var messages []string
-	var msgIncluded bool
 	var opts git.CommitOptions
+	var message string
 	for idx, val := range args {
 		switch val {
 		case "-m", "--message":
-			msgIncluded = true
-			messages = append(messages, args[idx+1])
+			if message == "" {
+				message = args[idx+1] + "\n"
+			} else {
+				message = "\n" + args[idx+1] + "\n"
+			}
+			opts.NoEdit = true
 		case "-F", "--file":
-			msgIncluded = true
-			msgFile, err := parseCommitFile(args[idx+1])
+			f, err := ioutil.ReadFile(args[idx+1])
 			if err != nil {
 				return "", err
 			}
-			messages = append(messages, msgFile)
+			if message == "" {
+				message = string(f)
+			} else {
+				message = "\n" + string(f) + "\n"
+			}
+			opts.NoEdit = true
+		case "--allow-empty":
+			opts.AllowEmpty = true
 		case "--allow-empty-message":
 			opts.AllowEmptyMessage = true
+		case "--edit", "-e":
+			opts.NoEdit = false
+		case "--no-edit":
+			opts.NoEdit = true
+		case "--cleanup":
+			opts.CleanupMode = args[idx+1]
 		case "-a", "--all":
 			opts.All = true
 		}
 	}
-	if !msgIncluded {
+	if !opts.NoEdit {
 		s, err := git.StatusLong(
 			c,
 			nil,
@@ -61,19 +76,17 @@ func Commit(c *git.Client, args []string) (string, error) {
 			return "", err
 		}
 
-		c.GitDir.WriteFile("COMMIT_EDITMSG", []byte("\n"+s), 0660)
+		c.GitDir.WriteFile("COMMIT_EDITMSG", []byte(message+"\n"+s), 0660)
 		if err := c.ExecEditor(c.GitDir.File("COMMIT_EDITMSG")); err != nil {
 			log.Println(err)
 		}
-		msg, err := parseCommitFile(c.GitDir.String() + "/COMMIT_EDITMSG")
+		m2, err := ioutil.ReadFile(c.GitDir.File("COMMIT_EDITMSG").String())
 		if err != nil {
 			return "", err
 		}
-
-		messages = append(messages, msg)
+		message = string(m2)
 	}
-	messageString := strings.Join(messages, "\n")
-	cmt, err := git.Commit(c, opts, strings.TrimSpace(messageString), nil)
+	cmt, err := git.Commit(c, opts, git.CommitMessage(message), nil)
 	if err != nil {
 		return "", err
 	}

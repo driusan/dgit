@@ -2,6 +2,8 @@ package git
 
 import (
 	"fmt"
+	"regexp"
+	"strings"
 	"time"
 )
 
@@ -24,6 +26,9 @@ type CommitOptions struct {
 	Only          bool
 	Quiet         bool
 
+	CleanupMode string
+	NoEdit      bool
+
 	// Should be passed to CommitTree, which needs support first:
 	// GPGSign GPGKeyID
 	// NoGpgSign bool
@@ -34,11 +39,8 @@ type CommitOptions struct {
 	// File string
 	// Message string (-m)
 	// Template File (COMMIT_EDITMSG)
-	// Cleanup=Mode
-	// Edit, NoEdit bool
 	// Status, NoStatus bool
 	// Verbose bool
-
 	//
 
 	// Things that only affect the output with --dry-run.
@@ -58,7 +60,7 @@ type CommitOptions struct {
 
 // Commit implements the command "git commit" in the repository pointed
 // to by c.
-func Commit(c *Client, opts CommitOptions, message string, files []File) (CommitID, error) {
+func Commit(c *Client, opts CommitOptions, message CommitMessage, files []File) (CommitID, error) {
 	if !opts.AllowEmptyMessage && message == "" {
 		return CommitID{}, fmt.Errorf("Aborting commit due to empty commit message.")
 	}
@@ -89,17 +91,28 @@ func Commit(c *Client, opts CommitOptions, message string, files []File) (Commit
 	if err == nil || err == DetachedHead {
 		parents = append(parents, oldHead)
 	}
-	cid, err := CommitTree(c, CommitTreeOptions{}, TreeID(treeid), parents, message)
+	if !opts.AllowEmpty {
+		if oldtree, err := oldHead.TreeID(c); err == nil {
+			if oldtree == treeid {
+				return CommitID{}, fmt.Errorf("No changes staged for commit.")
+			}
+		}
+	}
+	cleanMessage, err := message.Cleanup(opts.CleanupMode, !opts.NoEdit)
+	if err != nil {
+		return CommitID{}, err
+	}
+	cid, err := CommitTree(c, CommitTreeOptions{}, TreeID(treeid), parents, cleanMessage)
 	if err != nil {
 		return CommitID{}, err
 	}
 
 	// Update the reference
 	var refmsg string
-	if len(message) < 50 {
-		refmsg = message
+	if len(cleanMessage) < 50 {
+		refmsg = cleanMessage
 	} else {
-		refmsg = message[:50]
+		refmsg = cleanMessage[:50]
 	}
 	refmsg = fmt.Sprintf("commit: %s (dgit)", refmsg)
 
@@ -107,4 +120,45 @@ func Commit(c *Client, opts CommitOptions, message string, files []File) (Commit
 		return CommitID{}, err
 	}
 	return cid, nil
+}
+
+type CommitMessage string
+
+func (cm CommitMessage) Cleanup(mode string, edit bool) (string, error) {
+	switch mode {
+	case "strip":
+		return cm.strip(), nil
+	case "whitespace":
+		return cm.whitespace(), nil
+	case "", "default":
+		if edit {
+			return cm.strip(), nil
+		}
+		return cm.whitespace(), nil
+	case "scissors":
+		return string(cm), fmt.Errorf("Unsupported cleanup mode")
+	default:
+		return string(cm), fmt.Errorf("Invalid cleanup mode")
+	}
+}
+
+func (cm CommitMessage) whitespace() string {
+	nonewlineRE, err := regexp.Compile("([\n]+)\n")
+	if err != nil {
+		panic(err)
+	}
+	replaced := nonewlineRE.ReplaceAllString(string(cm), "\n\n")
+	return strings.TrimSpace(replaced) + "\n"
+}
+
+func (cm CommitMessage) strip() string {
+	lines := strings.Split(cm.whitespace(), "\n")
+	filtered := make([]string, 0, len(lines))
+	for _, line := range lines {
+		if len(line) >= 1 && line[0] == '#' {
+			continue
+		}
+		filtered = append(filtered, line)
+	}
+	return strings.Join(filtered, "\n")
 }

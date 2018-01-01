@@ -158,7 +158,11 @@ func (c *Client) getPackedObject(packfile File, sha1 Sha1) (GitObject, error) {
 
 func (c *Client) GetCommitObject(commit CommitID) (GitCommitObject, error) {
 	o, err := c.GetObject(Sha1(commit))
-	gco := o.(GitCommitObject)
+	gco, ok := o.(GitCommitObject)
+	if ok {
+		return gco, nil
+	}
+	return gco, fmt.Errorf("Could not convert object %v to commit object", o)
 	return gco, err
 }
 func (c *Client) GetObject(sha1 Sha1) (GitObject, error) {

@@ -103,7 +103,7 @@ func UnpackObjects(c *Client, opts UnpackObjectsOptions, r io.ReadSeeker) ([]Sha
 				}
 				objects = append(objects, sha1)
 			default:
-				panic(fmt.Sprintf("TODO: Unhandled type: %v", t))
+				panic(fmt.Sprintf("TODO: Unhandled type", t))
 
 			}
 		case OBJ_REF_DELTA:
@@ -132,10 +132,10 @@ func UnpackObjects(c *Client, opts UnpackObjectsOptions, r io.ReadSeeker) ([]Sha
 				resolvedReferences[sha1] = resolvedDelta{deltadata, t}
 				mu.Unlock()
 			default:
-				panic(fmt.Sprintf("TODO: Unhandled type: %v", t))
+				panic(fmt.Sprintf("TODO: Unhandled type", t))
 			}
 		default:
-			panic(fmt.Sprintf("TODO: Unhandled type: %v", t))
+			panic(fmt.Sprintf("TODO: Unhandled type", t))
 		}
 
 		if len(rawdata) != int(s) {

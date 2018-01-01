@@ -22,7 +22,7 @@ func HashObject(c *git.Client, args []string) {
 	flag.Parse()
 
 	if stdin && stdinpaths {
-		fmt.Fprintln(os.Stderr, "Can not use both --stdin and --stdin-paths")
+		fmt.Fprintln(os.Stderr, "Can not use both --stdin and --stdin-paths\n")
 		return
 	}
 

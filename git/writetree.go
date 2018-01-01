@@ -11,10 +11,10 @@ type WriteTreeOptions struct {
 	Prefix    string
 }
 
-func WriteTree(c *Client, opts WriteTreeOptions) (Sha1, error) {
+func WriteTree(c *Client, opts WriteTreeOptions) (TreeID, error) {
 	idx, err := c.GitDir.ReadIndex()
 	if err != nil {
-		return Sha1{}, err
+		return TreeID{}, err
 	}
 
 	objs := idx.Objects
@@ -37,7 +37,7 @@ func WriteTree(c *Client, opts WriteTreeOptions) (Sha1, error) {
 			}
 		}
 		if prefixStart == -1 {
-			return Sha1{}, fmt.Errorf("prefix %v not found", opts.Prefix)
+			return TreeID{}, fmt.Errorf("prefix %v not found", opts.Prefix)
 		}
 	}
 	if !opts.MissingOk {
@@ -46,17 +46,17 @@ func WriteTree(c *Client, opts WriteTreeOptions) (Sha1, error) {
 		for _, obj := range objs {
 			ok, _, err := c.HaveObject(obj.Sha1)
 			if err != nil {
-				return Sha1{}, err
+				return TreeID{}, err
 			}
 			if !ok {
-				return Sha1{}, fmt.Errorf("invalid object %o %v for '%v'", obj.Mode, obj.Sha1, obj.PathName)
+				return TreeID{}, fmt.Errorf("invalid object %o %v for '%v'", obj.Mode, obj.Sha1, obj.PathName)
 			}
 		}
 	}
 	return writeTree(c, opts.Prefix, objs)
 }
 
-func writeTree(c *Client, prefix string, entries []*IndexEntry) (Sha1, error) {
+func writeTree(c *Client, prefix string, entries []*IndexEntry) (TreeID, error) {
 	content := bytes.NewBuffer(nil)
 	// [mode] [file/folder name]\0[SHA-1 of referencing blob or tree as [20]byte]
 
@@ -66,7 +66,7 @@ func writeTree(c *Client, prefix string, entries []*IndexEntry) (Sha1, error) {
 	//	fmt.Printf("Prefix: %v\n", prefix)
 	for idx, obj := range entries {
 		if obj.Stage() != Stage0 {
-			return Sha1{}, fmt.Errorf("Could not write index with unmerged entries")
+			return TreeID{}, fmt.Errorf("Could not write index with unmerged entries")
 		}
 		relativename := strings.TrimPrefix(obj.PathName.String(), prefix+"/")
 		//fmt.Printf("This name: %s\n", relativename)
@@ -174,5 +174,6 @@ func writeTree(c *Client, prefix string, entries []*IndexEntry) (Sha1, error) {
 		}
 	}
 
-	return c.WriteObject("tree", content.Bytes())
+	sha1, err := c.WriteObject("tree", content.Bytes())
+	return TreeID(sha1), err
 }
