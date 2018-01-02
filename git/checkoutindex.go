@@ -133,14 +133,11 @@ func checkoutFile(c *Client, entry *IndexEntry, opts CheckoutIndexOptions) error
 	// if we're checkout out into a prefix, it means we haven't
 	// touched the index.
 	if opts.UpdateStat && opts.Prefix == "" {
-		fstat, err := f.Stat()
+		mtime, err := f.MTime()
 		if err != nil {
 			return err
 		}
-
-		modTime := fstat.ModTime()
-		entry.Mtime = uint32(modTime.Unix())
-		entry.Mtimenano = uint32(modTime.Nanosecond())
+		entry.Mtime = mtime
 	}
 	return nil
 }
@@ -175,7 +172,8 @@ func CheckoutIndexUncommited(c *Client, idx *Index, opts CheckoutIndexOptions, f
 	}
 
 	for _, file := range files {
-		indexpath, err := File(file).IndexPath(c)
+		fname := File(file)
+		indexpath, err := fname.IndexPath(c)
 		if err != nil {
 			if !opts.Quiet {
 				fmt.Fprintf(os.Stderr, "%v\n", err)
@@ -228,12 +226,21 @@ func CheckoutIndexUncommited(c *Client, idx *Index, opts CheckoutIndexOptions, f
 			if entry.PathName != indexpath {
 				continue
 			}
+
+			if opts.UpdateStat {
+				mtime, err := fname.MTime()
+				if err == nil {
+					entry.Mtime = mtime
+				}
+			}
 			if entry.PathName.IsClean(c, entry.Sha1) && !opts.Temp {
 				// don't bother checkout out the file
 				// if it's already clean. This makes us less
 				// likely to avoid GetObject have an error
 				// trying to read from a packfile (which isn't
 				// supported yet.)
+				// FIXME: This should use stat information, not hash
+				// the whole file.
 				continue
 			}
 

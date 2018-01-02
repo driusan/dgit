@@ -2,6 +2,7 @@ package git
 
 import (
 	"fmt"
+	"os"
 )
 
 type StatusUntrackedMode uint8
@@ -434,11 +435,20 @@ func StatusShort(c *Client, files []File, untracked StatusUntrackedMode, linepre
 					ist = 'M'
 				}
 			}
-			wtsha1, _, err := HashFile("blob", fname.String())
-			if err != nil {
+
+			stat, err := fname.Stat()
+			if os.IsNotExist(err) {
 				wtst = 'D'
-			} else if wtsha1 != f.Sha1 {
-				wtst = 'M'
+			} else {
+				mtime, err := fname.MTime()
+				if err != nil {
+					return "", err
+				}
+				if mtime != f.Mtime || stat.Size() != int64(f.Fsize) {
+					wtst = 'M'
+				} else {
+					wtst = ' '
+				}
 			}
 			if ist != ' ' || wtst != ' ' {
 				ret += fmt.Sprintf("%c%c %v%v", ist, wtst, fname, lineending)

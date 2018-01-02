@@ -2,7 +2,6 @@ package git
 
 import (
 	"sort"
-	"time"
 )
 
 // Converts a git Tree-ish object to a slice of IndexEntrys.
@@ -64,15 +63,17 @@ func expandGitTreeIntoIndexesRecursive(c *Client, t TreeID, prefix string, recur
 			}
 			newEntry.Fsize = uint32(obj.GetSize())
 
-			// The git tree object doesn't include the mod time.
-			// Since expanding into trees generally happens when
-			// doing things like changing branches and the stat
-			// info will be updated on any file in the working directory,
-			// we use "now" as the mod-time to avoid false-positives
-			// for changes.
-			modTime := time.Now()
-			newEntry.Mtime = uint32(modTime.Unix())
-			newEntry.Mtimenano = uint32(modTime.Nanosecond())
+			// The git tree object doesn't include the mod time, so
+			// we take the current mtime of the file (if possible)
+			// for the index that we return.
+			if fname, err := dirname.FilePath(c); err != nil {
+				newEntry.Mtime = 0
+			} else if fname.Exists() {
+				if mtime, err := fname.MTime(); err == nil {
+					newEntry.Mtime = mtime
+				}
+			}
+
 			newEntry.Flags = uint16(len(dirname)) & 0xFFF
 			newEntries = append(newEntries, &newEntry)
 		}

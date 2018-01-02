@@ -254,8 +254,6 @@ nothing to commit, working tree clean
 		Short: "",
 		ShortBranch: `## HEAD (no branch)
 `,
-		// FIXME: Need to make the commit ID deterministic
-		// in order for this to work.
 		PorcelainV2: `# branch.oid ` + cid + `
 # branch.head (detached)
 `,

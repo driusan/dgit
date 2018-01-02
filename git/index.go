@@ -9,7 +9,6 @@ import (
 	"io/ioutil"
 	"os"
 	"sort"
-	"time"
 )
 
 var InvalidIndex error = errors.New("Invalid index")
@@ -54,8 +53,7 @@ type FixedIndexEntry struct {
 	Ctime     uint32 // 16
 	Ctimenano uint32 // 20
 
-	Mtime     uint32 // 24
-	Mtimenano uint32 // 28
+	Mtime int64 // 24
 
 	Dev uint32 // 32
 	Ino uint32 // 36
@@ -189,21 +187,16 @@ const (
 //
 // As a special case, if something is added as Stage0, then Stage1-3 entries
 // will be removed.
-func (g *Index) AddStage(c *Client, path IndexPath, s Sha1, stage Stage, size uint32, createEntry bool) error {
+func (g *Index) AddStage(c *Client, path IndexPath, s Sha1, stage Stage, size uint32, mtime int64, createEntry bool) error {
 	if stage == Stage0 {
 		defer g.RemoveUnmergedStages(c, path)
 	}
-
-	modTime := time.Now()
-	mtime := uint32(modTime.Unix())
-	mtimenano := uint32(modTime.Nanosecond())
 
 	// Update the existing stage, if it exists.
 	for _, entry := range g.Objects {
 		if entry.PathName == path && entry.Stage() == stage {
 			entry.Sha1 = s
 			entry.Mtime = mtime
-			entry.Mtimenano = mtimenano
 			entry.Fsize = size
 
 			// We found and updated the entry, no need to continue
@@ -243,7 +236,6 @@ func (g *Index) AddStage(c *Client, path IndexPath, s Sha1, stage Stage, size ui
 			0, //uint32(csec),
 			0, //uint32(cnano),
 			mtime,
-			mtimenano,
 			0,        //uint32(stat.Dev),
 			0,        //uint32(stat.Ino),
 			ModeBlob, // Directories are never added, only their files, so assume blob
@@ -303,27 +295,33 @@ func (g *Index) AddFile(c *Client, file *os.File, createEntry bool) error {
 		fmt.Fprintf(os.Stderr, "Error storing object: %s", err)
 		return err
 	}
-	name, err := File(file.Name()).IndexPath(c)
+	gitfile := File(file.Name())
+	name, err := gitfile.IndexPath(c)
 	if err != nil {
 		return err
 	}
 
-	fstat, err := file.Stat()
+	mtime, err := gitfile.MTime()
 	if err != nil {
 		return err
+	}
+
+	fsize := uint32(0)
+	fstat, err := file.Stat()
+	if err == nil {
+		fsize = uint32(fstat.Size())
 	}
 	if fstat.IsDir() {
-		// This should really recursively call add for each file in the directory.
-		return fmt.Errorf("Add can't handle directories. yet.")
+		return fmt.Errorf("Must add a file, not a directory.")
 	}
 
-	//modTime := fstat.ModTime()
 	return g.AddStage(
 		c,
 		name,
 		hash,
 		Stage0,
-		uint32(fstat.Size()),
+		fsize,
+		mtime,
 		createEntry,
 	)
 }

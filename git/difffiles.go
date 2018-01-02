@@ -69,17 +69,13 @@ func DiffFiles(c *Client, opt DiffFilesOptions, paths []File) ([]HashDiff, error
 		default:
 			fs.FileMode = ModeBlob
 		}
-		fsHash, data, err := HashFile("blob", f.String())
+		mtime, err := f.MTime()
 		if err != nil {
-			val = append(val, HashDiff{idx.PathName, idxtree, fs, uint(idx.Fsize), uint(len(data))})
-			continue
+			return nil, err
 		}
-		fs.Sha1 = fsHash
-		if fs != idxtree {
-			// the hash isn't in the git object store, so set it back to 0
-			// after the comparison is done
-			fs.Sha1 = Sha1{}
-			val = append(val, HashDiff{idx.PathName, idxtree, fs, uint(idx.Fsize), 0})
+		size := stat.Size()
+		if mtime != idx.Mtime || size != int64(idx.Fsize) {
+			val = append(val, HashDiff{idx.PathName, idxtree, fs, uint(idx.Fsize), uint(size)})
 		}
 	}
 

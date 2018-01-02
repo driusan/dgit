@@ -2,6 +2,7 @@ package git
 
 import (
 	"io/ioutil"
+	"os"
 	"path/filepath"
 	"strings"
 )
@@ -156,19 +157,29 @@ func LsFiles(c *Client, opt LsFilesOptions, files []File) ([]*IndexEntry, error)
 				continue
 			}
 		}
-		if opt.Modified {
-			// An error can just mean it's deleted without --deleted
-			// passed, so ignore the error.
-			hash, _, _ := HashFile("blob", f.String())
-			if hash != entry.Sha1 {
-				fs = append(fs, entry)
-				continue
-			}
-		}
 
 		if opt.Unmerged && entry.Stage() != Stage0 {
 			fs = append(fs, entry)
+			continue
+		}
 
+		if opt.Modified {
+			stat, err := f.Stat()
+			// The file being deleted means it was modified
+			if os.IsNotExist(err) {
+				fs = append(fs, entry)
+				continue
+			}
+			if err != nil {
+				return nil, err
+			}
+			mtime, err := f.MTime()
+			if err != nil {
+				return nil, err
+			}
+			if size := stat.Size(); size != int64(entry.Fsize) || mtime != entry.Mtime {
+				fs = append(fs, entry)
+			}
 		}
 
 	}

@@ -3,6 +3,7 @@ package git
 import (
 	"fmt"
 	"os"
+	"time"
 )
 
 // Options that may be passed in the command line to ReadTree.
@@ -112,14 +113,14 @@ func ReadTreeMerge(c *Client, opt ReadTreeOptions, stage1, stage2, stage3 Treeis
 		// If both stage2 and stage3 are the same, the work has been done in
 		// both branches, so collapse to stage0 (use our changes)
 		if samePath(ours, theirs, path) {
-			idx.AddStage(c, path, ours[path].Sha1, Stage0, ours[path].Fsize, true)
+			idx.AddStage(c, path, ours[path].Sha1, Stage0, ours[path].Fsize, time.Now().UnixNano(), true)
 			continue
 		}
 
 		// If stage1 and stage2 are the same, our branch didn't do anything,
 		// but theirs did, so take their changes.
 		if samePath(base, ours, path) {
-			idx.AddStage(c, path, theirs[path].Sha1, Stage0, theirs[path].Fsize, true)
+			idx.AddStage(c, path, theirs[path].Sha1, Stage0, theirs[path].Fsize, time.Now().UnixNano(), true)
 			continue
 		}
 
@@ -127,7 +128,7 @@ func ReadTreeMerge(c *Client, opt ReadTreeOptions, stage1, stage2, stage3 Treeis
 		// so take our changes
 		if samePath(base, theirs, path) {
 			if o, ok := ours[path]; ok {
-				idx.AddStage(c, path, o.Sha1, Stage0, o.Fsize, true)
+				idx.AddStage(c, path, o.Sha1, Stage0, o.Fsize, time.Now().UnixNano(), true)
 				continue
 			}
 		}
@@ -139,13 +140,13 @@ func ReadTreeMerge(c *Client, opt ReadTreeOptions, stage1, stage2, stage3 Treeis
 		idx.RemoveFile(path)
 
 		if b, ok := base[path]; ok {
-			idx.AddStage(c, path, b.Sha1, Stage1, b.Fsize, true)
+			idx.AddStage(c, path, b.Sha1, Stage1, b.Fsize, time.Now().UnixNano(), true)
 		}
 		if o, ok := ours[path]; ok {
-			idx.AddStage(c, path, o.Sha1, Stage2, o.Fsize, true)
+			idx.AddStage(c, path, o.Sha1, Stage2, o.Fsize, time.Now().UnixNano(), true)
 		}
 		if t, ok := theirs[path]; ok {
-			idx.AddStage(c, path, t.Sha1, Stage3, t.Fsize, true)
+			idx.AddStage(c, path, t.Sha1, Stage3, t.Fsize, time.Now().UnixNano(), true)
 		}
 	}
 	if err := checkMergeAndUpdate(c, opt, origMap, idx); err != nil {
@@ -375,6 +376,7 @@ func checkMergeAndUpdate(c *Client, opt ReadTreeOptions, origidx map[IndexPath]*
 
 	// Keep a list of index entries to be updated by CheckoutIndex.
 	files := make([]File, 0, len(newidx.Objects))
+	filemap := make(map[File]*IndexEntry)
 
 	if opt.Merge {
 		// Verify that merge won't overwrite anything that's been modified locally.
@@ -396,6 +398,7 @@ func checkMergeAndUpdate(c *Client, opt ReadTreeOptions, origidx map[IndexPath]*
 					return err
 				}
 				files = append(files, file)
+				filemap[file] = entry
 				continue
 			}
 
@@ -412,6 +415,7 @@ func checkMergeAndUpdate(c *Client, opt ReadTreeOptions, origidx map[IndexPath]*
 					return err
 				}
 				files = append(files, file)
+				filemap[file] = entry
 				continue
 			} else {
 				// There are local unmodified changes on the filesystem
@@ -426,6 +430,7 @@ func checkMergeAndUpdate(c *Client, opt ReadTreeOptions, origidx map[IndexPath]*
 						return err
 					}
 					files = append(files, file)
+					filemap[file] = entry
 				}
 			}
 		}
@@ -446,7 +451,6 @@ func checkMergeAndUpdate(c *Client, opt ReadTreeOptions, origidx map[IndexPath]*
 				// It was already handled by checkout-index
 				continue
 			}
-
 			// It was deleted from the new index, but was in the
 			// original index, so delete it if it hasn't been
 			// changed on the filesystem.
@@ -462,6 +466,20 @@ func checkMergeAndUpdate(c *Client, opt ReadTreeOptions, origidx map[IndexPath]*
 				}
 				if err := file.Remove(); err != nil {
 					fmt.Fprintf(os.Stderr, "%v\n", err)
+				}
+			}
+		}
+
+		// Update stat information for things changed by CheckoutIndex.
+		for _, entry := range newidx.Objects {
+			fname, err := entry.PathName.FilePath(c)
+			if err != nil {
+				return err
+			}
+			if _, ok := filemap[fname]; ok {
+				mtime, err := fname.MTime()
+				if err == nil && mtime != entry.Mtime {
+					entry.Mtime = mtime
 				}
 			}
 		}

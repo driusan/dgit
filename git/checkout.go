@@ -131,7 +131,10 @@ func CheckoutCommit(c *Client, opts CheckoutOptions, commit Commitish) error {
 		return SymbolicRefUpdate(c, SymbolicRefOptions{}, "HEAD", RefSpec(b), refmsg)
 	}
 	refmsg := fmt.Sprintf("checkout: moving from %s to %s (dgit)", origB, cid)
-	return UpdateRef(c, UpdateRefOptions{NoDeref: true, OldValue: head}, "HEAD", cid, refmsg)
+	if err := UpdateRef(c, UpdateRefOptions{NoDeref: true, OldValue: head}, "HEAD", cid, refmsg); err != nil {
+		return err
+	}
+	return nil
 }
 
 // Implements "git checkout" subcommand of git for variations:
@@ -150,5 +153,5 @@ func CheckoutFiles(c *Client, opts CheckoutOptions, tree Treeish, files []File) 
 	}
 	// ReadTree wrote the index to disk, but since we already have a copy in
 	// memory we use the Uncommited variation.
-	return CheckoutIndexUncommited(c, i, CheckoutIndexOptions{Force: true}, files)
+	return CheckoutIndexUncommited(c, i, CheckoutIndexOptions{Force: true, UpdateStat: true}, files)
 }

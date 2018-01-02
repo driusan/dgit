@@ -141,7 +141,15 @@ func ResetUnstage(c *Client, opts ResetOptions, tree Treeish, files []File) erro
 		return err
 	}
 	for _, entry := range diffs {
-		if err := index.AddStage(c, entry.Name, entry.Src.Sha1, Stage0, uint32(entry.SrcSize), true); err != nil {
+		f, err := entry.Name.FilePath(c)
+		if err != nil {
+			return err
+		}
+		mtime, err := f.MTime()
+		if err != nil {
+			return err
+		}
+		if err := index.AddStage(c, entry.Name, entry.Src.Sha1, Stage0, uint32(entry.SrcSize), mtime, true); err != nil {
 			return err
 		}
 	}
