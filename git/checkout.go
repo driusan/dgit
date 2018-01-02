@@ -107,11 +107,6 @@ func CheckoutCommit(c *Client, opts CheckoutOptions, commit Commitish) error {
 	if err != nil {
 		return err
 	}
-	// Get the original HEAD branchname
-	origB := Branch(head).BranchName()
-	if origB == "" {
-		return DetachedHead
-	}
 
 	// Convert from Commitish to Treeish for ReadTree
 	cid, err := commit.CommitID(c)
@@ -119,24 +114,23 @@ func CheckoutCommit(c *Client, opts CheckoutOptions, commit Commitish) error {
 		return err
 	}
 
+	// Get the original HEAD branchname
+	origB := Branch(head).BranchName()
+	if origB == "" {
+		return DetachedHead
+	}
+
+	if _, err := ReadTree(c, ReadTreeOptions{Update: true, Merge: true}, cid); err != nil {
+		return err
+	}
+
 	if b, ok := commit.(Branch); ok && !opts.Detach {
 		// We're checking out a branch, first read the new tree, and
 		// then update the SymbolicRef for HEAD, if that succeeds.
-		_, err := ReadTree(c, ReadTreeOptions{Update: true, Merge: true}, cid)
-		if err != nil {
-			return err
-		}
-
-		refmsg := fmt.Sprintf("checkout: moving from %s to %s (go-git)", origB, b.BranchName())
+		refmsg := fmt.Sprintf("checkout: moving from %s to %s (dgit)", origB, b.BranchName())
 		return SymbolicRefUpdate(c, SymbolicRefOptions{}, "HEAD", RefSpec(b), refmsg)
 	}
-	refmsg := fmt.Sprintf("checkout: moving from %s to %s (go-git)", origB, cid)
-	/*
-		origValue, err := head.Value(c)
-		if err != nil {
-			return err
-		}
-	*/
+	refmsg := fmt.Sprintf("checkout: moving from %s to %s (dgit)", origB, cid)
 	return UpdateRef(c, UpdateRefOptions{NoDeref: true, OldValue: head}, "HEAD", cid, refmsg)
 }
 

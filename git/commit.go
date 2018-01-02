@@ -155,7 +155,7 @@ skipemptycheck:
 	}
 	refmsg = fmt.Sprintf("commit: %s (dgit)", refmsg)
 
-	if err := UpdateRef(c, UpdateRefOptions{OldValue: oldHead, CreateReflog: true}, "HEAD", cid, refmsg); err != nil && err != DetachedHead {
+	if err := UpdateRef(c, UpdateRefOptions{OldValue: oldHead, CreateReflog: true}, "HEAD", cid, refmsg); err != nil {
 		return CommitID{}, err
 	}
 	return cid, nil

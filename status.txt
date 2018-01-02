@@ -46,7 +46,7 @@ rm             None                                 Can use rm; git add instead.
 shortlog       None
 show           None
 stash          None
-status         HappyPath     git 2.9.2              (10) only --long and -uno/unormal/uall implemented
+status         HappyPath     git 2.14.2              (10) only --long and -uno/unormal/uall implemented
 submodule      None
 tag            None
 worktree       None

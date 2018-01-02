@@ -108,6 +108,9 @@ func UpdateRef(c *Client, opts UpdateRefOptions, ref string, cmt CommitID, reaso
 	// It's a symbolic ref. Dereference it, unless --deref
 	if !opts.NoDeref {
 		refspec, err := SymbolicRefGet(c, SymbolicRefOptions{}, SymbolicRef(ref))
+		if err == DetachedHead {
+			goto noderef
+		}
 		if err != nil {
 			return err
 		}
@@ -137,6 +140,7 @@ func UpdateRef(c *Client, opts UpdateRefOptions, ref string, cmt CommitID, reaso
 		return UpdateRefSpec(c, opts, refspec, cmt, reason)
 	}
 
+noderef:
 	// NoDeref was specified.
 	if err := updateReflog(c, true, File(c.GitDir)+"/logs/"+File(ref), opts.OldValue, cmt, reason); err != nil {
 		return err

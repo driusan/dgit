@@ -108,6 +108,13 @@ func TestSimpleCommits(t *testing.T) {
 	if cid != expected {
 		t.Errorf("Unexpected hash for second commit while in detached head mode. got %v want %v", cid, expected)
 	}
+	content, err := ioutil.ReadFile(c.GitDir.File("HEAD").String())
+	if err != nil {
+		t.Fatal(err)
+	}
+	if string(content) != cid.String() {
+		t.Errorf("Commit lied about updating the HEAD reference")
+	}
 }
 
 // TestUnmergedCommit tests that Commit() produces an

@@ -41,16 +41,19 @@ type StatusOptions struct {
 }
 
 func Status(c *Client, opts StatusOptions, files []File) (string, error) {
-	if opts.Short || opts.Porcelain > 0 || opts.ShowStash || opts.Verbose || opts.Ignored || opts.NullTerminate || opts.Column != "default" {
+	if opts.Short || opts.Porcelain > 0 || opts.ShowStash || opts.Verbose || opts.Ignored || opts.NullTerminate || (opts.Column != "default" && opts.Column != "") {
 		return "", fmt.Errorf("Unsupported option for Status")
+	}
+	if opts.Column == "" {
+		opts.Column = "column"
 	}
 	var ret string
 	if opts.Branch || opts.Long {
-		branch, err := StatusBranch(c, "")
+		branch, err := StatusBranch(c, opts, "")
 		if err != nil {
 			return "", err
 		}
-		ret += branch
+		ret += branch + "\n"
 	}
 	if opts.Long {
 		status, err := StatusLong(c, files, opts.UntrackedMode, "")
@@ -62,9 +65,30 @@ func Status(c *Client, opts StatusOptions, files []File) (string, error) {
 	return ret, nil
 }
 
-func StatusBranch(c *Client, lineprefix string) (string, error) {
-	// FIXME: Implement this.
-	return "", nil
+func StatusBranch(c *Client, opts StatusOptions, lineprefix string) (string, error) {
+	var ret string
+	if opts.Short || opts.Porcelain > 0 {
+		if !opts.Branch {
+			return "", nil
+		}
+		return "", nil
+	}
+	h, herr := c.GetHeadCommit()
+
+	switch branch, err := SymbolicRefGet(c, SymbolicRefOptions{Short: true}, "HEAD"); err {
+	case nil:
+		ret = fmt.Sprintf("On branch %v", branch)
+	case DetachedHead:
+		ret = fmt.Sprintf("HEAD detached at %v", h.String())
+	default:
+		return "", err
+	}
+
+	if herr != nil {
+		ret += lineprefix + "\n\nNo commits yet\n"
+	}
+	return ret, nil
+
 }
 
 // Return a string of the status
@@ -74,9 +98,9 @@ func StatusLong(c *Client, files []File, untracked StatusUntrackedMode, linepref
 	// Unmerged: git ls-files -u
 	// Changes not staged: dgit diff-files
 	// Untracked: dgit ls-files -o
-
 	var ret string
 	index, _ := c.GitDir.ReadIndex()
+	hasStaged := false
 
 	var lsfiles []File
 	if len(files) == 0 {
@@ -100,7 +124,7 @@ func StatusLong(c *Client, files []File, untracked StatusUntrackedMode, linepref
 	}
 
 	var staged []HashDiff
-	var summary string
+	hasCommit := false
 	if head, err := c.GetHeadCommit(); err != nil {
 		// There is no head commit to compare against, so just say
 		// everything in the cache (which isn't unmerged) is new
@@ -110,6 +134,7 @@ func StatusLong(c *Client, files []File, untracked StatusUntrackedMode, linepref
 		}
 		var stagedMsg string
 		if len(staged) > 0 {
+			hasStaged = true
 			for _, f := range staged {
 				fname, err := f.PathName.FilePath(c)
 				if err != nil {
@@ -126,21 +151,13 @@ func StatusLong(c *Client, files []File, untracked StatusUntrackedMode, linepref
 
 		if stagedMsg != "" {
 			ret += fmt.Sprintf("%vChanges to be committed:\n", lineprefix)
-			ret += fmt.Sprintf("%v  (use \"git reset HEAD <file>...\" to unstage)\n", lineprefix)
+			ret += fmt.Sprintf("%v  (use \"git rm --cached <file>...\" to unstage)\n", lineprefix)
 			ret += fmt.Sprintf("%v\n", lineprefix)
 			ret += stagedMsg
 			ret += fmt.Sprintf("%v\n", lineprefix)
-		} else {
-			// FIXME: This 1) isn't the right message if there's unmerged entries and
-			//    2) should go at the end, not the beginning of the status.
-			if len(unmerged) == 0 {
-				summary = fmt.Sprintf("%vnothing to commit. (create/copy files and use \"git add\" to track)\n", lineprefix)
-			} else {
-				summary = fmt.Sprintf("%vno changes added to commit. (use \"git add\" and/or \"git commit -a\")\n", lineprefix)
-			}
 		}
-
 	} else {
+		hasCommit = true
 		staged, err = DiffIndex(c, DiffIndexOptions{Cached: true}, index, head, files)
 		if err != nil {
 			return "", err
@@ -149,6 +166,8 @@ func StatusLong(c *Client, files []File, untracked StatusUntrackedMode, linepref
 
 	// Staged
 	if len(staged) > 0 {
+		hasStaged = true
+
 		stagedMsg := ""
 		for _, f := range staged {
 			fname, err := f.Name.FilePath(c)
@@ -204,7 +223,7 @@ func StatusLong(c *Client, files []File, untracked StatusUntrackedMode, linepref
 					case Stage3:
 						// There's a stage1, stage2, and stage3. If they weren't all different, read-tree would
 						// have resolved it as a trivial stage0 merge.
-						ret += fmt.Sprintf("%v\tmodified by both:\t%v\n", lineprefix, fname)
+						ret += fmt.Sprintf("%v\tboth modified:\t%v\n", lineprefix, fname)
 					default:
 						// Stage3 is missing, but we haven't reached the end of the index.
 						ret += fmt.Sprintf("%v\tdeleted by them:\t%v\n", lineprefix, fname)
@@ -246,7 +265,9 @@ func StatusLong(c *Client, files []File, untracked StatusUntrackedMode, linepref
 		return "", err
 	}
 
+	hasUnstaged := false
 	if len(notstaged) > 0 {
+		hasUnstaged = true
 		notStagedMsg := ""
 		for _, f := range notstaged {
 			fname, err := f.Name.FilePath(c)
@@ -277,6 +298,7 @@ func StatusLong(c *Client, files []File, untracked StatusUntrackedMode, linepref
 		}
 	}
 
+	hasUntracked := false
 	if untracked != StatusUntrackedNo {
 		lsfilesopts := LsFilesOptions{
 			Others: true,
@@ -286,6 +308,9 @@ func StatusLong(c *Client, files []File, untracked StatusUntrackedMode, linepref
 		}
 
 		untracked, err := LsFiles(c, lsfilesopts, lsfiles)
+		if len(untracked) > 0 {
+			hasUntracked = true
+		}
 		if err != nil {
 			return "", err
 		}
@@ -307,10 +332,35 @@ func StatusLong(c *Client, files []File, untracked StatusUntrackedMode, linepref
 			}
 			ret += fmt.Sprintf("%v\n", lineprefix)
 		}
+	} else {
+		if hasUnstaged {
+			ret += fmt.Sprintf("%vUntracked files not listed (use -u option to show untracked files)\n", lineprefix)
+		}
 	}
-	if ret == "" {
-		ret = fmt.Sprintf("%vnothing to commit, working tree clean\n", lineprefix)
+	var summary string
+	switch {
+	case hasStaged && hasUntracked && hasCommit:
+	case hasStaged && hasUntracked && !hasCommit:
+	case hasStaged && !hasUntracked && hasCommit && !hasUnstaged:
+	case hasStaged && !hasUntracked && hasCommit && hasUnstaged:
+		if untracked != StatusUntrackedNo {
+			summary = `no changes added to commit (use "git add" and/or "git commit -a")`
+		}
+	case hasStaged && !hasUntracked && !hasCommit:
+	case !hasStaged && hasUntracked && hasCommit:
+		fallthrough
+	case !hasStaged && hasUntracked && !hasCommit:
+		summary = `nothing added to commit but untracked files present (use "git add" to track)`
+	case !hasStaged && !hasUntracked && hasCommit && !hasUnstaged:
+		summary = "nothing to commit, working tree clean"
+	case !hasStaged && !hasUntracked && hasCommit && hasUnstaged:
+		summary = `no changes added to commit (use "git add" and/or "git commit -a")`
+	case !hasStaged && !hasUntracked && !hasCommit:
+		summary = `nothing to commit (create/copy files and use "git add" to track)`
+	default:
 	}
-	ret += summary
+	if summary != "" {
+		ret += lineprefix + summary + "\n"
+	}
 	return ret, nil
 }
