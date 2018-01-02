@@ -41,7 +41,7 @@ type StatusOptions struct {
 }
 
 func Status(c *Client, opts StatusOptions, files []File) (string, error) {
-	if opts.Short || opts.Porcelain > 0 || opts.ShowStash || opts.Verbose || opts.Ignored || opts.NullTerminate || (opts.Column != "default" && opts.Column != "") {
+	if opts.Porcelain > 1 || opts.ShowStash || opts.Verbose || opts.Ignored || (opts.Column != "default" && opts.Column != "") {
 		return "", fmt.Errorf("Unsupported option for Status")
 	}
 	if opts.Column == "" {
@@ -53,9 +53,22 @@ func Status(c *Client, opts StatusOptions, files []File) (string, error) {
 		if err != nil {
 			return "", err
 		}
-		ret += branch + "\n"
+		if branch != "" {
+			ret += branch + "\n"
+		}
 	}
-	if opts.Long {
+	if opts.Short || opts.Porcelain == 1 || opts.NullTerminate {
+		opts.Short = true // If porcelain=1, ensure short=true too..
+		lineending := "\n"
+		if opts.NullTerminate {
+			lineending = "\000"
+		}
+		status, err := StatusShort(c, files, opts.UntrackedMode, "", lineending)
+		if err != nil {
+			return "", err
+		}
+		ret += status
+	} else if opts.Long {
 		status, err := StatusLong(c, files, opts.UntrackedMode, "")
 		if err != nil {
 			return "", err
@@ -71,14 +84,22 @@ func StatusBranch(c *Client, opts StatusOptions, lineprefix string) (string, err
 		if !opts.Branch {
 			return "", nil
 		}
-		return "", nil
 	}
 	h, herr := c.GetHeadCommit()
 
 	switch branch, err := SymbolicRefGet(c, SymbolicRefOptions{Short: true}, "HEAD"); err {
 	case nil:
+		if opts.Short {
+			if herr != nil {
+				return "## No commits yet on " + branch.String(), nil
+			}
+			return "## " + branch.String(), nil
+		}
 		ret = fmt.Sprintf("On branch %v", branch)
 	case DetachedHead:
+		if opts.Short {
+			return "## HEAD (no branch)", nil
+		}
 		ret = fmt.Sprintf("HEAD detached at %v", h.String())
 	default:
 		return "", err
@@ -363,4 +384,131 @@ func StatusLong(c *Client, files []File, untracked StatusUntrackedMode, linepref
 		ret += lineprefix + summary + "\n"
 	}
 	return ret, nil
+}
+
+// Implements git status --short
+func StatusShort(c *Client, files []File, untracked StatusUntrackedMode, lineprefix, lineending string) (string, error) {
+	var lsfiles []File
+	if len(files) == 0 {
+		lsfiles = []File{File(c.WorkDir)}
+	} else {
+		lsfiles = files
+	}
+
+	cfiles, err := LsFiles(c, LsFilesOptions{Cached: true}, lsfiles)
+	if err != nil {
+		return "", err
+	}
+	tree := make(map[IndexPath]*IndexEntry)
+	// It's not an error to use "git status" before the first commit,
+	// so discard the error
+	if head, err := c.GetHeadCommit(); err == nil {
+		i, err := LsTree(c, LsTreeOptions{FullTree: true, Recurse: true}, head, files)
+		if err != nil {
+			return "", err
+		}
+
+		// this should probably be an LsTreeMap library function, it would be
+		// useful other places..
+		for _, e := range i {
+			tree[e.PathName] = e
+		}
+	}
+	var ret string
+	var wtst, ist rune
+	for i, f := range cfiles {
+		wtst = ' '
+		ist = ' '
+		fname, err := f.PathName.FilePath(c)
+		if err != nil {
+			return "", err
+		}
+		switch f.Stage() {
+		case Stage0:
+			if head, ok := tree[f.PathName]; !ok {
+				ist = 'A'
+			} else {
+				if head.Sha1 == f.Sha1 {
+					ist = ' '
+				} else {
+					ist = 'M'
+				}
+			}
+			wtsha1, _, err := HashFile("blob", fname.String())
+			if err != nil {
+				wtst = 'D'
+			} else if wtsha1 != f.Sha1 {
+				wtst = 'M'
+			}
+			if ist != ' ' || wtst != ' ' {
+				ret += fmt.Sprintf("%c%c %v%v", ist, wtst, fname, lineending)
+			}
+		case Stage1:
+			switch cfiles[i+1].Stage() {
+			case Stage2:
+				if i >= len(cfiles)-2 {
+					// Stage3 is missing, we've reached the end of the index.
+					ret += fmt.Sprintf("MD %v%v", fname, lineending)
+					continue
+				}
+				switch cfiles[i+2].Stage() {
+				case Stage3:
+					// There's a stage1, stage2, and stage3. If they weren't all different, read-tree would
+					// have resolved it as a trivial stage0 merge.
+					ret += fmt.Sprintf("UU %v%v", fname, lineending)
+				default:
+					// Stage3 is missing, but we haven't reached the end of the index.
+					ret += fmt.Sprintf("MD%v%v", fname, lineending)
+				}
+				continue
+			case Stage3:
+				// Stage2 is missing
+				ret += fmt.Sprintf("DM %v%v", fname, lineending)
+				continue
+			default:
+				panic("Unhandled index")
+			}
+		case Stage2:
+			if i == 0 || cfiles[i-1].Stage() != Stage1 {
+				// If this is a Stage2, and the previous wasn't Stage1,
+				// then we know the next one must be Stage3 or read-tree
+				// would have handled it as a trivial merge.
+				ret += fmt.Sprintf("AA %v%v", fname, lineending)
+			}
+			// If the previous was Stage1, it was handled by the previous
+			// loop iteration.
+			continue
+		case Stage3:
+			// There can't be just a Stage3 or read-tree would
+			// have resolved it as Stage0. All cases were handled
+			// by Stage1 or Stage2
+			continue
+		}
+	}
+	if untracked != StatusUntrackedNo {
+		lsfilesopts := LsFilesOptions{
+			Others: true,
+		}
+		if untracked == StatusUntrackedNormal {
+			lsfilesopts.Directory = true
+		}
+
+		untracked, err := LsFiles(c, lsfilesopts, lsfiles)
+		if err != nil {
+			return "", err
+		}
+		for _, f := range untracked {
+			fname, err := f.PathName.FilePath(c)
+			if err != nil {
+				return "", err
+			}
+			if name := fname.String(); name == "." {
+				ret += "?? ./" + lineending
+			} else {
+				ret += "?? " + name + lineending
+			}
+		}
+	}
+	return ret, nil
+
 }

@@ -23,8 +23,6 @@ func compareStatus(c *Client, opts StatusOptions, expected expectedStatus) error
 	if expected.Long != s {
 		return fmt.Errorf("Long status: got `%v` want `%v`", s, expected.Long)
 	}
-	return nil
-	// These aren't supported yet, but the tests are ready for when they are..
 	opts.Long = false
 	opts.Short = true
 	s, err = Status(c, opts, nil)
@@ -32,27 +30,30 @@ func compareStatus(c *Client, opts StatusOptions, expected expectedStatus) error
 		return fmt.Errorf("Short status: %v", err)
 	}
 	if expected.Short != s {
-		return fmt.Errorf("Short status: got %v want %v", s, expected.Short)
+		return fmt.Errorf("Short status: got `%v` want `%v`", s, expected.Short)
 	}
 	opts.Branch = true
 	s, err = Status(c, opts, nil)
 	if err != nil {
-		return fmt.Errorf("Short branch status: %v", err)
+		return fmt.Errorf("Short branch status: `%v`", err)
 	}
 	if expected.ShortBranch != s {
-		return fmt.Errorf("Short branch status: got %v want %v", s, expected.ShortBranch)
+		return fmt.Errorf("Short branch status: got `%v` want `%v`", s, expected.ShortBranch)
 	}
-
-	opts.Porcelain = 2
-	opts.Short = false
-	opts.Long = false
-	s, err = Status(c, opts, nil)
-	if err != nil {
-		return fmt.Errorf("Porcelain v2 status: %v", err)
-	}
-	if expected.ShortBranch != s {
-		return fmt.Errorf("Porcelain v2 status: got %v want %v", s, expected.PorcelainV2)
-	}
+	return nil
+	/*
+		// Porcelain=2 isn't supported yet, so this is commented out
+		opts.Porcelain = 2
+		opts.Short = false
+		opts.Long = false
+		s, err = Status(c, opts, nil)
+		if err != nil {
+			return fmt.Errorf("Porcelain v2 status: %v", err)
+		}
+		if expected.ShortBranch != s {
+			return fmt.Errorf("Porcelain v2 status: got %v want %v", s, expected.PorcelainV2)
+		}
+	*/
 	return nil
 }
 
@@ -84,7 +85,7 @@ No commits yet
 nothing to commit (create/copy files and use "git add" to track)
 `,
 		Short:       "",
-		ShortBranch: "## No commits yet on master",
+		ShortBranch: "## No commits yet on master\n",
 		PorcelainV2: `# branch.oid (initial)
 # branch.head master
 `,
@@ -109,9 +110,10 @@ Untracked files:
 
 nothing added to commit but untracked files present (use "git add" to track)
 `,
-		Short: "?? foo.txt",
+		Short: "?? foo.txt\n",
 		ShortBranch: `## No commits yet on master
-?? foo.txt`,
+?? foo.txt
+`,
 		PorcelainV2: `# branch.oid (initial)
 # branch.head master
 ? foo.txt
@@ -136,9 +138,10 @@ Changes to be committed:
 	new file:	foo.txt
 
 `,
-		Short: "A  foo.txt",
+		Short: "A  foo.txt\n",
 		ShortBranch: `## No commits yet on master
-A  foo.txt`,
+A  foo.txt
+`,
 		PorcelainV2: `# branch.oid (initial)
 # branch.head master
 1 A. N... 000000 100644 100644 00000000000000000000000000000000000000 257cc5642cb1a054f08cc83f2d943e56fd3ebe99 foo.txt
@@ -169,9 +172,10 @@ Changes not staged for commit:
 	modified:	foo.txt
 
 `,
-		Short: "AM foo.txt",
+		Short: "AM foo.txt\n",
 		ShortBranch: `## No commits yet on master
-AM foo.txt`,
+AM foo.txt
+`,
 		PorcelainV2: `# branch.oid (initial)
 # branch.head master
 1 AM N... 000000 100644 100644 00000000000000000000000000000000000000 257cc5642cb1a054f08cc83f2d943e56fd3ebe99 foo.txt
@@ -195,9 +199,10 @@ Changes not staged for commit:
 
 no changes added to commit (use "git add" and/or "git commit -a")
 `,
-		Short: " M foo.txt",
-		ShortBranch: `## No commits yet on master
- M foo.txt`,
+		Short: " M foo.txt\n",
+		ShortBranch: `## master
+ M foo.txt
+`,
 		PorcelainV2: `# branch.oid (initial)
 # branch.head master
 1 .M N... 000000 100644 100644 257cc5642cb1a054f08cc83f2d943e56fd3ebe99 257cc5642cb1a054f08cc83f2d943e56fd3ebe99 foo.txt
@@ -220,7 +225,7 @@ nothing to commit, working tree clean
 `,
 		Short: "",
 		ShortBranch: `## master
- M foo.txt`,
+`,
 		// FIXME: Need to make the commit ID deterministic
 		// in order for this to work.
 		PorcelainV2: `# branch.oid deadbeefdeadbeefdeadbeefetc
@@ -248,7 +253,7 @@ nothing to commit, working tree clean
 `,
 		Short: "",
 		ShortBranch: `## HEAD (no branch)
- M foo.txt`,
+`,
 		// FIXME: Need to make the commit ID deterministic
 		// in order for this to work.
 		PorcelainV2: `# branch.oid ` + cid + `
@@ -284,9 +289,10 @@ Unmerged paths:
 
 no changes added to commit (use "git add" and/or "git commit -a")
 `,
-		Short: "UU foo.txt",
+		Short: "UU foo.txt\n",
 		ShortBranch: `## HEAD (no branch)
-UU foo.txt`,
+UU foo.txt
+`,
 		PorcelainV2: ``, // FIXME: Check what this should be.
 	}); err != nil {
 		t.Error(err)
@@ -348,14 +354,15 @@ Changes not staged for commit:
 
 Untracked files not listed (use -u option to show untracked files)
 `,
-		Short: `UU bar.txt
-A  baz/foo.txt 
+		Short: `AM bar.txt
+A  baz/foo.txt
 UU foo.txt
 `,
 		ShortBranch: `## HEAD (no branch)
-UU foo.txt
+AM bar.txt
 A  baz/foo.txt
-UU foo.txt`,
+UU foo.txt
+`,
 		PorcelainV2: ``, // FIXME: Check what this should be.
 	}); err != nil {
 		t.Error(err)
@@ -394,14 +401,14 @@ Untracked files:
 
 `,
 		Short: `AM ../bar.txt
-A  ../baz/foo.txt 
+A  ../baz/foo.txt
 UU ../foo.txt
 ?? ../baz/bar.txt
 ?? ./
 `,
 		ShortBranch: `## HEAD (no branch)
 AM ../bar.txt
-A  ../baz/foo.txt 
+A  ../baz/foo.txt
 UU ../foo.txt
 ?? ../baz/bar.txt
 ?? ./
@@ -442,7 +449,7 @@ Untracked files:
 
 `,
 		Short: `AM ../bar.txt
-A  ../baz/foo.txt 
+A  ../baz/foo.txt
 UU ../foo.txt
 ?? ../baz/bar.txt
 ?? bar.txt
@@ -450,7 +457,7 @@ UU ../foo.txt
 `,
 		ShortBranch: `## HEAD (no branch)
 AM ../bar.txt
-A  ../baz/foo.txt 
+A  ../baz/foo.txt
 UU ../foo.txt
 ?? ../baz/bar.txt
 ?? bar.txt
