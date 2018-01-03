@@ -132,7 +132,7 @@ func checkoutFile(c *Client, entry *IndexEntry, opts CheckoutIndexOptions) error
 	// Don't change the stat info if there's a prefix, because
 	// if we're checkout out into a prefix, it means we haven't
 	// touched the index.
-	if opts.UpdateStat && opts.Prefix == "" {
+	if opts.Prefix == "" {
 		mtime, err := f.MTime()
 		if err != nil {
 			return err
@@ -227,12 +227,6 @@ func CheckoutIndexUncommited(c *Client, idx *Index, opts CheckoutIndexOptions, f
 				continue
 			}
 
-			if opts.UpdateStat {
-				mtime, err := fname.MTime()
-				if err == nil {
-					entry.Mtime = mtime
-				}
-			}
 			if entry.PathName.IsClean(c, entry.Sha1) && !opts.Temp {
 				// don't bother checkout out the file
 				// if it's already clean. This makes us less
@@ -242,6 +236,10 @@ func CheckoutIndexUncommited(c *Client, idx *Index, opts CheckoutIndexOptions, f
 				// FIXME: This should use stat information, not hash
 				// the whole file.
 				continue
+			}
+			mtime, err := fname.MTime()
+			if err == nil {
+				entry.Mtime = mtime
 			}
 
 			switch opts.Stage {
@@ -284,16 +282,12 @@ func CheckoutIndexUncommited(c *Client, idx *Index, opts CheckoutIndexOptions, f
 		}
 	}
 
-	if opts.UpdateStat {
-		f, err := c.GitDir.Create(File("index"))
-		if err != nil {
-			return err
-		}
-		defer f.Close()
-		return idx.WriteIndex(f)
-
+	f, err := c.GitDir.Create(File("index"))
+	if err != nil {
+		return err
 	}
-	return nil
+	defer f.Close()
+	return idx.WriteIndex(f)
 }
 
 // CheckoutIndex implements the "git checkout-index" subcommand of git.
