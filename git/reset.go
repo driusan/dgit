@@ -126,7 +126,7 @@ func ResetMode(c *Client, opts ResetOptions, cmt Commitish) error {
 		}
 	}
 	if opts.Hard {
-		if err := CheckoutIndex(c, CheckoutIndexOptions{All: true, Force: true}, nil); err != nil {
+		if err := CheckoutIndex(c, CheckoutIndexOptions{All: true, Force: true, UpdateStat: true}, nil); err != nil {
 			return err
 		}
 	}
