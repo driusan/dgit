@@ -29,10 +29,8 @@ func Init(c *Client, opts InitOptions, dir string) (*Client, error) {
 		dir = dir2
 	}
 
+	println("dir", dir)
 	if err := os.MkdirAll(dir, 0755); err != nil {
-		return nil, err
-	}
-	if err := os.Chdir(dir); err != nil {
 		return nil, err
 	}
 
