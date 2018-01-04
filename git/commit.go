@@ -120,11 +120,8 @@ func Commit(c *Client, opts CommitOptions, message CommitMessage, files []File) 
 				return CommitID{}, err
 			}
 			os.Setenv("GIT_AUTHOR_DATE", date.Format("Mon, 02 Jan 2006 15:04:05 -0700"))
-		} else {
-			if c.GetAuthor(nil) != author {
-				goto skipemptycheck
-			}
 		}
+		goto skipemptycheck
 	} else if err == nil || err == DetachedHead {
 		parents = append(parents, oldHead)
 	}
