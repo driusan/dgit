@@ -104,7 +104,7 @@ func CheckoutCommit(c *Client, opts CheckoutOptions, commit Commitish) error {
 	}
 	// Get the original HEAD for the reflog
 	head, err := SymbolicRefGet(c, SymbolicRefOptions{}, "HEAD")
-	if err != nil {
+	if err != nil && err != DetachedHead {
 		return err
 	}
 
@@ -114,14 +114,24 @@ func CheckoutCommit(c *Client, opts CheckoutOptions, commit Commitish) error {
 		return err
 	}
 
-	// Get the original HEAD branchname
-	origB := Branch(head).BranchName()
-	if origB == "" {
-		return DetachedHead
+	readtreeopts := ReadTreeOptions{Update: true, Merge: true}
+	if opts.Force {
+		readtreeopts.Merge = false
+		readtreeopts.Reset = true
+	}
+	if _, err := ReadTree(c, readtreeopts, cid); err != nil {
+		return err
 	}
 
-	if _, err := ReadTree(c, ReadTreeOptions{Update: true, Merge: true}, cid); err != nil {
-		return err
+	var origB string
+	// Get the original HEAD branchname for the reflog
+	origB = Branch(head).BranchName()
+	if branch := Branch(head).BranchName(); branch != "" {
+		origB = branch
+	} else {
+		if h, err := head.CommitID(c); err == nil {
+		origB = h.String()
+		}
 	}
 
 	if b, ok := commit.(Branch); ok && !opts.Detach {

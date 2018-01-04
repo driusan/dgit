@@ -378,7 +378,7 @@ func checkMergeAndUpdate(c *Client, opt ReadTreeOptions, origidx map[IndexPath]*
 	files := make([]File, 0, len(newidx.Objects))
 	filemap := make(map[File]*IndexEntry)
 
-	if opt.Merge {
+	if opt.Merge || opt.Reset {
 		// Verify that merge won't overwrite anything that's been modified locally.
 		for _, entry := range newidx.Objects {
 			if entry.Stage() != Stage0 {

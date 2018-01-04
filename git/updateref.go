@@ -39,15 +39,20 @@ func updateReflog(c *Client, create bool, file File, oldvalue, newvalue Commitis
 	var err error
 	if oldvalue != nil {
 		oldsha, err = oldvalue.CommitID(c)
-		if err != nil {
+		switch err {
+		case DetachedHead, nil:
+		default:
 			return err
 		}
 	}
 	if newvalue != nil {
 		newsha, err = newvalue.CommitID(c)
-		if err != nil {
+	switch err {
+		case DetachedHead, nil:
+		default:
 			return err
 		}
+
 	}
 	if reason == "" {
 		toAppend = fmt.Sprintf("%s %s %s\n", oldsha, newsha, commiter)
