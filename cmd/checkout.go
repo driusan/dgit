@@ -7,11 +7,7 @@ import (
 	"github.com/driusan/dgit/git"
 )
 
-// Implements the git checkout command.
-//
-// BUG(driusan): This needs to be completely rewritten in terms of checkout-index
-// and ReadTree, now that they're implemented. CheckoutIndex is much safer and
-// more in line with the git client, while this is a hack.
+// Implements the git checkout command line parsing.
 func Checkout(c *git.Client, args []string) error {
 	flags := flag.NewFlagSet("checkout", flag.ExitOnError)
 	options := git.CheckoutOptions{}
