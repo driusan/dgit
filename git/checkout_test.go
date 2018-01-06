@@ -157,6 +157,4 @@ func TestCheckoutBranch(t *testing.T) {
 	if head != RefSpec("refs/heads/master") {
 		t.Errorf("Checkout branch variation did not change head from detached head mode. Got: %v", head)
 	}
-
-
 }

@@ -47,7 +47,7 @@ func updateReflog(c *Client, create bool, file File, oldvalue, newvalue Commitis
 	}
 	if newvalue != nil {
 		newsha, err = newvalue.CommitID(c)
-	switch err {
+		switch err {
 		case DetachedHead, nil:
 		default:
 			return err

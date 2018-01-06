@@ -149,7 +149,15 @@ func ResetUnstage(c *Client, opts ResetOptions, tree Treeish, files []File) erro
 		if err != nil {
 			return err
 		}
-		if err := index.AddStage(c, entry.Name, entry.Src.Sha1, Stage0, uint32(entry.SrcSize), mtime, true); err != nil {
+		if entry.Src == (TreeEntry{}) {
+			// The file wasn't in HEAD. Remove it from the index,
+			// but only do it for files that were explicitly removed.
+			for _, unstage := range files {
+				if f == unstage {
+					index.RemoveFile(entry.Name)
+				}
+			}
+		} else if err := index.AddStage(c, entry.Name, entry.Src.Sha1, Stage0, uint32(entry.SrcSize), mtime, true); err != nil {
 			return err
 		}
 	}

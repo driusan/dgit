@@ -42,11 +42,6 @@ func DiffIndex(c *Client, opt DiffIndexOptions, index *Index, tree Treeish, path
 	var val []HashDiff
 
 	for _, entry := range index.Objects {
-		if len(paths) > 0 {
-			if _, ok := treeObjects[entry.PathName]; !ok {
-				continue
-			}
-		}
 		f, err := entry.PathName.FilePath(c)
 		if err != nil {
 			return nil, err

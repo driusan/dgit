@@ -130,7 +130,7 @@ func CheckoutCommit(c *Client, opts CheckoutOptions, commit Commitish) error {
 		origB = branch
 	} else {
 		if h, err := head.CommitID(c); err == nil {
-		origB = h.String()
+			origB = h.String()
 		}
 	}
 
