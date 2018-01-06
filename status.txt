@@ -30,7 +30,7 @@ diff           HappyPath     git 2.9.2              Only "git diff" and "git dif
 fetch          HappyPath     git 2.9.2
 format-patch   None
 gc             None
-grep           None
+grep           HappyPath     git 2.14.2              (36) Only --untracked, --no-exclude-standard, --line-numbers and -e. Can only specify -e once
 gui            None
 init           Almost        git 2.9.2              (3) only --quiet and --bare implemented
 log            HappyPath     git 2.9.2
