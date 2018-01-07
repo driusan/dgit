@@ -235,6 +235,11 @@ func main() {
 			fmt.Fprintln(os.Stderr, err)
 			os.Exit(4)
 		}
+	case "apply":
+		if err := cmd.Apply(c, args); err != nil {
+			fmt.Fprintln(os.Stderr, err)
+			os.Exit(4)
+		}
 	default:
 		fmt.Fprintf(os.Stderr, "Unknown git command %s.\n", subcommand)
 	}
