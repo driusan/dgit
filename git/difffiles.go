@@ -75,7 +75,11 @@ func DiffFiles(c *Client, opt DiffFilesOptions, paths []File) ([]HashDiff, error
 		}
 		size := stat.Size()
 		if mtime != idx.Mtime || size != int64(idx.Fsize) {
-			val = append(val, HashDiff{idx.PathName, idxtree, fs, uint(idx.Fsize), uint(size)})
+			hash, _, _ := HashFile("blob", f.String())
+
+			if err != nil || hash != idx.Sha1 {
+				val = append(val, HashDiff{idx.PathName, idxtree, fs, uint(idx.Fsize), uint(size)})
+			}
 		}
 	}
 

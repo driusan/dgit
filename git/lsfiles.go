@@ -178,10 +178,18 @@ func LsFiles(c *Client, opt LsFilesOptions, files []File) ([]*IndexEntry, error)
 				return nil, err
 			}
 			if size := stat.Size(); size != int64(entry.Fsize) || mtime != entry.Mtime {
-				fs = append(fs, entry)
+				// We've done everything we can to avoid hashing the file, but now
+				// we need to to avoid the case where someone changes a file, then
+				// changes it back to the original contents
+				hash, _, err := HashFile("blob", f.String())
+				if err != nil {
+					return nil, err
+				}
+				if hash != entry.Sha1 {
+					fs = append(fs, entry)
+				}
 			}
 		}
-
 	}
 
 	if opt.Others {

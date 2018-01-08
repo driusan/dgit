@@ -10,7 +10,7 @@ Status:
 Main Porcelain Commands:
 Command	Status	Reference git version  Notes
 -------        ------        ---------------------  -----
-add            HappyPath     git 2.9.2              (6) Missing --patch, --edit, --interactive, --intent-to-add, --ignore-errors, --ignore-missing, and --no-warn-embedded-repo
+add            HappyPath     git 2.9.2              (5) Missing --edit, --interactive, --intent-to-add, --ignore-errors, --ignore-missing, and --no-warn-embedded-repo
                                                     (3) Passed to update-index or ls-files, but missing plumbing support: --force, --refresh, --chmod
 am             None
 archive        None
