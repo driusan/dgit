@@ -1,7 +1,10 @@
 package git
 
 import (
+	"bytes"
 	"fmt"
+	"io/ioutil"
+	"os"
 )
 
 // CheckoutOptions represents the options that may be passed to
@@ -42,7 +45,6 @@ type CheckoutOptions struct {
 	// Not implemented.
 	ConflictStyle string
 
-	// Not implemented
 	Patch bool
 
 	// Not implemented
@@ -67,6 +69,36 @@ type CheckoutOptions struct {
 func Checkout(c *Client, opts CheckoutOptions, thing string, files []File) error {
 	if thing == "" {
 		thing = "HEAD"
+	}
+
+	if opts.Patch {
+		diffs, err := DiffFiles(c, DiffFilesOptions{}, files)
+		if err != nil {
+			return err
+		}
+		var patchbuf bytes.Buffer
+		if err := GeneratePatch(c, DiffCommonOptions{Patch: true}, diffs, &patchbuf); err != nil {
+			return err
+		}
+		hunks, err := splitPatch(patchbuf.String())
+		if err != nil {
+			return err
+		}
+		hunks, err = filterHunks("discard this hunk from the work tree", hunks)
+		if err == userAborted {
+			return nil
+		} else if err != nil {
+			return err
+		}
+
+		patch, err := ioutil.TempFile("", "checkoutpatch")
+		if err != nil {
+			return err
+		}
+		defer os.Remove(patch.Name())
+		recombinePatch(patch, hunks)
+
+		return Apply(c, ApplyOptions{Reverse: true}, []File{File(patch.Name())})
 	}
 
 	if len(files) == 0 {

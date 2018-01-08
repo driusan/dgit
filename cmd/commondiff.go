@@ -3,7 +3,6 @@ package cmd
 import (
 	"flag"
 	"fmt"
-	"log"
 
 	"github.com/driusan/dgit/git"
 )
@@ -49,23 +48,6 @@ func parseCommonDiffFlags(c *git.Client, options *git.DiffCommonOptions, default
 
 // Print the diffs that come back from either diff-files, diff-index, or diff-tree
 // in the appropriate format according to options.
-func printDiffs(c *git.Client, options git.DiffCommonOptions, diffs []git.HashDiff) {
-	for _, diff := range diffs {
-		if options.Raw {
-			fmt.Printf("%v\n", diff)
-		}
-		if options.Patch {
-			f, err := diff.Name.FilePath(c)
-			if err != nil {
-				log.Println(err)
-			}
-			patch, err := diff.ExternalDiff(c, diff.Src, diff.Dst, f, options)
-			if err != nil {
-				log.Print(err)
-			} else {
-				fmt.Printf("diff --git a/%v b/%v\n%v\n", diff.Name, diff.Name, patch)
-			}
-		}
-	}
-
+func printDiffs(c *git.Client, options git.DiffCommonOptions, diffs []git.HashDiff) error {
+	return git.GeneratePatch(c, options, diffs, nil)
 }

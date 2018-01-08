@@ -36,7 +36,5 @@ func DiffIndex(c *git.Client, args []string) error {
 	if err != nil {
 		return err
 	}
-
-	printDiffs(c, options.DiffCommonOptions, diffs)
-	return nil
+	return printDiffs(c, options.DiffCommonOptions, diffs)
 }

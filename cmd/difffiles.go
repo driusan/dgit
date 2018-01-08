@@ -18,7 +18,5 @@ func DiffFiles(c *git.Client, args []string) error {
 	if err != nil {
 		return err
 	}
-
-	printDiffs(c, options.DiffCommonOptions, diffs)
-	return err
+	return printDiffs(c, options.DiffCommonOptions, diffs)
 }

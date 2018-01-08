@@ -2,6 +2,7 @@ package git
 
 import (
 	"fmt"
+	"io"
 	"io/ioutil"
 	"os"
 	"os/exec"
@@ -81,8 +82,11 @@ func (h HashDiff) ExternalDiff(c *Client, s1, s2 TreeEntry, f File, opts DiffCom
 	// diff returns an error code if there's any differences, so just throw
 	// away the error.
 	diffcmd.Stderr = os.Stderr
+
+	// diff returns > 0 if any diffs are found, but we don't want to treat
+	// it as an error.
 	out, _ := diffcmd.Output()
-	return string(out), nil
+	return string(out), err
 
 }
 
@@ -93,3 +97,36 @@ type ByName []HashDiff
 func (g ByName) Len() int           { return len(g) }
 func (g ByName) Swap(i, j int)      { g[i], g[j] = g[j], g[i] }
 func (g ByName) Less(i, j int) bool { return g[i].Name < g[j].Name }
+
+func printDiffHeader(w io.Writer, name IndexPath, full bool) {
+	fmt.Fprintf(w, "diff --git a/%v b/%v\n", name, name)
+	if full {
+		fmt.Fprintf(w, "--- a/%v\n+++ b/%v\n", name, name)
+	}
+}
+
+func GeneratePatch(c *Client, options DiffCommonOptions, diffs []HashDiff, dst io.Writer) error {
+	if dst == nil {
+		dst = os.Stdout
+	}
+	for _, diff := range diffs {
+		if options.Raw {
+			fmt.Fprintf(dst, "%v\n", diff)
+		}
+		if options.Patch {
+			f, err := diff.Name.FilePath(c)
+			if err != nil {
+				return err
+			}
+
+			patch, err := diff.ExternalDiff(c, diff.Src, diff.Dst, f, options)
+			if err != nil {
+				return err
+			} else {
+				printDiffHeader(dst, diff.Name, false)
+				fmt.Fprintf(dst, "%v\n", patch)
+			}
+		}
+	}
+	return nil
+}

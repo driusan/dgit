@@ -1,7 +1,7 @@
 package git
 
 import (
-	"fmt"
+	//	"fmt"
 	"io"
 	"io/ioutil"
 	"os"
@@ -56,20 +56,24 @@ func Apply(c *Client, opts ApplyOptions, patches []File) error {
 	if err != nil {
 		return err
 	}
-	//	defer os.RemoveAll(backupdir)
+	defer os.RemoveAll(backupdir)
 
+	var patchDir string
+	if opts.Reverse {
+		patchDir = "-R"
+	} else {
+		patchDir = "-N"
+	}
 	for _, patch := range patches {
-		patchcmd := exec.Command(posixPatch, "--backup", "-B", backupdir+"/", "--directory", c.WorkDir.String(), "-i", patch.String(), "-N", "-r", "foo.rej", "-p1", "-r", "/dev/null")
+		patchcmd := exec.Command(posixPatch, "--backup", "-B", backupdir+"/", "--directory", c.WorkDir.String(), "-i", patch.String(), patchDir, "-p1", "-r", "/dev/null")
 		patchcmd.Stderr = os.Stderr
-		out, err := patchcmd.Output()
-		fmt.Printf("Output: %s\n", out)
+		_, err := patchcmd.Output()
 		if err != nil {
 			if err := restoreDir(c, backupdir); err != nil {
 				// If our err recovery errored out, we're in a really
 				// bad state, so panic.
 				panic(err)
 			}
-			fmt.Printf("Should restore %s\n", backupdir)
 			return err
 		}
 	}
@@ -86,7 +90,6 @@ func restoreDir(c *Client, dir string) error {
 		}
 		relpath := strings.TrimPrefix(path, dir+"/")
 		dstpath := c.WorkDir.String() + "/" + relpath
-		fmt.Printf("Copying %v to %v", path, dstpath)
 		return copyFile(path, dstpath)
 	})
 	return nil

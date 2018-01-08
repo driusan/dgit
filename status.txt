@@ -105,7 +105,7 @@ Manipulation Plumbing Commands (These are the highest priority now, other than t
 Where there is a (n) in front of the notes, it means the number of options missing
 Command	Status	Reference git version  Notes
 -------        ------        ---------------------  -----
-apply          HappyPath     git 2.14.2             (26) No options, doesn't restrict to current directory.
+apply          HappyPath     git 2.14.2             (25) only --reverse, doesn't restrict to current directory.
 checkout-index Done          git 2.9.2
 commit-tree    Almost        git 2.9.2              (1) missing -s to sign commits
 hash-object    Almost        git 2.9.2              (2) --literally and --no-filters are implied
