@@ -1,7 +1,7 @@
 package git
 
 import (
-	//	"fmt"
+	"fmt"
 	"io"
 	"io/ioutil"
 	"os"
@@ -49,41 +49,86 @@ type ApplyOptions struct {
 }
 
 func Apply(c *Client, opts ApplyOptions, patches []File) error {
-	// 1. Make backup dir to ensure patch is atomc and rollback if applicable
-	// 2. Run an external posix patch command
-	// 3. If it didn't succeed, restore from backup to ensure atomicity
-	backupdir, err := ioutil.TempDir("", "gitapply")
+	// 1. Make a temporary directory to patch files in to ensure atomicity
+	// 2. Copy files to tempdir
+	// 3. Run an external patch tool
+	// 4. If successful, copy the files back over WorkDir
+	patchdir, err := ioutil.TempDir("", "gitapply")
 	if err != nil {
 		return err
 	}
-	defer os.RemoveAll(backupdir)
+	if !opts.Cached {
+		defer os.RemoveAll(patchdir)
+	}
 
-	var patchDir string
+	// First pass, parse the patches to figure out which files are involved
+	files := make(map[IndexPath]bool)
+	for _, patch := range patches {
+		patch, err := ioutil.ReadFile(patch.String())
+		if err != nil {
+			return err
+		}
+		hunks, err := splitPatch(string(patch), true)
+		if err != nil {
+			return err
+		}
+		for _, hunk := range hunks {
+			files[hunk.File] = true
+		}
+	}
+
+	// Copy all of the files. We do this in a second pass to void
+	// needlessly recopying the same files multiple times.
+	var idx *Index
+	if opts.Cached {
+		idx2, err := c.GitDir.ReadIndex()
+		if err != nil {
+			return err
+		}
+		idx = idx2
+	}
+	for file := range files {
+		f, err := file.FilePath(c)
+		if err != nil {
+			return err
+		}
+
+		dst := patchdir + "/" + file.String()
+		if opts.Cached {
+			if err := copyFromIndex(c, idx, file, dst); err != nil {
+				return err
+			}
+		} else {
+			if err := copyFile(f.String(), dst); err != nil {
+				return err
+			}
+		}
+	}
+
+	var patchDirection string
 	if opts.Reverse {
-		patchDir = "-R"
+		patchDirection = "-R"
 	} else {
-		patchDir = "-N"
+		patchDirection = "-N"
 	}
 	for _, patch := range patches {
-		patchcmd := exec.Command(posixPatch, "--backup", "-B", backupdir+"/", "--directory", c.WorkDir.String(), "-i", patch.String(), patchDir, "-p1", "-r", "/dev/null")
+		patchcmd := exec.Command(posixPatch, "--directory", patchdir, "-i", patch.String(), patchDirection, "-p1")
 		patchcmd.Stderr = os.Stderr
 		_, err := patchcmd.Output()
 		if err != nil {
-			if err := restoreDir(c, backupdir); err != nil {
-				// If our err recovery errored out, we're in a really
-				// bad state, so panic.
-				panic(err)
-			}
 			return err
 		}
 	}
-	return nil
+	if opts.Cached {
+		return updateApplyIndex(c, idx, patchdir)
+	}
+	return copyApplyDir(c, patchdir)
+
 }
 
-// RestoreDir takes the directory dir, which is a backup dir created by apply,
-// and copies it over c's WorkDir to overwrite any in-place backups that might
-// have happened.
-func restoreDir(c *Client, dir string) error {
+// RestoreDir takes the directory dir, which is the directory that apply did
+// its work in, and copies it back into the workdir.
+func copyApplyDir(c *Client, dir string) error {
 	filepath.Walk(dir, func(path string, info os.FileInfo, err error) error {
 		if info.IsDir() {
 			return nil
@@ -95,6 +140,45 @@ func restoreDir(c *Client, dir string) error {
 	return nil
 }
 
+// RestoreDir takes the directory dir, which is the directory that apply did
+// its work in, and copies it back into the workdir.
+func updateApplyIndex(c *Client, idx *Index, dir string) error {
+	filepath.Walk(dir, func(path string, info os.FileInfo, err error) error {
+		if info.IsDir() {
+			return nil
+		}
+		relpath := strings.TrimPrefix(path, dir+"/")
+		fmt.Printf("%v\n", relpath)
+		contents, err := ioutil.ReadFile(path)
+		if err != nil {
+			return err
+		}
+		sha1, err := c.WriteObject("blob", contents)
+		if err != nil {
+			return err
+		}
+
+		ipath := IndexPath(relpath)
+		// Avoid using AddStage so that mtime doesn't get modified,
+		// and cause false negatives for file status
+		for _, entry := range idx.Objects {
+			if entry.PathName != ipath {
+				continue
+			}
+			entry.Sha1 = sha1
+			return nil
+		}
+		return nil
+	})
+	// Write the index that the callback modified
+	f, err := c.GitDir.Create(File("index"))
+	if err != nil {
+		return err
+	}
+	defer f.Close()
+	return idx.WriteIndex(f)
+}
+
 func copyFile(src, dst string) error {
 	s, err := os.Open(src)
 	if err != nil {
@@ -102,6 +186,15 @@ func copyFile(src, dst string) error {
 	}
 	defer s.Close()
 
+	// Ensure that the directory exists for dst.
+	dir := filepath.Dir(dst)
+	if dir != "." {
+		if err := os.MkdirAll(dir, 0755); err != nil {
+			return err
+		}
+	}
+
+	// Create/truncate the file and copy
 	d, err := os.Create(dst)
 	if err != nil {
 		return err
@@ -110,4 +203,22 @@ func copyFile(src, dst string) error {
 
 	_, err = io.Copy(d, s)
 	return err
+}
+
+func copyFromIndex(c *Client, idx *Index, file IndexPath, dst string) error {
+	sha1 := idx.GetSha1(file)
+	obj, err := c.GetObject(sha1)
+	if err != nil {
+		return err
+	}
+
+	// Ensure that the directory exists for dst.
+	dir := filepath.Dir(dst)
+	if dir != "." {
+		if err := os.MkdirAll(dir, 0755); err != nil {
+			return err
+		}
+	}
+
+	return ioutil.WriteFile(dst, obj.GetContent(), 0644)
 }

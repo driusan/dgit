@@ -30,7 +30,7 @@ func CatFile(c *Client, s Sha1, opts CatFileOptions) (string, error) {
 	case opts.Type:
 		return obj.GetType(), nil
 	case opts.Size:
-		return fmt.Sprintf("%v", obj.GetSize), nil
+		return fmt.Sprintf("%v", obj.GetSize()), nil
 	default:
 		return "", fmt.Errorf("Not yet implemented.")
 	}

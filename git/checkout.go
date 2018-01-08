@@ -80,7 +80,7 @@ func Checkout(c *Client, opts CheckoutOptions, thing string, files []File) error
 		if err := GeneratePatch(c, DiffCommonOptions{Patch: true}, diffs, &patchbuf); err != nil {
 			return err
 		}
-		hunks, err := splitPatch(patchbuf.String())
+		hunks, err := splitPatch(patchbuf.String(), false)
 		if err != nil {
 			return err
 		}

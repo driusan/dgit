@@ -54,7 +54,6 @@ func compareStatus(c *Client, opts StatusOptions, expected expectedStatus) error
 			return fmt.Errorf("Porcelain v2 status: got %v want %v", s, expected.PorcelainV2)
 		}
 	*/
-	return nil
 }
 
 // TestSimpleCommits tests that an initial commit works,

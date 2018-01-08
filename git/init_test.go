@@ -23,7 +23,7 @@ func TestInitRepo(t *testing.T) {
 		t.Fatal(err)
 	}
 	if e := GitDir(dir) + "/.git"; c.GitDir != e {
-		t.Error("Unexpected GitDir in client. got %v want %v", c.GitDir, e)
+		t.Errorf("Unexpected GitDir in client. got %v want %v", c.GitDir, e)
 	}
 	head, err := c.GitDir.ReadFile("HEAD")
 	if err != nil {

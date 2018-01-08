@@ -162,8 +162,7 @@ func (c *Client) GetCommitObject(commit CommitID) (GitCommitObject, error) {
 	if ok {
 		return gco, nil
 	}
-	return gco, fmt.Errorf("Could not convert object %v to commit object", o)
-	return gco, err
+	return gco, fmt.Errorf("Could not convert object %v to commit object: %v", o, err)
 }
 func (c *Client) GetObject(sha1 Sha1) (GitObject, error) {
 	found, packfile, err := c.HaveObject(sha1)

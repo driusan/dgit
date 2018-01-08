@@ -15,7 +15,7 @@ type patchHunk struct {
 }
 
 // Split a patch into the hunks which make up the patch.
-func splitPatch(fullpatch string) ([]patchHunk, error) {
+func splitPatch(fullpatch string, nameonly bool) ([]patchHunk, error) {
 	// Regexp to extract the different files that are part of the patch
 	fileRE := regexp.MustCompile(`(?m)^diff --git a/([[:graph:]]+) b/([[:graph:]]+)$`)
 	filechunks := fileRE.FindAllStringSubmatchIndex(fullpatch, -1)
@@ -32,8 +32,13 @@ func splitPatch(fullpatch string) ([]patchHunk, error) {
 		} else {
 			patch = fullpatch[match[0]:filechunks[i+1][0]]
 		}
-		pieces := extractPatchHunks(IndexPath(a), patch)
-		ret = append(ret, pieces...)
+		if nameonly {
+			ret = append(ret, patchHunk{IndexPath(a), ""})
+
+		} else {
+			pieces := extractPatchHunks(IndexPath(a), patch)
+			ret = append(ret, pieces...)
+		}
 	}
 	return ret, nil
 }

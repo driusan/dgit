@@ -194,7 +194,7 @@ diff --git a/main.go b/main.go
 	}
 
 	for i, tc := range tests {
-		val, err := splitPatch(tc.patch)
+		val, err := splitPatch(tc.patch, false)
 		if err != nil {
 			t.Errorf("Case %d: %v", i, err)
 			continue

@@ -27,9 +27,9 @@ func TestUpdateIndexCacheInfoCmd(t *testing.T) {
 		{
 			"100755,c69ecb78f2115e92c1baa9887226d158fe5bfeda,foo",
 			git.CacheInfo{
-				git.ModeExec,
-				sha1FromString("c69ecb78f2115e92c1baa9887226d158fe5bfeda"),
-				"foo",
+				Mode: git.ModeExec,
+				Sha1: sha1FromString("c69ecb78f2115e92c1baa9887226d158fe5bfeda"),
+				Path: "foo",
 			},
 			false,
 		},

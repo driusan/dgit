@@ -98,7 +98,7 @@ func TestCheckoutBranch(t *testing.T) {
 		t.Fatal(err)
 	}
 	if string(foo) != "foo\n" {
-		t.Error("Incorrect content in foo. Expected foo\n, got %v", string(foo))
+		t.Errorf("Incorrect content in foo. Expected foo\n, got %v", string(foo))
 	}
 
 	// Go back to notmaster with a dirty working tree. This should fail
