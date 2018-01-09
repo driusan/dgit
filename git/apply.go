@@ -1,7 +1,7 @@
 package git
 
 import (
-	"fmt"
+	//	"fmt"
 	"io"
 	"io/ioutil"
 	"os"
@@ -57,9 +57,7 @@ func Apply(c *Client, opts ApplyOptions, patches []File) error {
 	if err != nil {
 		return err
 	}
-	if !opts.Cached {
-		defer os.RemoveAll(patchdir)
-	}
+	defer os.RemoveAll(patchdir)
 
 	// First pass, parse the patches to figure out which files are involved
 	files := make(map[IndexPath]bool)
@@ -148,7 +146,6 @@ func updateApplyIndex(c *Client, idx *Index, dir string) error {
 			return nil
 		}
 		relpath := strings.TrimPrefix(path, dir+"/")
-		fmt.Printf("%v\n", relpath)
 		contents, err := ioutil.ReadFile(path)
 		if err != nil {
 			return err
