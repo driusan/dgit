@@ -160,6 +160,9 @@ skipemptycheck:
 
 type CommitMessage string
 
+func (cm CommitMessage) String() string {
+	return string(cm)
+}
 func (cm CommitMessage) Cleanup(mode string, edit bool) (string, error) {
 	switch mode {
 	case "strip":
@@ -197,4 +200,12 @@ func (cm CommitMessage) strip() string {
 		filtered = append(filtered, line)
 	}
 	return strings.Join(filtered, "\n")
+}
+
+func (cm CommitMessage) Subject() string {
+	lines := strings.SplitN(cm.whitespace(), "\n", 1)
+	if len(lines) > 0 {
+		return strings.TrimSpace(lines[0])
+	}
+	return ""
 }

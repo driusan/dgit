@@ -35,7 +35,7 @@ func printCommit(c *git.Client, cmt git.CommitID) {
 	//fmt.Printf("commit %v\nAuthor: %v\nDate: %v\n\n", c.Id, c.Author, c.Author.When.Format("Mon Jan 2 15:04:05 2006 -0700"))
 
 	msg, err := cmt.GetCommitMessage(c)
-	lines := strings.Split(strings.TrimSpace(msg), "\n")
+	lines := strings.Split(strings.TrimSpace(msg.String()), "\n")
 	for _, l := range lines {
 		fmt.Printf("    %v\n", l)
 	}

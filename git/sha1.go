@@ -258,14 +258,14 @@ func (cmt CommitID) GetDate(c *Client) (time.Time, error) {
 
 }
 
-func (cmt CommitID) GetCommitMessage(c *Client) (string, error) {
+func (cmt CommitID) GetCommitMessage(c *Client) (CommitMessage, error) {
 	obj, err := c.GetCommitObject(cmt)
 	if err != nil {
 		return "", err
 	}
 	for i, c := range obj.content {
 		if c == '\n' && obj.content[i+1] == '\n' {
-			return string(obj.content[i+2:]), nil
+			return CommitMessage(string(obj.content[i+2:])), nil
 		}
 	}
 	return "", nil
