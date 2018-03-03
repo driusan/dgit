@@ -1,11 +1,29 @@
 package cmd
 
 import (
+	"fmt"
 	"io/ioutil"
 	"log"
+	"os"
 
 	"github.com/driusan/dgit/git"
 )
+
+func printNoUserMessage(committer git.Person) {
+	fmt.Fprintf(os.Stderr, ` Committer: %v
+Your name and email address were configured automatically based
+on your username and hostname. Please check that they are accurate.
+You can suppress this message by setting them explicitly. Run the
+following commands:
+
+	dgit config --global user.name 'Your Name'
+	dgit config --global user.email your@email
+
+After doing this, you may fix the identity userd for this commit with:
+
+	dgit commit --amend --reset-author
+`, committer)
+}
 
 // Commit implements the command "git commit" in the repository pointed
 // to by c.
@@ -74,8 +92,14 @@ func Commit(c *git.Client, args []string) (string, error) {
 		message = string(m2)
 	}
 	cmt, err := git.Commit(c, opts, git.CommitMessage(message), nil)
-	if err != nil {
+	switch err {
+	case git.NoGlobalConfig:
+		committer, _ := c.GetCommitter(nil)
+		printNoUserMessage(committer)
+		fallthrough
+	case nil:
+		return cmt.String(), nil
+	default:
 		return "", err
 	}
-	return cmt.String(), nil
 }

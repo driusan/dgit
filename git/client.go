@@ -7,12 +7,15 @@ import (
 	"io/ioutil"
 	"log"
 	"os"
+	"os/user"
 	"path/filepath"
 	"strings"
 	"time"
 
 	"github.com/driusan/dgit/zlib"
 )
+
+var NoGlobalConfig = fmt.Errorf("No global .gitconfig file exists")
 
 // An IndexPath represents a file in the index. ie. a File path relative
 // to the Git WorkDir, not the current working directory.
@@ -255,7 +258,17 @@ func (c *Client) GetAuthor(t *time.Time) Person {
 		configFile, err := os.Open(home + "/.gitconfig")
 		config = ParseConfig(configFile)
 		if err != nil {
-			panic(err)
+			// .gitconfig doesn't exist, so use the system defaults.
+			u, err := user.Current()
+			if err != nil {
+				panic(err)
+			}
+			name = u.Name
+			h, err := os.Hostname()
+			if err != nil {
+				panic(err)
+			}
+			email = fmt.Sprintf("%s@%s", u.Username, h)
 		}
 	}
 	if name != "" {
@@ -275,7 +288,7 @@ func (c *Client) GetAuthor(t *time.Time) Person {
 
 // Returns the author that should be used for a commit message.
 // If time t is provided,
-func (c *Client) GetCommitter(t *time.Time) Person {
+func (c *Client) GetCommitter(t *time.Time) (Person, error) {
 	home := os.Getenv("HOME")
 	if home == "" {
 		home = os.Getenv("home") // On some OSes, it is home
@@ -283,6 +296,7 @@ func (c *Client) GetCommitter(t *time.Time) Person {
 	person := Person{}
 	name := os.Getenv("GIT_COMMITTER_NAME")
 	email := os.Getenv("GIT_COMMITTER_EMAIL")
+	var configerr error
 	var config GitConfig
 	if name == "" || email == "" {
 		// If either name or email come from the config, only parse
@@ -290,7 +304,18 @@ func (c *Client) GetCommitter(t *time.Time) Person {
 		configFile, err := os.Open(home + "/.gitconfig")
 		config = ParseConfig(configFile)
 		if err != nil {
-			panic(err)
+			// .gitconfig doesn't exist, so use the system defaults.
+			u, err := user.Current()
+			if err != nil {
+				panic(err)
+			}
+			name = u.Name
+			h, err := os.Hostname()
+			if err != nil {
+				panic(err)
+			}
+			email = fmt.Sprintf("%s@%s", u.Username, h)
+			configerr = NoGlobalConfig
 		}
 	}
 	if name != "" {
@@ -305,7 +330,7 @@ func (c *Client) GetCommitter(t *time.Time) Person {
 		person.Email = config.GetConfig("user.email")
 	}
 	person.Time = t
-	return person
+	return person, configerr
 }
 
 // Resets the index to the Treeish tree and save the results in

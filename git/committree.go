@@ -75,20 +75,24 @@ func CommitTree(c *Client, opts CommitTreeOptions, tree Treeish, parents []Commi
 		t = time.Now()
 		author = c.GetAuthor(&t)
 	}
+	var committerError error
 	if date := os.Getenv("GIT_COMMITTER_DATE"); date != "" {
 		t, err := parseDate(date)
 		if err != nil {
 			return CommitID{}, err
 		}
-		committer = c.GetCommitter(&t)
+		committer, committerError = c.GetCommitter(&t)
 	} else {
 		t = time.Now()
-		committer = c.GetCommitter(&t)
+		committer, committerError = c.GetCommitter(&t)
 	}
 
 	fmt.Fprintf(content, "author %s\n", author)
 	fmt.Fprintf(content, "committer %s\n\n", committer)
 	fmt.Fprintf(content, "%s", message)
 	sha1, err := c.WriteObject("commit", content.Bytes())
-	return CommitID(sha1), err
+	if err != nil {
+		return CommitID(sha1), err
+	}
+	return CommitID(sha1), committerError
 }

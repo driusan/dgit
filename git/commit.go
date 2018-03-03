@@ -138,8 +138,14 @@ skipemptycheck:
 	if err != nil {
 		return CommitID{}, err
 	}
+	var noConfig error
 	cid, err := CommitTree(c, CommitTreeOptions{}, TreeID(treeid), parents, cleanMessage)
-	if err != nil {
+	switch err {
+	case nil:
+		// Nothing
+	case NoGlobalConfig:
+		noConfig = err
+	default:
 		return CommitID{}, err
 	}
 
@@ -155,7 +161,7 @@ skipemptycheck:
 	if err := UpdateRef(c, UpdateRefOptions{OldValue: oldHead, CreateReflog: true}, "HEAD", cid, refmsg); err != nil {
 		return CommitID{}, err
 	}
-	return cid, nil
+	return cid, noConfig
 }
 
 type CommitMessage string
