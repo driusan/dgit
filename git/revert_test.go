@@ -53,7 +53,7 @@ func TestRevert(t *testing.T) {
 	}
 
 	// Try  a revert with a dirty tree, should ge an error.
-	if _, err := Revert(c, RevertOptions{}, []Commitish{bar}); err == nil {
+	if err := Revert(c, RevertOptions{}, []Commitish{bar}); err == nil {
 		t.Fatal("Was able to revert with a dirty tree.")
 	}
 	if _, err := Add(c, AddOptions{}, []File{"foo.txt"}); err != nil {
@@ -66,7 +66,7 @@ func TestRevert(t *testing.T) {
 	}
 
 	// Revert the last commit, so that we know there won't be conflicts..
-	if _, err := Revert(c, RevertOptions{Edit: false}, []Commitish{last}); err != nil {
+	if err := Revert(c, RevertOptions{Edit: false}, []Commitish{last}); err != nil {
 		t.Error(err)
 	}
 
