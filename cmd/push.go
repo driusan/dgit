@@ -3,6 +3,7 @@ package cmd
 import (
 	"fmt"
 	"os"
+	"io/ioutil"
 	"strings"
 
 	"github.com/driusan/dgit/git"
@@ -56,18 +57,21 @@ func Push(c *git.Client, args []string) {
 				lines = fmt.Sprintf("%s%s\n", lines, o.String())
 			}
 
-			PackObjects(c, strings.NewReader(lines), []string{"foo"})
-			f, err := os.Open("foo.pack")
+			f, err := ioutil.TempFile("", "sendpack")
 			if err != nil {
 				panic(err)
 			}
-			defer f.Close()
+			defer os.Remove(f.Name())
+
+			PackObjects(c, strings.NewReader(lines), []string{f.Name()})
+			_, err = f.Seek(0, os.SEEK_SET)
+			if err != nil {
+				panic(err)
+			}
 			stat, err := f.Stat()
 			if err != nil {
 				panic(err)
 			}
-			print(stat.Size())
-			//defer os.Remove("foo.pack")
 			ups.SendPack(git.UpdateReference{
 				LocalSha1:  localSha[0].Id.String(),
 				RemoteSha1: ref.Sha1,
