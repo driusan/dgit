@@ -64,10 +64,12 @@ func Push(c *git.Client, args []string) {
 			defer os.Remove(f.Name())
 
 			PackObjects(c, strings.NewReader(lines), []string{f.Name()})
-			_, err = f.Seek(0, os.SEEK_SET)
+			f, err = os.Open(f.Name() + ".pack")
 			if err != nil {
 				panic(err)
 			}
+			defer os.Remove(f.Name())
+
 			stat, err := f.Stat()
 			if err != nil {
 				panic(err)
