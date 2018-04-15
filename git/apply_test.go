@@ -56,7 +56,7 @@ func TestUnidiffApply(t *testing.T) {
 		t.Fatalf("Unexpected value of foo.txt after simple patch: got %v want %v", got, "bar\n")
 	}
 
-	// Make it an invalid patch
+	// Make it an invalid patch. (The content of foo.txt is currently "bar\n", not "foo\n")
 	if err := ioutil.WriteFile(patch.Name(), []byte(
 		`diff --git a/foo.txt b/foo.txt
 --- a/foo.txt

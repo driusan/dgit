@@ -1,7 +1,6 @@
 package git
 
 import (
-	//	"fmt"
 	"io"
 	"io/ioutil"
 	"os"
@@ -75,7 +74,7 @@ func Apply(c *Client, opts ApplyOptions, patches []File) error {
 		}
 	}
 
-	// Copy all of the files. We do this in a second pass to void
+	// Copy all of the files. We do this in a second pass to avoid
 	// needlessly recopying the same files multiple times.
 	var idx *Index
 	if opts.Cached {
@@ -110,7 +109,7 @@ func Apply(c *Client, opts ApplyOptions, patches []File) error {
 		patchDirection = "-N"
 	}
 	for _, patch := range patches {
-		patchcmd := exec.Command(posixPatch, "--directory", patchdir, "-i", patch.String(), patchDirection, "-p1")
+		patchcmd := exec.Command(posixPatch, "--directory", patchdir, "-i", patch.String(), patchDirection, "-p1", "-F", "0")
 		patchcmd.Stderr = os.Stderr
 		_, err := patchcmd.Output()
 		if err != nil {
