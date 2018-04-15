@@ -69,18 +69,19 @@ func DiffFiles(c *Client, opt DiffFilesOptions, paths []File) ([]HashDiff, error
 		default:
 			fs.FileMode = ModeBlob
 		}
-		mtime, err := f.MTime()
-		if err != nil {
-			return nil, err
-		}
+		//mtime, err := f.MTime()
+		//if err != nil {
+		//		return nil, err
+		//	}
 		size := stat.Size()
-		if mtime != idx.Mtime || size != int64(idx.Fsize) {
-			hash, _, _ := HashFile("blob", f.String())
+		//fmt.Printf("Mtime %v idxmtime %v Size: %v idxsize: %v\n", mtime, idx.Mtime, size, idx.Fsize)
+		//if mtime != idx.Mtime || size != int64(idx.Fsize) {
+		hash, _, _ := HashFile("blob", f.String())
 
-			if err != nil || hash != idx.Sha1 {
-				val = append(val, HashDiff{idx.PathName, idxtree, fs, uint(idx.Fsize), uint(size)})
-			}
+		if err != nil || hash != idx.Sha1 {
+			val = append(val, HashDiff{idx.PathName, idxtree, fs, uint(idx.Fsize), uint(size)})
 		}
+		//}
 	}
 
 	sort.Sort(ByName(val))
