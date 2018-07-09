@@ -187,7 +187,7 @@ const (
 //
 // As a special case, if something is added as Stage0, then Stage1-3 entries
 // will be removed.
-func (g *Index) AddStage(c *Client, path IndexPath, s Sha1, stage Stage, size uint32, mtime int64, createEntry bool) error {
+func (g *Index) AddStage(c *Client, path IndexPath, mode EntryMode, s Sha1, stage Stage, size uint32, mtime int64, createEntry bool) error {
 	if stage == Stage0 {
 		defer g.RemoveUnmergedStages(c, path)
 	}
@@ -236,11 +236,11 @@ func (g *Index) AddStage(c *Client, path IndexPath, s Sha1, stage Stage, size ui
 			0, //uint32(csec),
 			0, //uint32(cnano),
 			mtime,
-			0,        //uint32(stat.Dev),
-			0,        //uint32(stat.Ino),
-			ModeBlob, // Directories are never added, only their files, so assume blob
-			0,        //stat.Uid,
-			0,        //stat.Gid,
+			0, //uint32(stat.Dev),
+			0, //uint32(stat.Ino),
+			mode,
+			0, //stat.Uid,
+			0, //stat.Gid,
 			size,
 			s,
 			flags,
@@ -314,10 +314,17 @@ func (g *Index) AddFile(c *Client, file *os.File, createEntry bool) error {
 	if fstat.IsDir() {
 		return fmt.Errorf("Must add a file, not a directory.")
 	}
+	var mode EntryMode
+	if EntryMode(fstat.Mode())&ModeSymlink == ModeSymlink {
+		mode = ModeSymlink
+	} else {
+		mode = ModeBlob
+	}
 
 	return g.AddStage(
 		c,
 		name,
+		mode,
 		hash,
 		Stage0,
 		fsize,

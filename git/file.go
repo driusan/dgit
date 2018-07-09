@@ -57,6 +57,11 @@ func (f File) Stat() (os.FileInfo, error) {
 	return os.Stat(string(f))
 }
 
+// Returns lstat information for the given file.
+func (f File) Lstat() (os.FileInfo, error) {
+	return os.Lstat(string(f))
+}
+
 func (f File) IsDir() bool {
 	stat, err := f.Stat()
 	if err != nil {
