@@ -478,6 +478,10 @@ func (t TreeID) GetAllObjects(cl *Client, prefix IndexPath, recurse, excludeself
 				mode = ModeBlob
 			case "100755":
 				mode = ModeExec
+			case "120000":
+				mode = ModeSymlink
+			case "160000":
+				mode = ModeCommit
 			default:
 				panic(fmt.Sprintf("Unsupported mode %v in tree %s", string(perm), t))
 			}

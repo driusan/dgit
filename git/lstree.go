@@ -135,7 +135,6 @@ func LsTree(c *Client, opts LsTreeOptions, tree Treeish, paths []File) ([]*Index
 
 					}
 				}
-
 			}
 		}
 	}
