@@ -86,14 +86,16 @@ func main() {
 	case "commit":
 		sha1, err := cmd.Commit(c, args)
 		if err != nil {
-			fmt.Fprintf(os.Stderr, "Err: %v\n", err)
+			fmt.Fprintln(os.Stderr, err)
+			os.Exit(1)
 		} else {
 			fmt.Printf("%s\n", sha1)
 		}
 	case "commit-tree":
 		sha1, err := cmd.CommitTree(c, args)
 		if err != nil {
-			fmt.Fprintf(os.Stderr, "%v\n", err)
+			fmt.Fprintln(os.Stderr, err)
+			os.Exit(1)
 		} else {
 			fmt.Printf("%s\n", sha1)
 		}
