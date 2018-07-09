@@ -25,6 +25,8 @@ var subcommand, subcommandUsage string
 func main() {
 	workdir := flag.String("work-tree", "", "specify the working directory of git")
 	gitdir := flag.String("git-dir", "", "specify the repository of git")
+	dir := flag.String("C", "", "chdir before starting git")
+
 	flag.Usage = func() {
 		if subcommand == "" {
 			subcommand = "subcommand"
@@ -41,6 +43,12 @@ func main() {
 	if len(args) < 1 {
 		flag.Usage()
 		os.Exit(1)
+	}
+	if *dir != "" {
+		if err := os.Chdir(*dir); err != nil {
+			fmt.Fprintln(os.Stderr, err)
+			os.Exit(1)
+		}
 	}
 	c, err := git.NewClient(*gitdir, *workdir)
 	subcommand = args[0]
