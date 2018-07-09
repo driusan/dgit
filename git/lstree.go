@@ -62,7 +62,7 @@ func LsTree(c *Client, opts LsTreeOptions, tree Treeish, paths []File) ([]*Index
 	}
 
 	// Find all the subtrees that exist anywhere.
-	allentries, err := expandGitTreeIntoIndexes(c, tree, true, true)
+	allentries, err := expandGitTreeIntoIndexes(c, tree, true, true, true)
 	if err != nil {
 		return nil, err
 	}
@@ -157,7 +157,7 @@ func LsTree(c *Client, opts LsTreeOptions, tree Treeish, paths []File) ([]*Index
 }
 
 func lsTree(c *Client, opts LsTreeOptions, tree Treeish, prefix string, paths []File) ([]*IndexEntry, error) {
-	entries, err := expandGitTreeIntoIndexes(c, tree, opts.Recurse, opts.ShowTrees)
+	entries, err := expandGitTreeIntoIndexes(c, tree, opts.Recurse, opts.ShowTrees, true)
 	if err != nil {
 		return nil, err
 	}

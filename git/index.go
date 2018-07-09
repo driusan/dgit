@@ -439,7 +439,7 @@ func (g ByPath) Less(i, j int) bool {
 // if PreserveStatInfo is true, the stat information in the index won't be
 // modified for existing entries.
 func (g *Index) ResetIndex(c *Client, tree Treeish) error {
-	newEntries, err := expandGitTreeIntoIndexes(c, tree, true, false)
+	newEntries, err := expandGitTreeIntoIndexes(c, tree, true, false, false)
 	if err != nil {
 		return err
 	}
