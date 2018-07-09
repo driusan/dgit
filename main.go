@@ -40,7 +40,7 @@ func main() {
 	args := flag.Args()
 	if len(args) < 1 {
 		flag.Usage()
-		os.Exit(2)
+		os.Exit(1)
 	}
 	c, err := git.NewClient(*gitdir, *workdir)
 	subcommand = args[0]
