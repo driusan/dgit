@@ -31,6 +31,7 @@ func CommitIDFromString(s string) (CommitID, error) {
 	s1, err := Sha1FromString(s)
 	return CommitID(s1), err
 }
+
 func Sha1FromString(s string) (Sha1, error) {
 	b, err := hex.DecodeString(strings.TrimSpace(s))
 	if err != nil {

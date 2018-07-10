@@ -65,11 +65,13 @@ func writeTree(c *Client, prefix string, entries []*IndexEntry) (TreeID, error) 
 
 	//	fmt.Printf("Prefix: %v\n", prefix)
 	for idx, obj := range entries {
+		if !strings.HasPrefix(string(obj.PathName), prefix) {
+			continue
+		}
 		if obj.Stage() != Stage0 {
 			return TreeID{}, fmt.Errorf("Could not write index with unmerged entries")
 		}
 		relativename := strings.TrimPrefix(obj.PathName.String(), prefix+"/")
-		//fmt.Printf("This name: %s\n", relativename)
 		nameBits := strings.Split(relativename, "/")
 
 		if len(nameBits) == 0 {
