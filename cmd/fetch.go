@@ -23,7 +23,7 @@ func Fetch(c *git.Client, args []string) {
 	config := git.ParseConfig(file)
 	repoid := config.GetConfig("remote." + args[0] + ".url")
 	var ups git.Uploadpack
-	if repoid[0:7] == "http://" || repoid[0:8] == "https://" {
+	if strings.HasPrefix(repoid, "http://") || strings.HasPrefix(repoid, "https://") {
 		ups = &git.SmartHTTPServerRetriever{Location: repoid,
 			C: c,
 		}
