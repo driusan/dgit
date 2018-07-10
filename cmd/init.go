@@ -18,6 +18,7 @@ func Init(c *git.Client, args []string) error {
 
 	flags.BoolVar(&opts.Bare, "bare", false, "Create bare repository")
 	flags.BoolVar(&opts.Quiet, "quiet", false, "Only print errors or warnings")
+	flags.StringVar(&opts.Template, "template", "", "Specify the template directory that will be used")
 	q := flags.Bool("q", false, "Alias of --quiet")
 
 	flags.Parse(args)
