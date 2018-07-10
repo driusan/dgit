@@ -117,11 +117,14 @@ func TestUpdateIndex(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+	defer os.RemoveAll(wd)
 	os.Chdir(wd)
 
 	// FIXME: This should be git.Init(), but Init is currently in cmd.Init..
-	os.Mkdir(wd+"/.git", 0755)
-	defer os.RemoveAll(wd)
+	c, err := Init(nil, InitOptions{Quiet: true}, "")
+	if err != nil {
+		t.Fatal(err)
+	}
 
 	// Setup a working tree.
 	if err := os.Mkdir(wd+"/test", 0755); err != nil {
@@ -134,10 +137,6 @@ func TestUpdateIndex(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	c, err := NewClient(wd+"/.git", wd)
-	if err != nil {
-		t.Fatal(err)
-	}
 	for i, tc := range testcases {
 		newidx, err := UpdateIndex(c, &tc.Index, tc.Options, tc.Files)
 		if tc.ExpectedErr {
@@ -155,5 +154,65 @@ func TestUpdateIndex(t *testing.T) {
 		if !compareIndex(*newidx, tc.Expected) {
 			t.Errorf("Case %d: got %v want %v", i, newidx, tc.Expected)
 		}
+	}
+}
+
+// Tests adding symlinks to the index with UpdateIndex
+func TestUpdateIndexSymlinks(t *testing.T) {
+	// Set up a temporary directory, and put 2 known files in it, so that
+	// our tests can run from a deterministic state.
+	wd, err := ioutil.TempDir("", "gitupdateindextest")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer os.RemoveAll(wd)
+	os.Chdir(wd)
+
+	c, err := Init(nil, InitOptions{Quiet: true}, "")
+	if err != nil {
+		t.Fatal(err)
+	}
+	// Setup a working tree.
+	if err := ioutil.WriteFile(wd+"/foo", []byte("foo content"), 0755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Symlink("foo", "works"); err != nil {
+		t.Fatal(err)
+	}
+
+	if err := os.Symlink("ohnoes", "broken"); err != nil {
+		t.Fatal(err)
+	}
+
+	newidx, err := UpdateIndex(c, &Index{}, UpdateIndexOptions{Add: true}, []File{"works", "broken"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(newidx.Objects) != 2 {
+		t.Fatalf("Unexpected number of entries in index: got %v want 2", len(newidx.Objects))
+	}
+	newobjects := newidx.Objects
+	// Content for "broken". Value comes from what real git adds.
+	sha, err := Sha1FromString("42dfea9398d23b9d95bdb97624a7cfc117ac1091")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if newobjects[0].Sha1 != sha {
+		t.Errorf("Unexpected hash: got %v want %v", newobjects[0].Sha1, sha)
+	}
+	if newobjects[0].Mode != ModeSymlink {
+		t.Errorf("Unexpected file mode. got %v want %v", newobjects[0].Mode, ModeSymlink)
+	}
+
+	// content for "works". Value comes from what real git adds.
+	sha, err = Sha1FromString("19102815663d23f8b75a47e7a01965dcdc96468c")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if newobjects[1].Sha1 != sha {
+		t.Errorf("Unexpected hash: got %v want %v", newobjects[1].Sha1, sha)
+	}
+	if newobjects[1].Mode != ModeSymlink {
+		t.Errorf("Unexpected file mode. got %v want %v", newobjects[1].Mode, ModeSymlink)
 	}
 }

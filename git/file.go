@@ -71,6 +71,18 @@ func (f File) IsDir() bool {
 	return stat.IsDir()
 
 }
+
+func (f File) IsSymlink() bool {
+	stat, err := f.Lstat()
+	if err != nil {
+		// If we couldn't stat it, it's not a directory..
+		return false
+	}
+	// This is probably not robust. It's assuming every OS
+	// uses the same modes as git, but is probably good enough.
+	return stat.Mode()&os.ModeSymlink == os.ModeSymlink
+}
+
 func (f File) Create() error {
 	dir := File(filepath.Dir(f.String()))
 	if !dir.Exists() {

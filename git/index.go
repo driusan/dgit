@@ -250,7 +250,6 @@ func (g *Index) AddStage(c *Client, path IndexPath, mode EntryMode, s Sha1, stag
 	g.NumberIndexEntries += 1
 	sort.Sort(ByPath(g.Objects))
 	return nil
-
 }
 
 // Remove any unmerged (non-stage 0) stage from the index for the given path
@@ -285,29 +284,19 @@ func (g *Index) RemoveUnmergedStages(c *Client, path IndexPath) error {
 // 	else
 // 		add new GitIndexEntry if not found and createEntry is true, error otherwise
 //
-func (g *Index) AddFile(c *Client, file *os.File, createEntry bool) error {
-	contents, err := ioutil.ReadAll(file)
-	if err != nil {
-		return err
-	}
-	hash, err := c.WriteObject("blob", contents)
-	if err != nil {
-		fmt.Fprintf(os.Stderr, "Error storing object: %s", err)
-		return err
-	}
-	gitfile := File(file.Name())
-	name, err := gitfile.IndexPath(c)
+func (g *Index) AddFile(c *Client, file File, createEntry bool) error {
+	name, err := file.IndexPath(c)
 	if err != nil {
 		return err
 	}
 
-	mtime, err := gitfile.MTime()
+	mtime, err := file.MTime()
 	if err != nil {
 		return err
 	}
 
 	fsize := uint32(0)
-	fstat, err := file.Stat()
+	fstat, err := file.Lstat()
 	if err == nil {
 		fsize = uint32(fstat.Size())
 	}
@@ -315,10 +304,31 @@ func (g *Index) AddFile(c *Client, file *os.File, createEntry bool) error {
 		return fmt.Errorf("Must add a file, not a directory.")
 	}
 	var mode EntryMode
-	if EntryMode(fstat.Mode())&ModeSymlink == ModeSymlink {
+
+	var hash Sha1
+	if file.IsSymlink() {
 		mode = ModeSymlink
+		contents, err := os.Readlink(string(file))
+		if err != nil {
+			return err
+		}
+		hash1, err := c.WriteObject("blob", []byte(contents))
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "Error storing object: %s", err)
+		}
+		hash = hash1
 	} else {
 		mode = ModeBlob
+		contents, err := ioutil.ReadFile(string(file))
+		if err != nil {
+			return err
+		}
+		hash1, err := c.WriteObject("blob", contents)
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "Error storing object: %s", err)
+			return err
+		}
+		hash = hash1
 	}
 
 	return g.AddStage(
@@ -384,7 +394,6 @@ func (i *Index) GetMap() map[IndexPath]*IndexEntry {
 func (g *Index) RemoveFile(file IndexPath) {
 	for i, entry := range g.Objects {
 		if entry.PathName == file {
-			//println("Should remove ", i)
 			g.Objects = append(g.Objects[:i], g.Objects[i+1:]...)
 			g.NumberIndexEntries -= 1
 			return

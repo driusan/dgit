@@ -3,7 +3,7 @@
 package git
 
 func (f File) MTime() (int64, error) {
-	stat, err := f.Stat()
+	stat, err := f.Lstat()
 	if err != nil {
 		return 0, err
 	}

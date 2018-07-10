@@ -3,7 +3,6 @@ package git
 import (
 	"fmt"
 	"io"
-	"os"
 )
 
 // A BitSetter denotes an option for a flag which sets or unsets
@@ -82,25 +81,19 @@ func UpdateIndex(c *Client, idx *Index, opts UpdateIndexOptions, files []File) (
 			} else {
 				return nil, fmt.Errorf("%v does not exist and --remove not passed", file)
 			}
+		} else if err := idx.AddFile(c, file, opts.Add); err != nil {
+			if !opts.Add {
+				// This is making invalid assumptions that the only
+				// thing that might go wrong is that createEntry was
+				// false and the file isn't in the index
+				return nil, fmt.Errorf("Can not add %v to index. Missing --add?", file)
+			}
+			// If add was true and something went else went wrong,
+			// return the error
+			return nil, err
 		}
-
-		if osfile, err := os.Open(file.String()); err == nil {
-			defer osfile.Close()
-			if err := idx.AddFile(c, osfile, opts.Add); err != nil {
-				if !opts.Add {
-					// This is making invalid assumptions that the only
-					// thing that might go wrong is that createEntry was
-					// false and the file isn't in the index
-					return nil, fmt.Errorf("Can not add %v to index. Missing --add?", file)
-				}
-				// If add was true and something went else went wrong,
-				// return the error
-				return nil, err
-			}
-			if opts.Verbose {
-				fmt.Printf("add '%v'\n", file)
-			}
-
+		if opts.Verbose {
+			fmt.Printf("add '%v'\n", file)
 		}
 	}
 	return idx, nil
