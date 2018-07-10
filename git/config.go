@@ -53,8 +53,11 @@ argChecker:
 		g.sections = append(g.sections, section)
 	}
 
-	sec.values[key] = value
-	fmt.Printf("%s", sec)
+        if sec != nil {
+	    sec.values[key] = value
+        } else {
+            fmt.Printf("Couldn't find section %v\n", name)
+        }
 }
 func (g GitConfig) GetConfig(name string) string {
 
@@ -107,6 +110,7 @@ func (s *GitConfigSection) ParseValues(valueslines string) {
 		}
 		varname := strings.TrimSpace(split[0])
 
+                //fmt.Printf("%v\n", varname)
 		s.values[varname] = strings.TrimSpace(strings.Join(split[1:], "="))
 
 	}
@@ -146,6 +150,7 @@ func ParseConfig(configFile io.Reader) GitConfig {
 	lastClosingBracket := 0
 
 	for idx, b := range rawdata {
+                //fmt.Printf("%v\n", rawdata)
 		if b == '[' && parsingSectionName == false {
 
 			parsingSectionName = true
