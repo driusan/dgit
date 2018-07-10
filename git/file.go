@@ -14,7 +14,7 @@ type File string
 
 // Determines if the file exists on the filesystem.
 func (f File) Exists() bool {
-	if _, err := os.Stat(string(f)); os.IsNotExist(err) {
+	if _, err := os.Lstat(string(f)); os.IsNotExist(err) {
 		return false
 	}
 	return true
@@ -55,6 +55,11 @@ func (f File) IndexPath(c *Client) (IndexPath, error) {
 // Returns stat information for the given file.
 func (f File) Stat() (os.FileInfo, error) {
 	return os.Stat(string(f))
+}
+
+// Returns lstat information for the given file.
+func (f File) Lstat() (os.FileInfo, error) {
+	return os.Lstat(string(f))
 }
 
 func (f File) IsDir() bool {

@@ -2,8 +2,8 @@ package cmd
 
 import (
 	"fmt"
-	"os"
 	"io/ioutil"
+	"os"
 	"strings"
 
 	"github.com/driusan/dgit/git"

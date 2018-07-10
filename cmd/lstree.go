@@ -73,12 +73,12 @@ func LsTree(c *git.Client, args []string) error {
 			if opts.Long {
 				switch entry.Mode {
 				case git.ModeBlob, git.ModeExec:
-					fmt.Printf("%0.6o %s %s %7.d\t%s%s", entry.Mode, entry.Sha1.Type(c), entry.Sha1.String()[:opts.Abbrev], entry.Fsize, name, lineend)
+					fmt.Printf("%0.6o %s %s %7.d\t%s%s", entry.Mode, entry.Mode.TreeType(), entry.Sha1.String()[:opts.Abbrev], entry.Fsize, name, lineend)
 				default:
-					fmt.Printf("%0.6o %s %s %s\t%s%s", entry.Mode, entry.Sha1.Type(c), entry.Sha1.String()[:opts.Abbrev], "      -", name, lineend)
+					fmt.Printf("%0.6o %s %s %s\t%s%s", entry.Mode, entry.Mode.TreeType(), entry.Sha1.String()[:opts.Abbrev], "      -", name, lineend)
 				}
 			} else {
-				fmt.Printf("%0.6o %s %s\t%s%s", entry.Mode, entry.Sha1.Type(c), entry.Sha1.String()[:opts.Abbrev], name, lineend)
+				fmt.Printf("%0.6o %s %s\t%s%s", entry.Mode, entry.Mode.TreeType(), entry.Sha1.String()[:opts.Abbrev], name, lineend)
 			}
 		} else {
 			fmt.Printf("%s%s", name, lineend)
