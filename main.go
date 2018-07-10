@@ -257,5 +257,6 @@ func main() {
 		}
 	default:
 		fmt.Fprintf(os.Stderr, "Unknown git command %s.\n", subcommand)
+                os.Exit(1)
 	}
 }
