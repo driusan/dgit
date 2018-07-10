@@ -11,7 +11,7 @@ type InitOptions struct {
 	Quiet bool
 	Bare  bool
 
-	Template string
+	Template *os.File
 
 	// Not implemented
 	SeparateGitDir File
@@ -101,14 +101,6 @@ func Init(c *Client, opts InitOptions, dir string) (*Client, error) {
 		fmt.Printf("Initialized empty Git repository in %v/\n", dir)
 	}
 
-                if opts.Template != "" && !filepath.IsAbs(opts.Template) {
-                        wd, err := os.Getwd()
-                        if err != nil {
-                                return c, err
-                        }
-                        opts.Template = filepath.Join(wd, opts.Template)
-                }
-
 	// Now go into the directory and adjust workdir and gitdir so that
 	// tests are in the right place.
 	if err := os.Chdir(c.WorkDir.String()); err != nil {
@@ -121,24 +113,24 @@ func Init(c *Client, opts InitOptions, dir string) (*Client, error) {
 	c.WorkDir = WorkDir(wd)
 	c.GitDir = GitDir(wd + "/.git")
 
-	if opts.Template != "" {
-		err = filepath.Walk(opts.Template, func(path string, info os.FileInfo, err error) error {
+	if opts.Template != nil {
+		err = filepath.Walk(opts.Template.Name(), func(path string, info os.FileInfo, err error) error {
 			if err != nil {
 				return err
 			}
-                        path, err = filepath.Rel(opts.Template, path)
-                        if err != nil {
-                                return err
-                        }
+			path, err = filepath.Rel(opts.Template.Name(), path)
+			if err != nil {
+				return err
+			}
 			if info.IsDir() {
-				os.MkdirAll(filepath.Join(c.GitDir.String(), path), 0770)
+				os.MkdirAll(filepath.Join(c.GitDir.String(), path), 0777)
 			} else {
 				newFile, err := os.Create(filepath.Join(c.GitDir.String(), path))
 				if err != nil {
 					return err
 				}
 				defer newFile.Close()
-				f, err := os.Open(filepath.Join(opts.Template, path))
+				f, err := os.Open(filepath.Join(opts.Template.Name(), path))
 				if err != nil {
 					return err
 				}
@@ -151,10 +143,6 @@ func Init(c *Client, opts InitOptions, dir string) (*Client, error) {
 
 			return nil
 		})
-
-		if err != nil {
-			return c, err
-		}
 	}
 
 	return c, nil
