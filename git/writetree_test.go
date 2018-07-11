@@ -2,7 +2,7 @@ package git
 
 import (
 	"io/ioutil"
-	//	"os"
+	"os"
 	"strings"
 	"testing"
 )
