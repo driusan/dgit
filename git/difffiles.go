@@ -53,7 +53,7 @@ func DiffFiles(c *Client, opt DiffFilesOptions, paths []File) ([]HashDiff, error
 		}
 		stat, err := f.Stat()
 		if err != nil {
-			val = append(val, HashDiff{idx.PathName, idxtree, fs, uint(idx.Fsize), uint(stat.Size())})
+			val = append(val, HashDiff{idx.PathName, idxtree, fs, uint(idx.Fsize), 0})
 			continue
 		}
 
