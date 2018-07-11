@@ -1,6 +1,7 @@
 package git
 
 import (
+        "log"
 	"sort"
 )
 
@@ -74,7 +75,7 @@ func DiffFiles(c *Client, opt DiffFilesOptions, paths []File) ([]HashDiff, error
 		//		return nil, err
 		//	}
 		size := stat.Size()
-		//fmt.Printf("Mtime %v idxmtime %v Size: %v idxsize: %v\n", mtime, idx.Mtime, size, idx.Fsize)
+		log.Printf("Mtime %v idxmtime %v Size: %v idxsize: %v\n", mtime, idx.Mtime, size, idx.Fsize)
 		//if mtime != idx.Mtime || size != int64(idx.Fsize) {
 		hash, _, _ := HashFile("blob", f.String())
 

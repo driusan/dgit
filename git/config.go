@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"io"
 	"io/ioutil"
+        "log"
 	"strings"
 )
 
@@ -110,7 +111,7 @@ func (s *GitConfigSection) ParseValues(valueslines string) {
 		}
 		varname := strings.TrimSpace(split[0])
 
-                //fmt.Printf("%v\n", varname)
+                log.Printf("%v\n", varname)
 		s.values[varname] = strings.TrimSpace(strings.Join(split[1:], "="))
 
 	}
@@ -150,7 +151,7 @@ func ParseConfig(configFile io.Reader) GitConfig {
 	lastClosingBracket := 0
 
 	for idx, b := range rawdata {
-                //fmt.Printf("%v\n", rawdata)
+                log.Printf("%v\n", rawdata)
 		if b == '[' && parsingSectionName == false {
 
 			parsingSectionName = true
