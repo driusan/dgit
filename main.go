@@ -6,6 +6,8 @@ import (
 	"fmt"
 	"github.com/driusan/dgit/cmd"
 	"github.com/driusan/dgit/git"
+        "io/ioutil"
+        "log"
 	"os"
 )
 
@@ -23,6 +25,32 @@ func requiresGitDir(cmd string) bool {
 var subcommand, subcommandUsage string
 
 func main() {
+        // First thing, set up logging
+        log.SetFlags(log.Ldate|log.Ltime|log.Lshortfile)
+        traceLevel := os.Getenv("DGIT_TRACE")
+        if traceLevel == "" {
+           traceLevel = os.Getenv("GIT_TRACE")
+        } 
+      
+        // If no trace level specified then just dump any log output 
+        if traceLevel == "" {
+           log.SetOutput(ioutil.Discard)
+        } else if traceLevel != "1" && traceLevel != "2" {
+           logfile, err := os.Open(traceLevel)
+           if os.IsNotExist(err) {
+              logfile, err = os.Create(traceLevel)
+           }
+
+           if err != nil {
+              fmt.Printf("Could not open file %v for tracing: %v\n", traceLevel, err)
+              os.Exit(1)
+           }
+
+           log.SetOutput(logfile)
+        }
+
+        log.Printf("Dgit started\n")
+
 	workdir := flag.String("work-tree", "", "specify the working directory of git")
 	gitdir := flag.String("git-dir", "", "specify the repository of git")
 	dir := flag.String("C", "", "chdir before starting git")

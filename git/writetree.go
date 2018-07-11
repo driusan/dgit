@@ -3,6 +3,7 @@ package git
 import (
 	"bytes"
 	"fmt"
+        "log"
 	"strings"
 )
 
@@ -63,7 +64,7 @@ func writeTree(c *Client, prefix string, entries []*IndexEntry) (TreeID, error) 
 	lastname := ""
 	firstIdxForTree := -1
 
-	//	fmt.Printf("Prefix: %v\n", prefix)
+	log.Printf("Prefix: %v\n", prefix)
 	for idx, obj := range entries {
 		if !strings.HasPrefix(string(obj.PathName), prefix) {
 			continue
