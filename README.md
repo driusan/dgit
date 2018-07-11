@@ -1,3 +1,5 @@
+![travis ci](https://api.travis-ci.org/driusan/dgit.svg?branch=master)
+
 This repo contains a pure Go implementation of the command
 line git client that I've been working on so that I can
 try doing some of my Go development on Plan 9.
