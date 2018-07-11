@@ -33,7 +33,7 @@ func printCommit(c *git.Client, cmt git.CommitID) {
 		panic(err)
 	}
 	fmt.Printf("Author: %v\nDate:   %v\n\n", author, date.Format("Mon Jan 2 15:04:05 2006 -0700"))
-	log.Printf("commit %v\nAuthor: %v\nDate: %v\n\n", cmt.Id, author, author.When.Format("Mon Jan 2 15:04:05 2006 -0700"))
+	log.Printf("Commit %v\n", cmt)
 
 	msg, err := cmt.GetCommitMessage(c)
 	lines := strings.Split(strings.TrimSpace(msg.String()), "\n")
