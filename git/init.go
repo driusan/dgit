@@ -11,7 +11,7 @@ type InitOptions struct {
 	Quiet bool
 	Bare  bool
 
-	Template *os.File
+	Template File
 
 	// Not implemented
 	SeparateGitDir File
@@ -113,12 +113,12 @@ func Init(c *Client, opts InitOptions, dir string) (*Client, error) {
 	c.WorkDir = WorkDir(wd)
 	c.GitDir = GitDir(wd + "/.git")
 
-	if opts.Template != nil {
-		err = filepath.Walk(opts.Template.Name(), func(path string, info os.FileInfo, err error) error {
+	if opts.Template.String() != "" {
+		err = filepath.Walk(opts.Template.String(), func(path string, info os.FileInfo, err error) error {
 			if err != nil {
 				return err
 			}
-			path, err = filepath.Rel(opts.Template.Name(), path)
+			path, err = filepath.Rel(opts.Template.String(), path)
 			if err != nil {
 				return err
 			}
@@ -130,7 +130,7 @@ func Init(c *Client, opts InitOptions, dir string) (*Client, error) {
 					return err
 				}
 				defer newFile.Close()
-				f, err := os.Open(filepath.Join(opts.Template.Name(), path))
+				f, err := os.Open(filepath.Join(opts.Template.String(), path))
 				if err != nil {
 					return err
 				}

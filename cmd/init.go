@@ -48,11 +48,7 @@ func Init(c *git.Client, args []string) error {
 			}
 			template = filepath.Join(wd, template)
 		}
-		templDir, err := os.Open(template)
-		if err != nil {
-			return err
-		}
-		opts.Template = templDir
+		opts.Template = git.File(template)
 	}
 
 	_, err := git.Init(c, opts, dir)
