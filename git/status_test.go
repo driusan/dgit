@@ -171,7 +171,7 @@ Changes not staged for commit:
 	modified:	foo.txt
 
 `,
-		Short: "AM foo.txt\n",
+		Short: "A  foo.txt\n",
 		ShortBranch: `## No commits yet on master
 AM foo.txt
 `,
@@ -198,7 +198,7 @@ Changes not staged for commit:
 
 no changes added to commit (use "git add" and/or "git commit -a")
 `,
-		Short: " M foo.txt\n",
+		Short: "",
 		ShortBranch: `## master
  M foo.txt
 `,
@@ -351,12 +351,12 @@ Changes not staged for commit:
 
 Untracked files not listed (use -u option to show untracked files)
 `,
-		Short: `A  bar.txt
+		Short: `AM bar.txt
 A  baz/foo.txt
 UU foo.txt
 `,
 		ShortBranch: `## HEAD (no branch)
-AM bar.txt
+A  bar.txt
 A  baz/foo.txt
 UU foo.txt
 `,
@@ -397,14 +397,14 @@ Untracked files:
 	./
 
 `,
-		Short: `A  ../bar.txt
+		Short: `AM ../bar.txt
 A  ../baz/foo.txt
 UU ../foo.txt
 ?? ../baz/bar.txt
 ?? ./
 `,
 		ShortBranch: `## HEAD (no branch)
-AM ../bar.txt
+A  ../bar.txt
 A  ../baz/foo.txt
 UU ../foo.txt
 ?? ../baz/bar.txt
@@ -445,7 +445,7 @@ Untracked files:
 	foo.txt
 
 `,
-		Short: `A  ../bar.txt
+		Short: `AM ../bar.txt
 A  ../baz/foo.txt
 UU ../foo.txt
 ?? ../baz/bar.txt
@@ -453,7 +453,7 @@ UU ../foo.txt
 ?? foo.txt
 `,
 		ShortBranch: `## HEAD (no branch)
-AM ../bar.txt
+A  ../bar.txt
 A  ../baz/foo.txt
 UU ../foo.txt
 ?? ../baz/bar.txt
