@@ -351,7 +351,7 @@ Changes not staged for commit:
 
 Untracked files not listed (use -u option to show untracked files)
 `,
-		Short: `AM bar.txt
+		Short: `A bar.txt
 A  baz/foo.txt
 UU foo.txt
 `,
@@ -397,7 +397,7 @@ Untracked files:
 	./
 
 `,
-		Short: `AM ../bar.txt
+		Short: `A ../bar.txt
 A  ../baz/foo.txt
 UU ../foo.txt
 ?? ../baz/bar.txt
