@@ -171,7 +171,7 @@ Changes not staged for commit:
 	modified:	foo.txt
 
 `,
-		Short: "A  foo.txt\n",
+		Short: "AM foo.txt\n",
 		ShortBranch: `## No commits yet on master
 AM foo.txt
 `,
@@ -198,7 +198,7 @@ Changes not staged for commit:
 
 no changes added to commit (use "git add" and/or "git commit -a")
 `,
-		Short: "",
+		Short: " M foo.txt\n",
 		ShortBranch: `## master
  M foo.txt
 `,
@@ -356,7 +356,7 @@ A  baz/foo.txt
 UU foo.txt
 `,
 		ShortBranch: `## HEAD (no branch)
-A  bar.txt
+AM bar.txt
 A  baz/foo.txt
 UU foo.txt
 `,
@@ -404,7 +404,7 @@ UU ../foo.txt
 ?? ./
 `,
 		ShortBranch: `## HEAD (no branch)
-A  ../bar.txt
+AM ../bar.txt
 A  ../baz/foo.txt
 UU ../foo.txt
 ?? ../baz/bar.txt
@@ -453,7 +453,7 @@ UU ../foo.txt
 ?? foo.txt
 `,
 		ShortBranch: `## HEAD (no branch)
-A  ../bar.txt
+AM ../bar.txt
 A  ../baz/foo.txt
 UU ../foo.txt
 ?? ../baz/bar.txt
