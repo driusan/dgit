@@ -2,6 +2,7 @@ package git
 
 import (
 	"fmt"
+	"io"
 	"os"
 	"path/filepath"
 )
@@ -10,8 +11,7 @@ type InitOptions struct {
 	Quiet bool
 	Bare  bool
 
-	// Not implemented
-	TemplateDir File
+	Template *os.File
 
 	// Not implemented
 	SeparateGitDir File
@@ -100,6 +100,7 @@ func Init(c *Client, opts InitOptions, dir string) (*Client, error) {
 		}
 		fmt.Printf("Initialized empty Git repository in %v/\n", dir)
 	}
+
 	// Now go into the directory and adjust workdir and gitdir so that
 	// tests are in the right place.
 	if err := os.Chdir(c.WorkDir.String()); err != nil {
@@ -111,5 +112,38 @@ func Init(c *Client, opts InitOptions, dir string) (*Client, error) {
 	}
 	c.WorkDir = WorkDir(wd)
 	c.GitDir = GitDir(wd + "/.git")
+
+	if opts.Template != nil {
+		err = filepath.Walk(opts.Template.Name(), func(path string, info os.FileInfo, err error) error {
+			if err != nil {
+				return err
+			}
+			path, err = filepath.Rel(opts.Template.Name(), path)
+			if err != nil {
+				return err
+			}
+			if info.IsDir() {
+				os.MkdirAll(filepath.Join(c.GitDir.String(), path), 0777)
+			} else {
+				newFile, err := os.Create(filepath.Join(c.GitDir.String(), path))
+				if err != nil {
+					return err
+				}
+				defer newFile.Close()
+				f, err := os.Open(filepath.Join(opts.Template.Name(), path))
+				if err != nil {
+					return err
+				}
+				defer f.Close()
+				_, err = io.Copy(newFile, f)
+				if err != nil {
+					return err
+				}
+			}
+
+			return nil
+		})
+	}
+
 	return c, nil
 }
