@@ -113,7 +113,7 @@ func Init(c *Client, opts InitOptions, dir string) (*Client, error) {
 	c.WorkDir = WorkDir(wd)
 	c.GitDir = GitDir(wd + "/.git")
 
-	if opts.Template.String() != "" {
+	if opts.Template != "" {
 		err = filepath.Walk(opts.Template.String(), func(path string, info os.FileInfo, err error) error {
 			if err != nil {
 				return err
@@ -122,10 +122,11 @@ func Init(c *Client, opts InitOptions, dir string) (*Client, error) {
 			if err != nil {
 				return err
 			}
+
 			if info.IsDir() {
 				os.MkdirAll(filepath.Join(c.GitDir.String(), path), 0777)
 			} else {
-				newFile, err := os.Create(filepath.Join(c.GitDir.String(), path))
+				newFile, err := c.GitDir.Create(File(path))
 				if err != nil {
 					return err
 				}
@@ -143,6 +144,8 @@ func Init(c *Client, opts InitOptions, dir string) (*Client, error) {
 
 			return nil
 		})
+
+		return c, err
 	}
 
 	return c, nil
