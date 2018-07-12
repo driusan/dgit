@@ -12,7 +12,6 @@ func Apply(c *git.Client, args []string) error {
 	flags := flag.NewFlagSet("apply", flag.ExitOnError)
 	flags.SetOutput(os.Stdout)
 	flags.Usage = func() {
-		flags.SetOutput(flag.CommandLine.Output())
 		flag.Usage()
 		fmt.Fprintf(flag.CommandLine.Output(), "\n\nOptions:\n")
 		flags.PrintDefaults()
