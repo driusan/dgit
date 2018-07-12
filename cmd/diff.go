@@ -11,16 +11,16 @@ func Diff(c *git.Client, args []string) error {
 	flags.SetOutput(flag.CommandLine.Output())
 	options := git.DiffOptions{}
 
-        var staged bool
+	var staged bool
 	flags.BoolVar(&staged, "staged", false, "Synonym for cached")
-        var cached bool
+	var cached bool
 	flags.BoolVar(&cached, "cached", false, "Display changes staged for commit")
 
 	args, err := parseCommonDiffFlags(c, &options.DiffCommonOptions, true, flags, args)
 
-        if staged || cached {
-                options.Staged = true
-        }
+	if staged || cached {
+		options.Staged = true
+	}
 
 	files := make([]git.File, len(args), len(args))
 	for i := range args {
