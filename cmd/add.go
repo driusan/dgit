@@ -12,8 +12,9 @@ func Add(c *git.Client, args []string) error {
 	flags := flag.NewFlagSet("add", flag.ExitOnError)
 	flags.SetOutput(os.Stdout)
 	flags.Usage = func() {
+		flags.SetOutput(flag.CommandLine.Output())
 		flag.Usage()
-		fmt.Printf("\n\nOptions:\n")
+		fmt.Fprintf(flag.CommandLine.Output(), "\n\nOptions:\n")
 		flags.PrintDefaults()
 	}
 

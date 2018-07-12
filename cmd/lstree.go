@@ -3,14 +3,13 @@ package cmd
 import (
 	"flag"
 	"fmt"
-	"os"
 
 	"github.com/driusan/dgit/git"
 )
 
 func LsTree(c *git.Client, args []string) error {
 	flags := flag.NewFlagSet("ls-tree", flag.ExitOnError)
-	flags.SetOutput(os.Stdout)
+	flags.SetOutput(flag.CommandLine.Output())
 
 	opts := git.LsTreeOptions{}
 	flags.BoolVar(&opts.TreeOnly, "d", true, "Show only the named tree, not its children")

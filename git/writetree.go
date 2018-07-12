@@ -3,7 +3,7 @@ package git
 import (
 	"bytes"
 	"fmt"
-        "log"
+	"log"
 	"strings"
 )
 

@@ -3,17 +3,16 @@ package cmd
 import (
 	"flag"
 	"fmt"
-	"os"
 
 	"github.com/driusan/dgit/git"
 )
 
 func SymbolicRef(c *git.Client, args []string) (git.RefSpec, error) {
 	flags := flag.NewFlagSet("symbolic-ref", flag.ExitOnError)
-	flags.SetOutput(os.Stdout)
+	flags.SetOutput(flag.CommandLine.Output())
 	flags.Usage = func() {
 		flag.Usage()
-		fmt.Fprintf(os.Stdout, "\n\nOptions:\n")
+		fmt.Fprintf(flag.CommandLine.Output(), "\n\nOptions:\n")
 		flags.PrintDefaults()
 	}
 

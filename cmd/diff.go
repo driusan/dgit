@@ -2,14 +2,13 @@ package cmd
 
 import (
 	"flag"
-	"os"
 
 	"github.com/driusan/dgit/git"
 )
 
 func Diff(c *git.Client, args []string) error {
 	flags := flag.NewFlagSet("diff", flag.ExitOnError)
-	flags.SetOutput(os.Stdout)
+	flags.SetOutput(flag.CommandLine.Output())
 	options := git.DiffOptions{}
 	flags.BoolVar(&options.Staged, "staged", false, "Display changes staged for commit")
 

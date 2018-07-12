@@ -15,10 +15,10 @@ import (
 // and calls git.CatFiles
 func IndexPack(c *git.Client, args []string) (err error) {
 	flags := flag.NewFlagSet("index-pack", flag.ExitOnError)
-	flags.SetOutput(os.Stdout)
+	flags.SetOutput(flag.CommandLine.Output())
 	flags.Usage = func() {
 		flag.Usage()
-		fmt.Printf("\n\nOptions:\n\n")
+		fmt.Fprintf(flag.CommandLine.Output(), "\n\nOptions:\n\n")
 		flags.PrintDefaults()
 	}
 	options := git.IndexPackOptions{}

@@ -3,7 +3,6 @@ package cmd
 import (
 	"flag"
 	"fmt"
-	"os"
 
 	"github.com/driusan/dgit/git"
 )
@@ -11,7 +10,7 @@ import (
 // Implements the git checkout command line parsing.
 func Checkout(c *git.Client, args []string) error {
 	flags := flag.NewFlagSet("checkout", flag.ExitOnError)
-	flags.SetOutput(os.Stdout)
+	flags.SetOutput(flag.CommandLine.Output())
 	options := git.CheckoutOptions{}
 
 	quiet := flags.Bool("quiet", false, "Quiet. Suppress feedback messages.")

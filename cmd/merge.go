@@ -3,14 +3,13 @@ package cmd
 import (
 	"flag"
 	"fmt"
-	"os"
 
 	"github.com/driusan/dgit/git"
 )
 
 func Merge(c *git.Client, args []string) error {
 	flags := flag.NewFlagSet("merge", flag.ExitOnError)
-	flags.SetOutput(os.Stdout)
+	flags.SetOutput(flag.CommandLine.Output())
 	options := git.MergeOptions{}
 
 	flags.BoolVar(&options.FastForwardOnly, "ff-only", false, "Only allow fast-forward merges")

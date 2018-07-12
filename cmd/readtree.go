@@ -3,17 +3,16 @@ package cmd
 import (
 	"flag"
 	"fmt"
-	"os"
 
 	"github.com/driusan/dgit/git"
 )
 
 func ReadTree(c *git.Client, args []string) error {
 	flags := flag.NewFlagSet("read-tree", flag.ExitOnError)
-	flags.SetOutput(os.Stdout)
+	flags.SetOutput(flag.CommandLine.Output())
 	flags.Usage = func() {
 		flag.Usage()
-		fmt.Fprintf(os.Stdout, "\nOptions:\n\n")
+		fmt.Fprintf(flag.CommandLine.Output(), "\nOptions:\n\n")
 		flags.PrintDefaults()
 	}
 	options := git.ReadTreeOptions{}
