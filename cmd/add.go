@@ -3,14 +3,13 @@ package cmd
 import (
 	"flag"
 	"fmt"
-	"os"
 
 	"github.com/driusan/dgit/git"
 )
 
 func Add(c *git.Client, args []string) error {
 	flags := flag.NewFlagSet("add", flag.ExitOnError)
-	flags.SetOutput(os.Stdout)
+	flags.SetOutput(flag.CommandLine.Output())
 	flags.Usage = func() {
 		flag.Usage()
 		fmt.Fprintf(flag.CommandLine.Output(), "\n\nOptions:\n")
