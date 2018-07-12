@@ -9,6 +9,7 @@ import (
         "io/ioutil"
         "log"
 	"os"
+        "strings"
 )
 
 var InvalidArgument error = errors.New("Invalid argument to function")
@@ -51,10 +52,17 @@ func main() {
 
         log.Printf("Dgit started\n")
 
+        // Special case, just reverse the arguments to force regular --help handling
+        if len(os.Args) == 3 && os.Args[1] == "help" && !strings.HasPrefix(os.Args[2], "-") {
+                os.Args[1] = os.Args[2]
+                os.Args[2] = "--help"
+        }
+
 	workdir := flag.String("work-tree", "", "specify the working directory of git")
 	gitdir := flag.String("git-dir", "", "specify the repository of git")
 	dir := flag.String("C", "", "chdir before starting git")
 
+        flag.CommandLine.SetOutput(os.Stdout)
 	flag.Usage = func() {
 		if subcommand == "" {
 			subcommand = "subcommand"
@@ -62,8 +70,8 @@ func main() {
 		if subcommandUsage == "" {
 			subcommandUsage = fmt.Sprintf("%s [global options] %s [options]\n", os.Args[0], subcommand)
 		}
-		fmt.Fprintf(os.Stderr, "Usage: %s\n", subcommandUsage)
-		fmt.Fprintf(os.Stderr, "\nGlobal options:\n\n")
+		fmt.Fprintf(os.Stdout, "Usage: %s\n", subcommandUsage)
+		fmt.Fprintf(os.Stdout, "\nGlobal options:\n\n")
 		flag.PrintDefaults()
 	}
 	flag.Parse()
@@ -283,6 +291,54 @@ func main() {
 			fmt.Fprintln(os.Stderr, err)
 			os.Exit(4)
 		}
+        case "help":
+                flag.Usage()
+
+                fmt.Fprintf(os.Stdout, "\nAvailable subcommands:\n")
+                fmt.Fprintf(os.Stdout, `
+   init
+   branch
+   checkout
+   checkout-index
+   cat-file
+   add          
+   commit         
+   commit-tree
+   write-tree
+   update-ref
+   log              
+   symbolic-ref
+   clone          
+   config
+   fetch          
+   reset
+   merge-file
+   merge
+   merge-base
+   rev-parse
+   rev-list
+   hash-object
+   status
+   ls-tree
+   push
+   pack-objects
+   send-pack
+   read-tree
+   diff
+   diff-files
+   diff-index
+   diff-tree
+   ls-files
+   index-pack
+   update-index
+   unpack-objects
+   grep
+   apply
+   revert
+   help
+`)
+
+                os.Exit(0)
 	default:
 		fmt.Fprintf(os.Stderr, "Unknown git command %s.\n", subcommand)
                 os.Exit(1)
