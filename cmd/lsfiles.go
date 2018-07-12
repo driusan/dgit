@@ -3,7 +3,7 @@ package cmd
 import (
 	"flag"
 	"fmt"
-        "os"
+	"os"
 
 	"github.com/driusan/dgit/git"
 )
@@ -12,7 +12,7 @@ import (
 // and calls git.LsFiles
 func LsFiles(c *git.Client, args []string) error {
 	flags := flag.NewFlagSet("ls-tree", flag.ExitOnError)
-        flags.SetOutput(os.Stdout)
+	flags.SetOutput(os.Stdout)
 	options := git.LsFilesOptions{}
 
 	cached := flags.Bool("cached", true, "Show cached files in output (default)")

@@ -10,7 +10,7 @@ import (
 
 func MergeFile(c *git.Client, args []string) error {
 	flags := flag.NewFlagSet("merge-file", flag.ExitOnError)
-        flags.SetOutput(os.Stdout)
+	flags.SetOutput(os.Stdout)
 	options := git.MergeFileOptions{}
 
 	flags.Parse(args)

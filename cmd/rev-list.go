@@ -3,14 +3,14 @@ package cmd
 import (
 	"flag"
 	"fmt"
-        "os"
+	"os"
 
 	"github.com/driusan/dgit/git"
 )
 
 func RevList(c *git.Client, args []string) ([]git.Sha1, error) {
 	flags := flag.NewFlagSet("rev-list", flag.ExitOnError)
-        flags.SetOutput(os.Stdout)
+	flags.SetOutput(os.Stdout)
 
 	includeObjects := flags.Bool("objects", false, "include non-commit objects in output")
 	quiet := flags.Bool("quiet", false, "prevent printing of revisions")

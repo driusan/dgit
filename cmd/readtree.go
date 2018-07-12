@@ -10,7 +10,7 @@ import (
 
 func ReadTree(c *git.Client, args []string) error {
 	flags := flag.NewFlagSet("read-tree", flag.ExitOnError)
-        flags.SetOutput(os.Stdout)
+	flags.SetOutput(os.Stdout)
 	flags.Usage = func() {
 		flag.Usage()
 		fmt.Fprintf(os.Stdout, "\nOptions:\n\n")

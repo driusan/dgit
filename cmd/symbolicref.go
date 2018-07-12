@@ -10,7 +10,7 @@ import (
 
 func SymbolicRef(c *git.Client, args []string) (git.RefSpec, error) {
 	flags := flag.NewFlagSet("symbolic-ref", flag.ExitOnError)
-        flags.SetOutput(os.Stdout)
+	flags.SetOutput(os.Stdout)
 	flags.Usage = func() {
 		flag.Usage()
 		fmt.Fprintf(os.Stdout, "\n\nOptions:\n")

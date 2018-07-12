@@ -3,17 +3,17 @@ package cmd
 import (
 	"flag"
 	"fmt"
-        "os"
+	"os"
 
 	"github.com/driusan/dgit/git"
 )
 
 func Status(c *git.Client, args []string) error {
 	flags := flag.NewFlagSet("status", flag.ExitOnError)
-        flags.SetOutput(os.Stdout)
+	flags.SetOutput(os.Stdout)
 	flags.Usage = func() {
 		flag.Usage()
-                fmt.Printf("\n\nOptions:\n")
+		fmt.Printf("\n\nOptions:\n")
 		flags.PrintDefaults()
 	}
 

@@ -2,14 +2,14 @@ package cmd
 
 import (
 	"flag"
-        "os"
+	"os"
 
 	"github.com/driusan/dgit/git"
 )
 
 func DiffFiles(c *git.Client, args []string) error {
 	flags := flag.NewFlagSet("diff-files", flag.ExitOnError)
-        flags.SetOutput(os.Stdout)
+	flags.SetOutput(os.Stdout)
 	options := git.DiffFilesOptions{}
 	args, err := parseCommonDiffFlags(c, &options.DiffCommonOptions, false, flags, args)
 	files := make([]git.File, len(args), len(args))

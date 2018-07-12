@@ -3,17 +3,17 @@ package cmd
 import (
 	"flag"
 	"fmt"
-        "os"
+	"os"
 
 	"github.com/driusan/dgit/git"
 )
 
 func Grep(c *git.Client, args []string) error {
 	flags := flag.NewFlagSet("grep", flag.ExitOnError)
-        flags.SetOutput(os.Stdout)
+	flags.SetOutput(os.Stdout)
 	flags.Usage = func() {
 		flag.Usage()
-                fmt.Printf("\n\nOptions:\n")
+		fmt.Printf("\n\nOptions:\n")
 		flags.PrintDefaults()
 	}
 
