@@ -10,8 +10,10 @@ import (
 
 func UpdateRef(c *git.Client, args []string) error {
 	flags := flag.NewFlagSet("update-ref", flag.ExitOnError)
+        flags.SetOutput(os.Stdout)
 	flags.Usage = func() {
 		flag.Usage()
+                fmt.Printf("\n\nOptions:\n")
 		flags.PrintDefaults()
 	}
 

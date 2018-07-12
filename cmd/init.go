@@ -14,6 +14,7 @@ func Init(c *git.Client, args []string) error {
         flags.SetOutput(os.Stdout)
 	flags.Usage = func() {
 		flag.Usage()
+                fmt.Printf("\n\nOptions:\n")
 		flags.PrintDefaults()
 	}
 

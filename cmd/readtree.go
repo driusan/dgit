@@ -10,6 +10,12 @@ import (
 
 func ReadTree(c *git.Client, args []string) error {
 	flags := flag.NewFlagSet("read-tree", flag.ExitOnError)
+        flags.SetOutput(os.Stdout)
+	flags.Usage = func() {
+		flag.Usage()
+		fmt.Fprintf(os.Stdout, "\nOptions:\n\n")
+		flags.PrintDefaults()
+	}
 	options := git.ReadTreeOptions{}
 	flags.BoolVar(&options.Merge, "m", false, "Perform a merge. Will not run if you have unmerged entries")
 	flags.BoolVar(&options.Reset, "reset", false, "Perform a merge. Will discard unmerged entries")
@@ -32,11 +38,6 @@ func ReadTree(c *git.Client, args []string) error {
 	flags.BoolVar(&options.Empty, "empty", false, "Instead of reading the treeish into the index, empty it")
 
 	flags.Parse(args)
-	flags.Usage = func() {
-		flag.Usage()
-		fmt.Fprintf(os.Stderr, "\nRead-Tree options:\n\n")
-		flags.PrintDefaults()
-	}
 	args = flags.Args()
 	options.DryRun = *dryrun || *n
 	switch len(args) {

@@ -5,14 +5,17 @@ import (
 	"fmt"
 	"io/ioutil"
 	"log"
+        "os"
 
 	"github.com/driusan/dgit/git"
 )
 
 func Revert(c *git.Client, args []string) error {
 	flags := flag.NewFlagSet("revert", flag.ExitOnError)
+        flags.SetOutput(os.Stdout)
 	flags.Usage = func() {
 		flag.Usage()
+                fmt.Printf("\n\nOptions:\n")
 		flags.PrintDefaults()
 	}
 

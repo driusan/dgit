@@ -2,14 +2,18 @@ package cmd
 
 import (
 	"flag"
+        "fmt"
+        "os"
 
 	"github.com/driusan/dgit/git"
 )
 
 func Reset(c *git.Client, args []string) error {
 	flags := flag.NewFlagSet("reset", flag.ExitOnError)
+        flags.SetOutput(os.Stdout)
 	flags.Usage = func() {
 		flag.Usage()
+                fmt.Printf("\n\nOptions:\n")
 		flags.PrintDefaults()
 	}
 

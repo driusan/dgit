@@ -11,6 +11,7 @@ import (
 // and calls git.CatFiles
 func UnpackObjects(c *git.Client, args []string) error {
 	flags := flag.NewFlagSet("unpack-objects", flag.ExitOnError)
+        flags.SetOutput(os.Stdout)
 	options := git.UnpackObjectsOptions{}
 
 	flags.BoolVar(&options.DryRun, "n", false, "Do not really unpack the objects")

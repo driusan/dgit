@@ -3,6 +3,7 @@ package cmd
 import (
 	"flag"
 	"fmt"
+        "os"
 
 	"github.com/driusan/dgit/git"
 )
@@ -11,6 +12,7 @@ import (
 // and calls git.CatFiles
 func CatFile(c *git.Client, args []string) error {
 	flags := flag.NewFlagSet("cat-file", flag.ExitOnError)
+        flags.SetOutput(os.Stdout)
 	options := git.CatFileOptions{}
 
 	flags.BoolVar(&options.Pretty, "p", false, "Pretty print the object content")
