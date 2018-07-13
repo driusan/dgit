@@ -1,7 +1,7 @@
 package git
 
 import (
-        "log"
+	"log"
 	"sort"
 )
 
@@ -72,7 +72,7 @@ func DiffFiles(c *Client, opt DiffFilesOptions, paths []File) ([]HashDiff, error
 		}
 		mtime, err := f.MTime()
 		if err != nil {
-				return nil, err
+			return nil, err
 		}
 		size := stat.Size()
 		log.Printf("Mtime %v idxmtime %v Size: %v idxsize: %v\n", mtime, idx.Mtime, size, idx.Fsize)

@@ -9,6 +9,7 @@ import (
 
 func LsTree(c *git.Client, args []string) error {
 	flags := flag.NewFlagSet("ls-tree", flag.ExitOnError)
+	flags.SetOutput(flag.CommandLine.Output())
 
 	opts := git.LsTreeOptions{}
 	flags.BoolVar(&opts.TreeOnly, "d", true, "Show only the named tree, not its children")

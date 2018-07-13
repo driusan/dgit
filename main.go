@@ -6,9 +6,10 @@ import (
 	"fmt"
 	"github.com/driusan/dgit/cmd"
 	"github.com/driusan/dgit/git"
-        "io/ioutil"
-        "log"
+	"io/ioutil"
+	"log"
 	"os"
+	"strings"
 )
 
 var InvalidArgument error = errors.New("Invalid argument to function")
@@ -25,31 +26,40 @@ func requiresGitDir(cmd string) bool {
 var subcommand, subcommandUsage string
 
 func main() {
-        // First thing, set up logging
-        log.SetFlags(log.Ldate|log.Ltime|log.Lshortfile)
-        traceLevel := os.Getenv("DGIT_TRACE")
-        if traceLevel == "" {
-           traceLevel = os.Getenv("GIT_TRACE")
-        } 
-      
-        // If no trace level specified then just dump any log output 
-        if traceLevel == "" {
-           log.SetOutput(ioutil.Discard)
-        } else if traceLevel != "1" && traceLevel != "2" {
-           logfile, err := os.Open(traceLevel)
-           if os.IsNotExist(err) {
-              logfile, err = os.Create(traceLevel)
-           }
+	// First thing, set up logging
+	log.SetFlags(log.Ldate | log.Ltime | log.Lshortfile)
+	traceLevel := os.Getenv("DGIT_TRACE")
+	if traceLevel == "" {
+		traceLevel = os.Getenv("GIT_TRACE")
+	}
 
-           if err != nil {
-              fmt.Printf("Could not open file %v for tracing: %v\n", traceLevel, err)
-              os.Exit(1)
-           }
+	// If no trace level specified then just dump any log output
+	if traceLevel == "" {
+		log.SetOutput(ioutil.Discard)
+	} else if traceLevel != "1" && traceLevel != "2" {
+		logfile, err := os.Open(traceLevel)
+		if os.IsNotExist(err) {
+			logfile, err = os.Create(traceLevel)
+		}
 
-           log.SetOutput(logfile)
-        }
+		if err != nil {
+			fmt.Printf("Could not open file %v for tracing: %v\n", traceLevel, err)
+			os.Exit(1)
+		}
 
-        log.Printf("Dgit started\n")
+		log.SetOutput(logfile)
+	}
+
+	log.Printf("Dgit started\n")
+
+	// Special case, just reverse the arguments to force regular --help handling
+	if len(os.Args) == 3 && os.Args[1] == "help" && !strings.HasPrefix(os.Args[2], "-") {
+		os.Args[1] = os.Args[2]
+		os.Args[2] = "--help"
+		flag.CommandLine.SetOutput(os.Stdout)
+	} else if len(os.Args) == 3 && os.Args[2] == "--help" {
+		flag.CommandLine.SetOutput(os.Stdout)
+	}
 
 	workdir := flag.String("work-tree", "", "specify the working directory of git")
 	gitdir := flag.String("git-dir", "", "specify the repository of git")
@@ -62,8 +72,8 @@ func main() {
 		if subcommandUsage == "" {
 			subcommandUsage = fmt.Sprintf("%s [global options] %s [options]\n", os.Args[0], subcommand)
 		}
-		fmt.Fprintf(os.Stderr, "Usage: %s\n", subcommandUsage)
-		fmt.Fprintf(os.Stderr, "\nGlobal options:\n\n")
+		fmt.Fprintf(flag.CommandLine.Output(), "Usage: %s\n", subcommandUsage)
+		fmt.Fprintf(flag.CommandLine.Output(), "\nGlobal options:\n\n")
 		flag.PrintDefaults()
 	}
 	flag.Parse()
@@ -283,8 +293,57 @@ func main() {
 			fmt.Fprintln(os.Stderr, err)
 			os.Exit(4)
 		}
+	case "help":
+		flag.CommandLine.SetOutput(os.Stdout)
+		flag.Usage()
+
+		fmt.Fprintf(flag.CommandLine.Output(), "\nAvailable subcommands:\n")
+		fmt.Fprintf(flag.CommandLine.Output(), `
+   init
+   branch
+   checkout
+   checkout-index
+   cat-file
+   add          
+   commit         
+   commit-tree
+   write-tree
+   update-ref
+   log              
+   symbolic-ref
+   clone          
+   config
+   fetch          
+   reset
+   merge-file
+   merge
+   merge-base
+   rev-parse
+   rev-list
+   hash-object
+   status
+   ls-tree
+   push
+   pack-objects
+   send-pack
+   read-tree
+   diff
+   diff-files
+   diff-index
+   diff-tree
+   ls-files
+   index-pack
+   update-index
+   unpack-objects
+   grep
+   apply
+   revert
+   help
+`)
+
+		os.Exit(0)
 	default:
 		fmt.Fprintf(os.Stderr, "Unknown git command %s.\n", subcommand)
-                os.Exit(1)
+		os.Exit(1)
 	}
 }

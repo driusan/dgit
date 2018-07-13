@@ -9,6 +9,7 @@ import (
 
 func DiffIndex(c *git.Client, args []string) error {
 	flags := flag.NewFlagSet("diff-index", flag.ExitOnError)
+	flags.SetOutput(flag.CommandLine.Output())
 
 	options := git.DiffIndexOptions{}
 	flags.BoolVar(&options.Cached, "cached", false, "Do not compare the filesystem, only the index")

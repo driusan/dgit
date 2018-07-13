@@ -9,8 +9,10 @@ import (
 
 func Grep(c *git.Client, args []string) error {
 	flags := flag.NewFlagSet("grep", flag.ExitOnError)
+	flags.SetOutput(flag.CommandLine.Output())
 	flags.Usage = func() {
 		flag.Usage()
+		fmt.Fprintf(flag.CommandLine.Output(), "\n\nOptions:\n")
 		flags.PrintDefaults()
 	}
 

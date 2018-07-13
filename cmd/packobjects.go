@@ -12,7 +12,7 @@ import (
 
 func PackObjects(c *git.Client, input io.Reader, args []string) {
 	if len(args) != 1 {
-		fmt.Fprintf(os.Stderr, "Usage: %s pack-objects basename\n", os.Args[0])
+		fmt.Fprintf(os.Stdout, "Usage: %s pack-objects basename\n", os.Args[0])
 		return
 	}
 	f, _ := os.Create(args[0] + ".pack")

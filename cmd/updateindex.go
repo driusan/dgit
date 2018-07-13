@@ -43,8 +43,10 @@ func parseCacheInfo(input string) (git.CacheInfo, error) {
 
 func UpdateIndex(c *git.Client, args []string) error {
 	flags := flag.NewFlagSet("update-index", flag.ExitOnError)
+	flags.SetOutput(flag.CommandLine.Output())
 	flags.Usage = func() {
 		flag.Usage()
+		fmt.Fprintf(flag.CommandLine.Output(), "\n\nOptions:\n")
 		flags.PrintDefaults()
 	}
 

@@ -4,4 +4,6 @@ go:
   - "1.10.x"
   - master
 
-
+script:
+    - diff -u <(echo -n) <(gofmt -d ./)
+    - go test -v ./...

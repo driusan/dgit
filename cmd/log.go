@@ -3,7 +3,7 @@ package cmd
 import (
 	"errors"
 	"fmt"
-        "log"
+	"log"
 	"os"
 	"strings"
 

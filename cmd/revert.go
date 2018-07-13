@@ -11,8 +11,10 @@ import (
 
 func Revert(c *git.Client, args []string) error {
 	flags := flag.NewFlagSet("revert", flag.ExitOnError)
+	flags.SetOutput(flag.CommandLine.Output())
 	flags.Usage = func() {
 		flag.Usage()
+		fmt.Fprintf(flag.CommandLine.Output(), "\n\nOptions:\n")
 		flags.PrintDefaults()
 	}
 
