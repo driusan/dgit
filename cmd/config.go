@@ -96,7 +96,6 @@ func Config(c *git.Client, args []string) {
 			panic("Couldn't open config\n")
 		}
 		defer outfile.Close()
-		outfile.Truncate(0)
 		config.WriteFile(outfile)
 		return
 	case "unset":
@@ -113,7 +112,6 @@ func Config(c *git.Client, args []string) {
 			panic("Couldn't open config\n")
 		}
 		defer outfile.Close()
-		outfile.Truncate(0)
 		config.WriteFile(outfile)
 		os.Exit(0)
 		return
