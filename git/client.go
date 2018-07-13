@@ -274,13 +274,13 @@ func (c *Client) GetAuthor(t *time.Time) Person {
 	if name != "" {
 		person.Name = name
 	} else {
-		person.Name = config.GetConfig("user.name")
+		person.Name, _ = config.GetConfig("user.name")
 	}
 
 	if email != "" {
 		person.Email = email
 	} else {
-		person.Email = config.GetConfig("user.email")
+		person.Email, _ = config.GetConfig("user.email")
 	}
 	person.Time = t
 	return person
@@ -321,13 +321,13 @@ func (c *Client) GetCommitter(t *time.Time) (Person, error) {
 	if name != "" {
 		person.Name = name
 	} else {
-		person.Name = config.GetConfig("user.name")
+		person.Name, _ = config.GetConfig("user.name")
 	}
 
 	if email != "" {
 		person.Email = email
 	} else {
-		person.Email = config.GetConfig("user.email")
+		person.Email, _ = config.GetConfig("user.email")
 	}
 	person.Time = t
 	return person, configerr

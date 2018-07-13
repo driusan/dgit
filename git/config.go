@@ -31,24 +31,26 @@ argChecker:
 	case 2:
 		key = strings.TrimSpace(pieces[1])
 		for _, section := range g.sections {
-			fmt.Printf("Comparing %s to %s\n", section.name, pieces[0])
+			log.Printf("Comparing %s to %s\n", section.name, pieces[0])
 			if section.name == pieces[0] {
 				sec = &section
 				break argChecker
 			}
 		}
-		fmt.Printf("Couldn't find %s, creating\n", pieces[0])
+		log.Printf("Couldn't find %s, creating\n", pieces[0])
 		section := GitConfigSection{pieces[0], "", make(map[string]string, 0)}
 		sec = &section
 		g.sections = append(g.sections, section)
 	case 3:
 		key = strings.TrimSpace(pieces[2])
 		for _, section := range g.sections {
+			log.Printf("Comparing %s to %s and %s to %s\n", section.name, pieces[0], section.subsection, pieces[1])
 			if section.name == pieces[0] && section.subsection == pieces[1] {
 				sec = &section
 				break argChecker
 			}
 		}
+		log.Printf("Couldn't find %s %s, creating\n", pieces[0], pieces[1])
 		section := GitConfigSection{pieces[0], pieces[1], make(map[string]string, 0)}
 		sec = &section
 		g.sections = append(g.sections, section)
@@ -57,10 +59,49 @@ argChecker:
 	if sec != nil {
 		sec.values[key] = value
 	} else {
-		fmt.Printf("Couldn't find section %v\n", name)
+		// TODO Always auto-create the sections
+		log.Printf("Couldn't find section %v\n", name)
 	}
 }
-func (g GitConfig) GetConfig(name string) string {
+
+func (g *GitConfig) Unset(name string) int {
+	pieces := strings.Split(name, ".")
+	var key string
+	var sec *GitConfigSection
+
+argChecker:
+	switch len(pieces) {
+	case 2:
+		key = strings.TrimSpace(pieces[1])
+		for _, section := range g.sections {
+			log.Printf("Comparing %s to %s\n", section.name, pieces[0])
+			if section.name == pieces[0] {
+				sec = &section
+				break argChecker
+			}
+		}
+	case 3:
+		key = strings.TrimSpace(pieces[2])
+		for _, section := range g.sections {
+			if section.name == pieces[0] && section.subsection == pieces[1] {
+				sec = &section
+				break argChecker
+			}
+		}
+	}
+
+	if sec != nil {
+		if _, ok := sec.values[key]; !ok {
+			return 5
+		}
+		delete(sec.values, key)
+		return 0
+	} else {
+		return 5
+	}
+}
+
+func (g *GitConfig) GetConfig(name string) (string, int) {
 
 	pieces := strings.Split(name, ".")
 
@@ -68,18 +109,27 @@ func (g GitConfig) GetConfig(name string) string {
 	case 2:
 		for _, section := range g.sections {
 			if section.name == pieces[0] {
-				return section.values[pieces[1]]
+				val, ok := section.values[pieces[1]]
+				if !ok {
+					return "", 1
+				}
+				return val, 0
 			}
 		}
 	case 3:
 		for _, section := range g.sections {
 			if section.name == pieces[0] && section.subsection == pieces[1] {
-				return section.values[pieces[2]]
+				val, ok := section.values[pieces[2]]
+				if !ok {
+					return "", 1
+				}
+				return val, 0
 			}
 		}
 
 	}
-	return ""
+
+	return "", 1
 }
 
 func (g GitConfig) WriteFile(w io.Writer) {
