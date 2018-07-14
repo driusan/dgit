@@ -31,3 +31,20 @@ func (e EntryMode) TreeType() string {
 		panic(fmt.Sprintf("Invalid mode %o", e))
 	}
 }
+
+func ModeFromString(s string) (EntryMode, error) {
+	switch s {
+	case "100644":
+		return ModeBlob, nil
+	case "100755":
+		return ModeExec, nil
+	case "120000":
+		return ModeSymlink, nil
+	case "160000":
+		return ModeCommit, nil
+	case "040000":
+		return ModeTree, nil
+	default:
+		return 0, fmt.Errorf("Unknown mode: %v", s)
+	}
+}

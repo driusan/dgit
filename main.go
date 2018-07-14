@@ -147,8 +147,13 @@ func main() {
 			fmt.Printf("%s\n", sha1)
 		}
 	case "write-tree":
-		sha1 := cmd.WriteTree(c, args)
-		fmt.Printf("%s\n", sha1)
+		sha1, err := cmd.WriteTree(c, args)
+		if err != nil {
+			fmt.Fprintln(os.Stderr, err)
+			os.Exit(1)
+		} else {
+			fmt.Printf("%s\n", sha1)
+		}
 	case "update-ref":
 		if err := cmd.UpdateRef(c, args); err != nil {
 			fmt.Fprintf(os.Stderr, "%v\n", err)

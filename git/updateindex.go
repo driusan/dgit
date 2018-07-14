@@ -1,8 +1,10 @@
 package git
 
 import (
+	"bufio"
 	"fmt"
 	"io"
+	"strings"
 )
 
 // A BitSetter denotes an option for a flag which sets or unsets
@@ -27,10 +29,12 @@ type UpdateIndexOptions struct {
 	Refresh, ReallyRefresh bool
 	Quiet                  bool
 	IgnoreSubmodules       bool
-	IndexInfo              bool
 	SkipworkTree           bool
 
 	IndexVersion int
+
+	// Read the index information from IndexInfo
+	IndexInfo io.Reader
 
 	Unmerged      bool
 	IgnoreMissing bool
@@ -63,6 +67,9 @@ type UpdateIndexOptions struct {
 // passed as a parameter, and returns it. It does *not* write it to
 // disk, that's the responsibility of the caller.
 func UpdateIndex(c *Client, idx *Index, opts UpdateIndexOptions, files []File) (*Index, error) {
+	if opts.IndexInfo != nil {
+		return UpdateIndexFromReader(c, opts, opts.IndexInfo)
+	}
 	for _, file := range files {
 		ipath, err := file.IndexPath(c)
 		if err != nil {
@@ -95,6 +102,56 @@ func UpdateIndex(c *Client, idx *Index, opts UpdateIndexOptions, files []File) (
 		if opts.Verbose {
 			fmt.Printf("add '%v'\n", file)
 		}
+	}
+	return idx, nil
+}
+
+func UpdateIndexFromReader(c *Client, opts UpdateIndexOptions, r io.Reader) (*Index, error) {
+	idx := NewIndex()
+	scanner := bufio.NewScanner(r)
+	for scanner.Scan() {
+		line := strings.TrimSpace(scanner.Text())
+		if line == "" {
+			continue
+		}
+		tab := strings.Split(line, "\t")
+		if len(tab) != 2 {
+			return nil, fmt.Errorf("Invalid line in index-info: %v", line)
+		}
+		path := tab[1]
+		spaces := strings.Split(tab[0], " ")
+		switch len(spaces) {
+		case 2:
+			// mode SP sha1 TAB path
+			return nil, fmt.Errorf("update-index --index-info variant 1 not implemented")
+		case 3:
+			switch len(spaces[1]) {
+			case 20:
+				// mode SP sha1 SP stage TAB path
+				return nil, fmt.Errorf("update-index --index-info variant 3 not implemented")
+			default:
+				// mode SP type SP sha1 TAB path
+				mode, err := ModeFromString(spaces[0])
+				if err != nil {
+					return nil, err
+				}
+				if mode.TreeType() != spaces[1] {
+					return nil, fmt.Errorf("Mode does not match type: %v", line)
+				}
+				sha1, err := Sha1FromString(spaces[2])
+				if err != nil {
+					return nil, err
+				}
+				if err := idx.AddStage(c, IndexPath(path), mode, sha1, Stage0, 0, 0, true); err != nil {
+					return nil, err
+				}
+			}
+		default:
+			return nil, fmt.Errorf("Invalid line in index-info: %v", line)
+		}
+	}
+	if err := scanner.Err(); err != nil {
+		return nil, err
 	}
 	return idx, nil
 }

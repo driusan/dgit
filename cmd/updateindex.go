@@ -61,7 +61,7 @@ func UpdateIndex(c *git.Client, args []string) error {
 	flags.BoolVar(&opts.Unmerged, "unmerged", false, "If --refresh finds unmerged changes in the index, do not error out")
 	flags.BoolVar(&opts.IgnoreMissing, "ignore-missing", false, "Ignore missing files during --refresh")
 	cacheinfo := flags.String("cacheinfo", "", "Directly set cacheinfo. Only the comma separated form of --cacheinfo mode,object,path is supported")
-	flags.BoolVar(&opts.IndexInfo, "index-info", false, "Read index information from stdin")
+	indexinfo := flags.Bool("index-info", false, "Read index information from stdin")
 	chmod := flags.String("chmod", "", "set the executable permissions on the updated file(s). Must be (+/-)x")
 	assumeunchanged := flags.Bool("assume-unchanged", false, "Set the assume unchanged bit")
 	noassumeunchanged := flags.Bool("no-assume-unchanged", false, "Unset the --assume-unchanged bit")
@@ -155,7 +155,9 @@ func UpdateIndex(c *git.Client, args []string) error {
 		}
 		opts.CacheInfo = ci
 	}
-
+	if *indexinfo {
+		opts.IndexInfo = os.Stdin
+	}
 	vals := flags.Args()
 	files := make([]git.File, len(vals), len(vals))
 	for i, val := range vals {
