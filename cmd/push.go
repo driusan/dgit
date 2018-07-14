@@ -21,9 +21,10 @@ func Push(c *git.Client, args []string) {
 	}
 	defer file.Close()
 	config := git.ParseConfig(file)
-	remote := config.GetConfig("branch." + args[0] + ".remote")
-	mergebranch := strings.TrimSpace(config.GetConfig("branch." + args[0] + ".merge"))
-	repoid := config.GetConfig("remote." + remote + ".url")
+	remote, _ := config.GetConfig("branch." + args[0] + ".remote")
+	mergebranch, _ := config.GetConfig("branch." + args[0] + ".merge")
+	mergebranch = strings.TrimSpace(mergebranch)
+	repoid, _ := config.GetConfig("remote." + remote + ".url")
 	println(remote, " on ", repoid)
 	var ups git.Uploadpack
 	if repoid[0:7] == "http://" || repoid[0:8] == "https://" {

@@ -29,17 +29,41 @@ func Config(c *git.Client, args []string) {
 	if err != nil {
 		panic("Couldn't open config\n")
 	}
-	defer file.Close()
-
 	config := git.ParseConfig(file)
+	err = file.Close()
+	if err != nil {
+		panic(err)
+	}
+
 	var action string
 	switch args[0] {
 	case "--get":
 		action = "get"
 		args = args[1:]
-	case "--set":
-		action = "set"
+	case "--unset":
+		action = "unset"
 		args = args[1:]
+
+	// Type canonicalization isn't currently supported
+	//  and so we just strip them out and return the raw value
+	//  with no validation
+	case "--type":
+		args = args[1:]
+		fallthrough
+	case "--bool":
+		fallthrough
+	case "--int":
+		fallthrough
+	case "--bool-or-int":
+		fallthrough
+	case "--path":
+		fallthrough
+	case "--expiry-date":
+		if len(args) > 0 {
+			args = args[1:]
+		}
+		fallthrough
+
 	default:
 		if len(args) == 1 {
 			action = "get"
@@ -47,20 +71,51 @@ func Config(c *git.Client, args []string) {
 			action = "set"
 		}
 	}
+
 	switch action {
 	case "get":
-		fmt.Printf("%s\n", config.GetConfig(args[0]))
-		return
+		val, code := config.GetConfig(args[0])
+		if code != 0 {
+			os.Exit(code)
+		}
+		fmt.Printf("%s\n", val)
+		os.Exit(0)
 	case "set":
 		if len(args) < 2 {
 			fmt.Fprintf(os.Stderr, "Missing value to set config to\n")
 			return
 		}
 
-		file.Seek(0, 0)
 		config.SetConfig(args[0], args[1])
-		config.WriteFile(file)
+		err = os.Remove(fname)
+		if err != nil {
+			panic("Couldn't rewrite config\n")
+		}
+		outfile, err := os.Create(fname)
+		if err != nil {
+			panic("Couldn't open config\n")
+		}
+		defer outfile.Close()
+		config.WriteFile(outfile)
+		return
+	case "unset":
+		code := config.Unset(args[0])
+		if code != 0 {
+			os.Exit(code)
+		}
+		err = os.Remove(fname)
+		if err != nil {
+			panic("Couldn't rewrite config\n")
+		}
+		outfile, err := os.Create(fname)
+		if err != nil {
+			panic("Couldn't open config\n")
+		}
+		defer outfile.Close()
+		config.WriteFile(outfile)
+		os.Exit(0)
 		return
 	}
-	panic("Unhandled action" + args[0])
+
+	panic("Unhandled action " + args[0])
 }
