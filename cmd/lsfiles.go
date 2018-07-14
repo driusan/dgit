@@ -89,13 +89,9 @@ func LsFiles(c *git.Client, args []string) error {
 			return err
 		}
 		if options.Stage {
-			fmt.Printf("%o %v %v %v\n", file.Mode, file.Sha1, file.Stage(), path)
+			fmt.Printf("%o %v %v\t%v\n", file.Mode, file.Sha1, file.Stage(), path)
 		} else {
-			if path.IsDir() {
-				fmt.Println(path + "/")
-			} else {
-				fmt.Println(path)
-			}
+			fmt.Println(path)
 		}
 	}
 	return err
