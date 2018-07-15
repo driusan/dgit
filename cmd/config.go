@@ -43,6 +43,8 @@ func Config(c *git.Client, args []string) {
 	case "--unset":
 		action = "unset"
 		args = args[1:]
+        case "--list":
+                action = "list"
 
 	// Type canonicalization isn't currently supported
 	//  and so we just strip them out and return the raw value
@@ -114,7 +116,12 @@ func Config(c *git.Client, args []string) {
 		defer outfile.Close()
 		config.WriteFile(outfile)
 		os.Exit(0)
-		return
+        case "list":
+                list := config.GetConfigList()
+                for _, entry := range list {
+                        fmt.Printf("%s\n", entry)
+                }
+                os.Exit(0)
 	}
 
 	panic("Unhandled action " + args[0])
