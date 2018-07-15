@@ -8,13 +8,15 @@ It's primary purpose is to enable users of operating systems
 where Go is supported but the canonical git implementation
 isn't (ie. Plan 9) to use git.
 
-IT IS NOWHERE NEAR READY.
+*IT IS NOWHERE NEAR READY*
+
+## Roadmap
 
 The main goal is to enable `go get` to work by doing a real
 checkout and without any hacks such as downloading a .zip from
 GitHub and pretending it's a checkout. (This should be done, 
 and any breakages with `go get` if you rename the binary from
-`go-git` to `git` and put it on your path should be reported
+`dgit` to `git` and put it on your path should be reported
 as an issue.)
 
 The secondary goal is to enable just enough of the git
@@ -24,3 +26,10 @@ git add/commit/push/status/diff/log.)
 The third, stretch goal, is to have a complete command-line
 compatible implementation of git that can be used as a drop-in
 replacement for git.
+
+## Pronunciation
+
+The dgit tool is pronounced dee-git. The extra letter is there
+to distinguish it from the standard git implementation. The
+letter 'd' was chosen because it is on the home row of the
+keyboard, which makes it easier to type.
