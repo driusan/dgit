@@ -1,8 +1,10 @@
 package git
 
 import (
+	"fmt"
 	"io/ioutil"
 	"os"
+	"strings"
 
 	"testing"
 )
@@ -214,5 +216,49 @@ func TestUpdateIndexSymlinks(t *testing.T) {
 	}
 	if newobjects[1].Mode != ModeSymlink {
 		t.Errorf("Unexpected file mode. got %v want %v", newobjects[1].Mode, ModeSymlink)
+	}
+}
+
+func TestUpdateIndexIndexInfo(t *testing.T) {
+	// Set up a temporary directory, and put 2 known files in it, so that
+	// our tests can run from a deterministic state.
+	wd, err := ioutil.TempDir("", "gitupdateindextest")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer os.RemoveAll(wd)
+	os.Chdir(wd)
+
+	c, err := Init(nil, InitOptions{Quiet: true}, "")
+
+	info := strings.NewReader(`100644 blob 1000000000000000000000000000000000000000	dir/file1
+100644 blob 2000000000000000000000000000000000000000	dir/file2
+100644 blob 3000000000000000000000000000000000000000	dir/file3
+100644 blob 4000000000000000000000000000000000000000	dir/file4
+100644 blob 5000000000000000000000000000000000000000	dir/file5
+`)
+	newidx, err := UpdateIndex(c, &Index{}, UpdateIndexOptions{IndexInfo: info}, []File{"works", "broken"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if newidx == nil {
+		t.Fatal("No index returned")
+
+	}
+	if len(newidx.Objects) != 5 {
+		t.Fatalf("Incorrect number of objects in new index: got %v want 5", len(newidx.Objects))
+	}
+
+	for i, o := range newidx.Objects {
+		if o.Mode != ModeBlob {
+			t.Errorf("Unexpected mode for index %d: got %v want %v", i, o.Mode, ModeBlob)
+		}
+		if expected := IndexPath(fmt.Sprintf("dir/file%d", i+1)); expected != o.PathName {
+			t.Errorf("Unexpected path for index %d: got %v want %v", i, o.PathName, expected)
+		}
+		shastr := fmt.Sprintf("%d000000000000000000000000000000000000000", i+1)
+		if shastr != o.Sha1.String() {
+			t.Errorf("Unexpected sha1 for index %d: got %v want %v", i, o.Sha1, shastr)
+		}
 	}
 }

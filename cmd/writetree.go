@@ -3,14 +3,13 @@ package cmd
 import (
 	"flag"
 	"fmt"
-	"log"
 
 	"github.com/driusan/dgit/git"
 )
 
 // WriteTree implements the git write-tree command on the Git repository
 // pointed to by c.
-func WriteTree(c *git.Client, args []string) string {
+func WriteTree(c *git.Client, args []string) (string, error) {
 	flags := flag.NewFlagSet("write-tree", flag.ExitOnError)
 	flags.SetOutput(flag.CommandLine.Output())
 	flags.Usage = func() {
@@ -27,7 +26,7 @@ func WriteTree(c *git.Client, args []string) string {
 
 	sha1, err := git.WriteTree(c, opts)
 	if err != nil {
-		log.Fatal(err)
+		return "", err
 	}
-	return sha1.String()
+	return sha1.String(), nil
 }
