@@ -33,7 +33,7 @@ func Branch(c *git.Client, args []string) {
 			fmt.Fprintf(os.Stderr, "Could not create branch (%v): %v\n", args[0], err)
 		}
 	default:
-		fmt.Fprintln(os.Stderr, "Usage: go-git branch [branchname]")
+		fmt.Fprintln(os.Stderr, "Usage: dgit branch [branchname]")
 	}
 
 }
