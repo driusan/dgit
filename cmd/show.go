@@ -11,7 +11,7 @@ func Show(c *git.Client, args []string) error {
 	flags := flag.NewFlagSet("show", flag.ExitOnError)
 	flags.SetOutput(flag.CommandLine.Output())
 	flags.Usage = func() {
-		fmt.Fprintf(flag.CommandLine.Output(), "show [options] <commit>...\n")
+		flag.Usage()
 		fmt.Fprintf(flag.CommandLine.Output(), "\n\nOptions:\n")
 		flags.PrintDefaults()
 	}
