@@ -303,7 +303,7 @@ func main() {
 			os.Exit(4)
 		}
 	case "show":
-                subcommandUsage = fmt.Sprintf("%v [global options] show [options] <commit>...\n", os.Args[0])
+		subcommandUsage = fmt.Sprintf("%v [global options] show [options] <commit>...\n", os.Args[0])
 		if err := cmd.Show(c, args); err != nil {
 			fmt.Fprintln(os.Stderr, err)
 			os.Exit(4)
