@@ -11,6 +11,11 @@ import (
 func Checkout(c *git.Client, args []string) error {
 	flags := flag.NewFlagSet("checkout", flag.ExitOnError)
 	flags.SetOutput(flag.CommandLine.Output())
+	flags.Usage = func() {
+		flag.Usage()
+		fmt.Fprintf(flag.CommandLine.Output(), "\n\nOptions:\n")
+		flags.PrintDefaults()
+	}
 	options := git.CheckoutOptions{}
 
 	quiet := flags.Bool("quiet", false, "Quiet. Suppress feedback messages.")

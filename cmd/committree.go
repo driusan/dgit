@@ -10,7 +10,7 @@ import (
 )
 
 func CommitTree(c *git.Client, args []string) (git.CommitID, error) {
-	if len(args) == 0 {
+	if len(args) == 0 || (len(args) == 1 && args[0] == "--help") {
 		// This doesn't use the flag package, because -m or -p can be specified multiple times
 		return git.CommitID{}, fmt.Errorf("Usage: %s commit-tree [(-p <sha1>)...] [-m <message>] [-F <file>]  <sha1>", os.Args[0])
 	}
@@ -51,7 +51,6 @@ func CommitTree(c *git.Client, args []string) (git.CommitID, error) {
 		case "-F":
 			messageFile = args[idx+1]
 			skipNext = true
-
 		}
 	}
 	if messageString == "" && messageFile == "" {

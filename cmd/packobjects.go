@@ -11,7 +11,7 @@ import (
 )
 
 func PackObjects(c *git.Client, input io.Reader, args []string) {
-	if len(args) != 1 {
+	if len(args) != 1 || (len(args) == 1 && args[0] == "--help") {
 		fmt.Fprintf(os.Stdout, "Usage: %s pack-objects basename\n", os.Args[0])
 		return
 	}

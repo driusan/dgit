@@ -10,6 +10,11 @@ import (
 func DiffTree(c *git.Client, args []string) error {
 	flags := flag.NewFlagSet("diff-tree", flag.ExitOnError)
 	flags.SetOutput(flag.CommandLine.Output())
+	flags.Usage = func() {
+		flag.Usage()
+		fmt.Fprintf(flag.CommandLine.Output(), "\n\nOptions:\n")
+		flags.PrintDefaults()
+	}
 	options := git.DiffTreeOptions{}
 
 	patch := flags.Bool("index", false, "Generate patch")

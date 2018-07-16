@@ -10,6 +10,11 @@ import (
 func RevList(c *git.Client, args []string) ([]git.Sha1, error) {
 	flags := flag.NewFlagSet("rev-list", flag.ExitOnError)
 	flags.SetOutput(flag.CommandLine.Output())
+	flags.Usage = func() {
+		flag.Usage()
+		fmt.Fprintf(flag.CommandLine.Output(), "\n\nOptions:\n")
+		flags.PrintDefaults()
+	}
 
 	includeObjects := flags.Bool("objects", false, "include non-commit objects in output")
 	quiet := flags.Bool("quiet", false, "prevent printing of revisions")

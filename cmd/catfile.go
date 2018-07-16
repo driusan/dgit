@@ -12,6 +12,11 @@ import (
 func CatFile(c *git.Client, args []string) error {
 	flags := flag.NewFlagSet("cat-file", flag.ExitOnError)
 	flags.SetOutput(flag.CommandLine.Output())
+	flags.Usage = func() {
+		flag.Usage()
+		fmt.Fprintf(flag.CommandLine.Output(), "\n\nOptions:\n")
+		flags.PrintDefaults()
+	}
 	options := git.CatFileOptions{}
 
 	flags.BoolVar(&options.Pretty, "p", false, "Pretty print the object content")

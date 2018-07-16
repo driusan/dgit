@@ -12,6 +12,11 @@ import (
 func LsFiles(c *git.Client, args []string) error {
 	flags := flag.NewFlagSet("ls-tree", flag.ExitOnError)
 	flags.SetOutput(flag.CommandLine.Output())
+	flags.Usage = func() {
+		flag.Usage()
+		fmt.Fprintf(flag.CommandLine.Output(), "\n\nOptions:\n")
+		flags.PrintDefaults()
+	}
 	options := git.LsFilesOptions{}
 
 	cached := flags.Bool("cached", true, "Show cached files in output (default)")
