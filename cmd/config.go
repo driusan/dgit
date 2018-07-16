@@ -1,16 +1,17 @@
 package cmd
 
 import (
+	"errors"
 	"fmt"
 	"os"
 
 	"github.com/driusan/dgit/git"
 )
 
-func Config(c *git.Client, args []string) {
+func Config(c *git.Client, args []string) error {
 	if len(args) < 1 {
 		fmt.Fprintf(os.Stderr, "Usage: dgit config [<options>]\n")
-		return
+		os.Exit(1)
 	}
 	var fname string
 
@@ -27,12 +28,12 @@ func Config(c *git.Client, args []string) {
 
 	file, err := os.OpenFile(fname, os.O_RDWR|os.O_CREATE, 0644)
 	if err != nil {
-		panic("Couldn't open config\n")
+		return err
 	}
 	config := git.ParseConfig(file)
 	err = file.Close()
 	if err != nil {
-		panic(err)
+		return err
 	}
 
 	var action string
@@ -43,6 +44,8 @@ func Config(c *git.Client, args []string) {
 	case "--unset":
 		action = "unset"
 		args = args[1:]
+	case "--list":
+		action = "list"
 
 	// Type canonicalization isn't currently supported
 	//  and so we just strip them out and return the raw value
@@ -79,25 +82,25 @@ func Config(c *git.Client, args []string) {
 			os.Exit(code)
 		}
 		fmt.Printf("%s\n", val)
-		os.Exit(0)
+		return nil
 	case "set":
 		if len(args) < 2 {
 			fmt.Fprintf(os.Stderr, "Missing value to set config to\n")
-			return
+			os.Exit(1)
 		}
 
 		config.SetConfig(args[0], args[1])
 		err = os.Remove(fname)
 		if err != nil {
-			panic("Couldn't rewrite config\n")
+			return err
 		}
 		outfile, err := os.Create(fname)
 		if err != nil {
-			panic("Couldn't open config\n")
+			return err
 		}
 		defer outfile.Close()
 		config.WriteFile(outfile)
-		return
+		return nil
 	case "unset":
 		code := config.Unset(args[0])
 		if code != 0 {
@@ -105,17 +108,22 @@ func Config(c *git.Client, args []string) {
 		}
 		err = os.Remove(fname)
 		if err != nil {
-			panic("Couldn't rewrite config\n")
+			return err
 		}
 		outfile, err := os.Create(fname)
 		if err != nil {
-			panic("Couldn't open config\n")
+			return err
 		}
 		defer outfile.Close()
 		config.WriteFile(outfile)
-		os.Exit(0)
-		return
+		return nil
+	case "list":
+		list := config.GetConfigList()
+		for _, entry := range list {
+			fmt.Printf("%s\n", entry)
+		}
+		return nil
 	}
 
-	panic("Unhandled action " + args[0])
+	return errors.New("Unhandled action " + args[0])
 }

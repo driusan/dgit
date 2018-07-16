@@ -175,7 +175,10 @@ func main() {
 
 		}
 	case "config":
-		cmd.Config(c, args)
+		if err := cmd.Config(c, args); err != nil {
+			fmt.Fprintf(os.Stderr, "%v\n", err)
+			os.Exit(2)
+		}
 	case "fetch":
 		cmd.Fetch(c, args)
 	case "reset":
