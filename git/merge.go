@@ -126,9 +126,9 @@ func Merge(c *Client, opts MergeOptions, others []Commitish) error {
 		}
 		var refmsg string
 		if b, ok := others[0].(Branch); ok && b.BranchName() != "" {
-			refmsg = fmt.Sprintf("merge %s into %s: Fast-forward (go-git)", b.BranchName(), c.GetHeadBranch().BranchName())
+			refmsg = fmt.Sprintf("merge %s into %s: Fast-forward (dgit)", b.BranchName(), c.GetHeadBranch().BranchName())
 		} else {
-			refmsg = fmt.Sprintf("merge into %s: Fast-forward (go-git)", c.GetHeadBranch().BranchName())
+			refmsg = fmt.Sprintf("merge into %s: Fast-forward (dgit)", c.GetHeadBranch().BranchName())
 		}
 
 		return UpdateRef(c, UpdateRefOptions{OldValue: head, CreateReflog: true}, "HEAD", dstc, refmsg)

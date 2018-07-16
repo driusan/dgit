@@ -10,7 +10,7 @@ import (
 
 func Config(c *git.Client, args []string) error {
 	if len(args) < 1 {
-		fmt.Fprintf(os.Stderr, "Usage: go-git config [<options>]\n")
+		fmt.Fprintf(os.Stderr, "Usage: dgit config [<options>]\n")
 		os.Exit(1)
 	}
 	var fname string

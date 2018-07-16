@@ -310,7 +310,7 @@ func (s SmartHTTPServerRetriever) NegotiatePack() ([]*Reference, io.ReadCloser, 
 func (s SmartHTTPServerRetriever) SendPack(ref UpdateReference, r io.Reader, size int64) error {
 	var toPost string
 
-	line, err := PktLineEncode([]byte(fmt.Sprintf("%s %s %s\000 report-status quiet sideband-64k agent=go-git/0.0.1", ref.RemoteSha1, ref.LocalSha1, ref.Refname.String())))
+	line, err := PktLineEncode([]byte(fmt.Sprintf("%s %s %s\000 report-status quiet sideband-64k agent=dgit/0.0.1", ref.RemoteSha1, ref.LocalSha1, ref.Refname.String())))
 	if err != nil {
 		panic(err)
 	}
@@ -323,7 +323,7 @@ func (s SmartHTTPServerRetriever) SendPack(ref UpdateReference, r io.Reader, siz
 	if err != nil {
 		return err
 	}
-	req.Header.Set("User-Agent", "go-git/0.0.1")
+	req.Header.Set("User-Agent", "dgit/0.0.1")
 
 	req.ContentLength = int64(len(toPost)) + size + 4
 	req.Header.Set("Content-Type", "application/x-git-receive-pack-request")
