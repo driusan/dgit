@@ -185,7 +185,7 @@ func main() {
 			os.Exit(2)
 		}
 	case "merge-file":
-                subcommandUsage = "<current-file> <base-file> <other-file>"
+		subcommandUsage = "<current-file> <base-file> <other-file>"
 		if err := cmd.MergeFile(c, args); err != nil {
 			fmt.Fprintf(os.Stderr, "%v\n", err)
 			os.Exit(2)
@@ -222,7 +222,7 @@ func main() {
 		}
 
 	case "rev-list":
-                subcommandUsage = "<commit>..."
+		subcommandUsage = "<commit>..."
 		cmd.RevList(c, args)
 	case "hash-object":
 		cmd.HashObject(c, args)
@@ -232,7 +232,7 @@ func main() {
 			os.Exit(4)
 		}
 	case "ls-tree":
-                subcommandUsage = "[<path>...]"
+		subcommandUsage = "[<path>...]"
 		if err := cmd.LsTree(c, args); err != nil {
 			fmt.Fprintf(os.Stderr, "%v\n", err)
 			os.Exit(4)
@@ -249,7 +249,7 @@ func main() {
 			os.Exit(4)
 		}
 	case "diff":
-                subcommandUsage = "[<path>...]"
+		subcommandUsage = "[<path>...]"
 		if err := cmd.Diff(c, args); err != nil {
 			fmt.Fprintf(os.Stderr, "%v\n", err)
 			os.Exit(4)
@@ -270,7 +270,7 @@ func main() {
 			os.Exit(4)
 		}
 	case "ls-files":
-                subcommandUsage = "[<file>...]"
+		subcommandUsage = "[<file>...]"
 		if err := cmd.LsFiles(c, args); err != nil {
 			fmt.Fprintf(os.Stderr, "%v\n", err)
 			os.Exit(4)
@@ -291,13 +291,13 @@ func main() {
 			os.Exit(4)
 		}
 	case "grep":
-                subcommandUsage = "[<pathspec>...]"
+		subcommandUsage = "[<pathspec>...]"
 		if err := cmd.Grep(c, args); err != nil {
 			fmt.Fprintln(os.Stderr, err)
 			os.Exit(4)
 		}
 	case "apply":
-                subcommandUsage = "[<patch>...]"
+		subcommandUsage = "[<patch>...]"
 		if err := cmd.Apply(c, args); err != nil {
 			fmt.Fprintln(os.Stderr, err)
 			os.Exit(4)

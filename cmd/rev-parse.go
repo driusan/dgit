@@ -1,7 +1,7 @@
 package cmd
 
 import (
-        "fmt"
+	"fmt"
 
 	"github.com/driusan/dgit/git"
 )
