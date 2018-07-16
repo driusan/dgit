@@ -44,7 +44,7 @@ reset          Almost        git 2.9.2              -N not parsed, -p, --merge, 
 revert         HappyPath     git 2.14.2	     (6) Sequencer options (--continue/quit/abort) are missing, can only do 1 revert at a time. GPG not implemented. MergeStrategy not implemented. --signoff passed to commit, but commit doesn't implement.
 rm             None                                 Can use rm; git add instead.
 shortlog       None
-show           None
+show           HappyPath     git 2.18.0             only commits (no special merge commit format), only --pretty=raw and standard
 stash          None
 status         HappyPath     git 2.14.2              (6.5) missing --show-stash, --porcelain=2, -v, -v -v, --ignore-submodules, --ignored, --column/--no-column
 submodule      None
