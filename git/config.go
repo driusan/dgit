@@ -133,20 +133,20 @@ func (g *GitConfig) GetConfig(name string) (string, int) {
 }
 
 func (g *GitConfig) GetConfigList() []string {
-        list := []string {}
+	list := []string{}
 
-        for _, section := range g.sections {
-                for key, value := range section.values {
-                        if section.subsection != "" {
-                              list = append(list, section.name + "." + section.subsection + "." + key + "=" + value)
-                        } else {
-                              list = append(list, section.name + "." + key + "=" + value)
-                        }
-                }
-        }
+	for _, section := range g.sections {
+		for key, value := range section.values {
+			if section.subsection != "" {
+				list = append(list, section.name+"."+section.subsection+"."+key+"="+value)
+			} else {
+				list = append(list, section.name+"."+key+"="+value)
+			}
+		}
+	}
 
-        return list
-}  
+	return list
+}
 
 func (g GitConfig) WriteFile(w io.Writer) {
 	for _, section := range g.sections {
