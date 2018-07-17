@@ -70,6 +70,36 @@ type FixedIndexEntry struct {
 	Flags uint16 // 74
 }
 
+// Refreshes the stat information for this entry using the file
+// file
+func (i *FixedIndexEntry) RefreshStat(f File) error {
+	// FIXME: Add other stat info here too, but these are the
+	// most important ones and the onlye ones that the os package
+	// exposes in a cross-platform way.
+	stat, err := f.Lstat()
+	if err != nil {
+		return err
+	}
+	fmtime, err := f.MTime()
+	if err != nil {
+		return err
+	}
+	i.Mtime = fmtime
+	i.Fsize = uint32(stat.Size())
+	return nil
+}
+
+// Refreshes the stat information for an index entry by comparing
+// it against the path in the index.
+func (ie *IndexEntry) RefreshStat(c *Client) error {
+	f, err := ie.PathName.FilePath(c)
+	if err != nil {
+		return err
+	}
+	return ie.FixedIndexEntry.RefreshStat(f)
+}
+
+
 // Reads the index file from the GitDir and returns a Index object.
 // If the index file does not exist, it will return a new empty Index.
 func (d GitDir) ReadIndex() (*Index, error) {
