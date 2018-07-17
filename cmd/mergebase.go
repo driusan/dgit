@@ -14,6 +14,11 @@ var NonAncestor error = errors.New("Commit not an ancestor")
 func MergeBase(c *git.Client, args []string) (git.CommitID, error) {
 	flags := flag.NewFlagSet("merge-base", flag.ExitOnError)
 	flags.SetOutput(flag.CommandLine.Output())
+	flags.Usage = func() {
+		flag.Usage()
+		fmt.Fprintf(flag.CommandLine.Output(), "\n\nOptions:\n")
+		flags.PrintDefaults()
+	}
 	var options git.MergeBaseOptions
 
 	flags.BoolVar(&options.Octopus, "octopus", false, "Compute the common ancestor of all supplied commits")

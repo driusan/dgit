@@ -1,6 +1,7 @@
 package cmd
 
 import (
+	"flag"
 	"fmt"
 	"io/ioutil"
 	"log"
@@ -68,6 +69,9 @@ func Commit(c *git.Client, args []string) (string, error) {
 			opts.CleanupMode = args[idx+1]
 		case "-a", "--all":
 			opts.All = true
+		case "--help":
+			flag.PrintDefaults()
+			os.Exit(0)
 		}
 	}
 	if !opts.NoEdit {
