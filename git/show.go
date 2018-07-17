@@ -5,18 +5,64 @@ import (
 	"strings"
 )
 
+type Format struct {
+	value *string
+}
+
+func (f *Format) FormatCommit(cmt CommitID, c *Client) (string, error) {
+	if f == nil || f.value == nil || *f.value == "medium" {
+		output, err := formatCommitMedium(cmt, c)
+		if err != nil {
+			return "", err
+		}
+		return fmt.Sprintf("%v\n", output), nil
+	}
+	if *f.value == "raw" {
+		output := fmt.Sprintf("commit %v\n", cmt)
+		cmtObject, err := c.GetCommitObject(cmt)
+		if err != nil {
+			return "", err
+		}
+		return fmt.Sprintf("%v%v\n", output, cmtObject), nil
+	}
+
+	return "", fmt.Errorf("Format %s is not supported.\n", *f.value)
+}
+
+func (f *Format) String() string {
+	if f == nil || f.value == nil {
+		return ""
+	}
+
+	return *f.value
+}
+
+func (f *Format) Set(s string) error {
+	if f.value != nil {
+		return fmt.Errorf("Format already set to %s\n", *f.value)
+	}
+
+	if s != "raw" && s != "medium" {
+		return fmt.Errorf("Unsupported format: %s\n", s)
+	}
+
+	f.value = &s
+	return nil
+}
+
+func (f *Format) Get() interface{} {
+	return f
+}
+
 type ShowOptions struct {
-	Pretty string
+	DiffOptions
+	Format Format
 }
 
 // Show implementes the "git show" command.
 func Show(c *Client, opts ShowOptions, objects []string) error {
 	if len(objects) < 1 {
 		return fmt.Errorf("Provide at least one commit.")
-	}
-
-	if opts.Pretty != "" && opts.Pretty != "raw" {
-		return fmt.Errorf("Only raw format is supported, not %v", opts.Pretty)
 	}
 
 	commitIds := []CommitID{}
@@ -32,84 +78,40 @@ func Show(c *Client, opts ShowOptions, objects []string) error {
 	}
 
 	for _, commit := range commitIds {
-		if opts.Pretty == "raw" {
-			if err := showCommitRaw(commit, c); err != nil {
-				return err
-			}
-		} else {
-			if err := showCommit(commit, c); err != nil {
-				return err
-			}
+		output, err := opts.Format.FormatCommit(commit, c)
+		if err != nil {
+			return err
 		}
+		fmt.Printf("%v", output)
 	}
 
 	return nil
 }
 
-func showCommit(cmt CommitID, c *Client) error {
+func formatCommitMedium(cmt CommitID, c *Client) (string, error) {
 	author, err := cmt.GetAuthor(c)
 	if err != nil {
-		return err
+		return "", err
 	}
 
 	date, err := cmt.GetDate(c)
 	if err != nil {
-		return err
+		return "", err
 	}
 
 	msg, err := cmt.GetCommitMessage(c)
 	if err != nil {
-		return err
+		return "", err
 	}
 
 	// Headers
-	fmt.Printf("commit %v\nAuthor: %s\nDate: %v\n\n", cmt, author, date.Format("Mon Jan 2 15:04:05 2006 -0700"))
+	output := fmt.Sprintf("commit %v\nAuthor: %s\nDate: %v\n\n", cmt, author, date.Format("Mon Jan 2 15:04:05 2006 -0700"))
 
 	// Commit message body
 	lines := strings.Split(strings.TrimSpace(msg.String()), "\n")
 	for _, l := range lines {
-		fmt.Printf("    %v\n", l)
-	}
-	fmt.Printf("\n")
-
-	return nil
-}
-
-func showCommitRaw(cmt CommitID, c *Client) error {
-	author, err := cmt.GetAuthor(c)
-	if err != nil {
-		return err
+		output = fmt.Sprintf("%v    %v\n", output, l)
 	}
 
-	date, err := cmt.GetDate(c)
-	if err != nil {
-		return err
-	}
-
-	msg, err := cmt.GetCommitMessage(c)
-	if err != nil {
-		return err
-	}
-
-	parents, err := cmt.Parents(c)
-	if err != nil {
-		return err
-	}
-
-	tree, err := cmt.TreeID(c)
-	if err != nil {
-		return err
-	}
-
-	// Headers
-	fmt.Printf("commit %v\ntree %v\nparent %v\nauthor %s %v +0000\ncommiter %s %v +0000\n\n", cmt, tree, parents[0], author, date.Unix(), author, date.Unix())
-
-	// Commit message body
-	lines := strings.Split(strings.TrimSpace(msg.String()), "\n")
-	for _, l := range lines {
-		fmt.Printf("    %v\n", l)
-	}
-	fmt.Printf("\n")
-
-	return nil
+	return output, nil
 }

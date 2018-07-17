@@ -17,7 +17,8 @@ func Show(c *git.Client, args []string) error {
 	}
 
 	opts := git.ShowOptions{}
-	flags.StringVar(&opts.Pretty, "pretty", "", "Pretty-print the contents of commit logs in a specified format")
+	flags.Var(&opts.Format, "format", "Print the contents of commit logs in a specified format")
+	flags.Var(&opts.Format, "pretty", "Alias for --format")
 	flags.Parse(args)
 
 	objects := flags.Args()
