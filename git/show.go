@@ -5,11 +5,11 @@ import (
 	"strings"
 )
 
-type Format struct {
+type FormatString struct {
 	value *string
 }
 
-func (f *Format) FormatCommit(cmt CommitID, c *Client) (string, error) {
+func (f *FormatString) FormatCommit(cmt CommitID, c *Client) (string, error) {
 	if f == nil || f.value == nil || *f.value == "medium" {
 		output, err := formatCommitMedium(cmt, c)
 		if err != nil {
@@ -29,7 +29,7 @@ func (f *Format) FormatCommit(cmt CommitID, c *Client) (string, error) {
 	return "", fmt.Errorf("Format %s is not supported.\n", *f.value)
 }
 
-func (f *Format) String() string {
+func (f *FormatString) String() string {
 	if f == nil || f.value == nil {
 		return ""
 	}
@@ -37,7 +37,7 @@ func (f *Format) String() string {
 	return *f.value
 }
 
-func (f *Format) Set(s string) error {
+func (f *FormatString) Set(s string) error {
 	if f.value != nil {
 		return fmt.Errorf("Format already set to %s\n", *f.value)
 	}
@@ -50,13 +50,13 @@ func (f *Format) Set(s string) error {
 	return nil
 }
 
-func (f *Format) Get() interface{} {
+func (f *FormatString) Get() interface{} {
 	return f
 }
 
 type ShowOptions struct {
 	DiffOptions
-	Format Format
+	Format FormatString
 }
 
 // Show implementes the "git show" command.
