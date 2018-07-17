@@ -19,6 +19,7 @@ func CommitTree(c *git.Client, args []string) (git.CommitID, error) {
 	var messageString, messageFile string
 	var skipNext bool
 	var tree git.Treeish
+	knownCommits := make(map[git.CommitID]bool)
 	for idx, val := range args {
 		if idx == 0 && val[0] != '-' {
 			treeid, err := git.RevParseTreeish(c, &git.RevParseOptions{}, args[len(args)-1])
@@ -43,8 +44,15 @@ func CommitTree(c *git.Client, args []string) (git.CommitID, error) {
 			if err != nil {
 				return git.CommitID{}, err
 			}
-			parents = append(parents, pcid)
 			skipNext = true
+
+			if _, ok := knownCommits[pcid]; ok {
+				// skip parents that have already been added
+				continue
+			}
+
+			parents = append(parents, pcid)
+			knownCommits[pcid] = true
 		case "-m":
 			messageString += "\n" + args[idx+1] + "\n"
 			skipNext = true
