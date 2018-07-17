@@ -2,6 +2,7 @@ package cmd
 
 import (
 	"flag"
+	"fmt"
 	"os"
 
 	"github.com/driusan/dgit/git"
@@ -12,6 +13,11 @@ import (
 func CheckoutIndexCmd(c *git.Client, args []string) error {
 	flags := flag.NewFlagSet("checkout-index", flag.ExitOnError)
 	flags.SetOutput(flag.CommandLine.Output())
+	flags.Usage = func() {
+		flag.Usage()
+		fmt.Fprintf(flag.CommandLine.Output(), "\n\nOptions:\n")
+		flags.PrintDefaults()
+	}
 	options := git.CheckoutIndexOptions{}
 
 	index := flags.Bool("index", false, "Update stat information for checkout out entries in the index")

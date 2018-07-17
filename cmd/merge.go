@@ -10,6 +10,11 @@ import (
 func Merge(c *git.Client, args []string) error {
 	flags := flag.NewFlagSet("merge", flag.ExitOnError)
 	flags.SetOutput(flag.CommandLine.Output())
+	flags.Usage = func() {
+		flag.Usage()
+		fmt.Fprintf(flag.CommandLine.Output(), "\n\nOptions:\n")
+		flags.PrintDefaults()
+	}
 	options := git.MergeOptions{}
 
 	flags.BoolVar(&options.FastForwardOnly, "ff-only", false, "Only allow fast-forward merges")

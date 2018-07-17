@@ -10,7 +10,7 @@ import (
 )
 
 func Push(c *git.Client, args []string) {
-	if len(args) < 1 {
+	if len(args) < 1 || (len(args) == 1 && args[0] == "--help") {
 		fmt.Fprintf(os.Stderr, "Missing repository to fetch")
 		return
 	}

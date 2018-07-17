@@ -2,6 +2,7 @@ package cmd
 
 import (
 	"flag"
+	"fmt"
 
 	"github.com/driusan/dgit/git"
 )
@@ -9,6 +10,11 @@ import (
 func Diff(c *git.Client, args []string) error {
 	flags := flag.NewFlagSet("diff", flag.ExitOnError)
 	flags.SetOutput(flag.CommandLine.Output())
+	flags.Usage = func() {
+		flag.Usage()
+		fmt.Fprintf(flag.CommandLine.Output(), "\n\nOptions:\n")
+		flags.PrintDefaults()
+	}
 	options := git.DiffOptions{}
 
 	var staged bool

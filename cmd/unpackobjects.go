@@ -2,6 +2,7 @@ package cmd
 
 import (
 	"flag"
+	"fmt"
 	"os"
 
 	"github.com/driusan/dgit/git"
@@ -12,6 +13,11 @@ import (
 func UnpackObjects(c *git.Client, args []string) error {
 	flags := flag.NewFlagSet("unpack-objects", flag.ExitOnError)
 	flags.SetOutput(flag.CommandLine.Output())
+	flags.Usage = func() {
+		flag.Usage()
+		fmt.Fprintf(flag.CommandLine.Output(), "\n\nOptions:\n")
+		flags.PrintDefaults()
+	}
 	options := git.UnpackObjectsOptions{}
 
 	flags.BoolVar(&options.DryRun, "n", false, "Do not really unpack the objects")
