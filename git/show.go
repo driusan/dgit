@@ -9,7 +9,7 @@ type FormatString struct {
 	value *string
 }
 
-func (f *FormatString) FormatCommit(cmt CommitID, c *Client) (string, error) {
+func (f *FormatString) FormatCommit(c *Client, cmt CommitID) (string, error) {
 	if f == nil || f.value == nil || *f.value == "medium" {
 		output, err := formatCommitMedium(cmt, c)
 		if err != nil {
@@ -78,7 +78,7 @@ func Show(c *Client, opts ShowOptions, objects []string) error {
 	}
 
 	for _, commit := range commitIds {
-		output, err := opts.Format.FormatCommit(commit, c)
+		output, err := opts.Format.FormatCommit(c, commit)
 		if err != nil {
 			return err
 		}
