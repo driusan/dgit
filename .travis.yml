@@ -12,15 +12,6 @@ script:
     - echo '##### Building dgit'`
     - go build
     - echo '##### Running official git basic test suite'
-    - git clone https://github.com/git/git.git official-git
-    - cd official-git
-    - git checkout v2.8.0
-    - make
-    - cp ../dgit git
-    - cp ../git-init git-init
-    - chmod a+x git-init
-    - cd t
-    - ../git help
-    - ../git-init --help
-    - make t0000-basic.sh
+    - chmod u+x run-official-tests.sh
+    - ./run-official-tests.sh
 
