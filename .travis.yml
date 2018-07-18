@@ -5,13 +5,8 @@ go:
   - master
 
 script:
-    - echo '##### Verifying formatting'
     - diff -u <(echo -n) <(gofmt -d ./)
-    - echo '##### Running tests'
     - go test -v ./...
-    - echo '##### Building dgit'`
-    - go build
-    - echo '##### Running official git basic test suite'
     - chmod u+x run-official-tests.sh
-    - ./run-official-tests.sh
+    - ./run-official-tests.sh t0000-basic.sh
 
