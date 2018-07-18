@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"io"
 	"io/ioutil"
+	"log"
 	"os"
 	"sort"
 )
@@ -73,6 +74,7 @@ type FixedIndexEntry struct {
 // Refreshes the stat information for this entry using the file
 // file
 func (i *FixedIndexEntry) RefreshStat(f File) error {
+	log.Printf("Refreshing stat info for %v\n", f)
 	// FIXME: Add other stat info here too, but these are the
 	// most important ones and the onlye ones that the os package
 	// exposes in a cross-platform way.
@@ -86,6 +88,8 @@ func (i *FixedIndexEntry) RefreshStat(f File) error {
 	}
 	i.Mtime = fmtime
 	i.Fsize = uint32(stat.Size())
+	i.Ctime, i.Ctimenano = f.CTime()
+
 	return nil
 }
 
@@ -140,6 +144,7 @@ func (d GitDir) ReadIndex() (*Index, error) {
 }
 
 func ReadIndexEntry(file *os.File) (*IndexEntry, error) {
+	log.Println("Reading from index entry from", file.Name())
 	var f FixedIndexEntry
 	var name []byte
 	binary.Read(file, binary.BigEndian, &f)
