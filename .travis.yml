@@ -20,5 +20,7 @@ script:
     - cp ../git-init git-init
     - chmod a+x git-init
     - cd t
+    - ../git help
+    - ../git-init --help
     - make t0000-basic.sh
 
