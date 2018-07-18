@@ -52,7 +52,7 @@ func DiffFiles(c *Client, opt DiffFilesOptions, paths []File) ([]HashDiff, error
 			val = append(val, HashDiff{idx.PathName, idxtree, fs, uint(idx.Fsize), 0})
 			continue
 		}
-		stat, err := f.Stat()
+		stat, err := f.Lstat()
 		if err != nil {
 			val = append(val, HashDiff{idx.PathName, idxtree, fs, uint(idx.Fsize), 0})
 			continue
@@ -60,7 +60,12 @@ func DiffFiles(c *Client, opt DiffFilesOptions, paths []File) ([]HashDiff, error
 
 		switch {
 		case stat.Mode().IsDir():
-			fs.FileMode = ModeTree
+			// Since we're diffing files in the index (which only holds files)
+			// against a directory, it means that the file was deleted and
+			// replaced by a directory.
+			//fs.FileMode = ModeTree
+			val = append(val, HashDiff{idx.PathName, idxtree, fs, uint(idx.Fsize), 0})
+			continue
 		case !stat.Mode().IsRegular():
 			// FIXME: This doesn't take into account that the file
 			// might be some kind of non-symlink non-regular file.
@@ -75,14 +80,14 @@ func DiffFiles(c *Client, opt DiffFilesOptions, paths []File) ([]HashDiff, error
 			return nil, err
 		}
 		size := stat.Size()
-		log.Printf("Mtime %v idxmtime %v Size: %v idxsize: %v\n", mtime, idx.Mtime, size, idx.Fsize)
-		//if mtime != idx.Mtime || size != int64(idx.Fsize) {
-		hash, _, _ := HashFile("blob", f.String())
+		log.Printf("%v: Mtime %v idxmtime %v Size: %v idxsize: %v ctime: %v ctimenano:%v\n", f, mtime, idx.Mtime, size, idx.Fsize, idx.Ctime, idx.Ctimenano)
+		if mtime != idx.Mtime || size != int64(idx.Fsize) {
+			hash, _, _ := HashFile("blob", f.String())
 
-		if err != nil || hash != idx.Sha1 {
-			val = append(val, HashDiff{idx.PathName, idxtree, fs, uint(idx.Fsize), uint(size)})
+			if err != nil || hash != idx.Sha1 {
+				val = append(val, HashDiff{idx.PathName, idxtree, fs, uint(idx.Fsize), uint(size)})
+			}
 		}
-		//}
 	}
 
 	sort.Sort(ByName(val))

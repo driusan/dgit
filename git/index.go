@@ -99,7 +99,6 @@ func (ie *IndexEntry) RefreshStat(c *Client) error {
 	return ie.FixedIndexEntry.RefreshStat(f)
 }
 
-
 // Reads the index file from the GitDir and returns a Index object.
 // If the index file does not exist, it will return a new empty Index.
 func (d GitDir) ReadIndex() (*Index, error) {
