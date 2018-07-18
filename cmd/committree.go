@@ -63,7 +63,7 @@ func CommitTree(c *git.Client, args []string) (git.CommitID, error) {
 		return git.CommitID{}, err
 	}
 
-        knownCommits := make(map[git.CommitID]bool)
+	knownCommits := make(map[git.CommitID]bool)
 
 	var parents []git.CommitID
 	for _, parent := range p {
@@ -71,19 +71,19 @@ func CommitTree(c *git.Client, args []string) (git.CommitID, error) {
 		if err != nil {
 			return git.CommitID{}, err
 		}
-		
-                pcid, err := pid.CommitID(c)
+
+		pcid, err := pid.CommitID(c)
 		if err != nil {
 			return git.CommitID{}, err
 		}
- 
-                if _, ok := knownCommits[pcid]; ok {
-                        // skip parents that have already been added
-                        continue
-                }
+
+		if _, ok := knownCommits[pcid]; ok {
+			// skip parents that have already been added
+			continue
+		}
 
 		parents = append(parents, pcid)
-                knownCommits[pcid] = true
+		knownCommits[pcid] = true
 
 	}
 
