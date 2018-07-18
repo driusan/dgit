@@ -5,19 +5,17 @@ import (
 	"strings"
 )
 
-type FormatString struct {
-	value *string
-}
+type FormatString string
 
-func (f *FormatString) FormatCommit(c *Client, cmt CommitID) (string, error) {
-	if f == nil || f.value == nil || *f.value == "medium" {
+func (f FormatString) FormatCommit(c *Client, cmt CommitID) (string, error) {
+	if f == "" || f == "medium" {
 		output, err := formatCommitMedium(cmt, c)
 		if err != nil {
 			return "", err
 		}
 		return fmt.Sprintf("%v\n", output), nil
 	}
-	if *f.value == "raw" {
+	if f == "raw" {
 		output := fmt.Sprintf("commit %v\n", cmt)
 		cmtObject, err := c.GetCommitObject(cmt)
 		if err != nil {
@@ -26,32 +24,7 @@ func (f *FormatString) FormatCommit(c *Client, cmt CommitID) (string, error) {
 		return fmt.Sprintf("%v%v\n", output, cmtObject), nil
 	}
 
-	return "", fmt.Errorf("Format %s is not supported.\n", *f.value)
-}
-
-func (f *FormatString) String() string {
-	if f == nil || f.value == nil {
-		return ""
-	}
-
-	return *f.value
-}
-
-func (f *FormatString) Set(s string) error {
-	if f.value != nil {
-		return fmt.Errorf("Format already set to %s\n", *f.value)
-	}
-
-	if s != "raw" && s != "medium" {
-		return fmt.Errorf("Unsupported format: %s\n", s)
-	}
-
-	f.value = &s
-	return nil
-}
-
-func (f *FormatString) Get() interface{} {
-	return f
+	return "", fmt.Errorf("Format %s is not supported.\n", f)
 }
 
 type ShowOptions struct {
