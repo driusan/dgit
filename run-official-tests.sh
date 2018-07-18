@@ -14,7 +14,7 @@ go build
 
 git clone https://github.com/git/git.git official-git || echo "Using existing official git"
 cd official-git
-git checkout v2.8.0
+git checkout "$TAG"
 make
 rm git
 cp ../dgit git
