@@ -3,7 +3,7 @@ package cmd
 import (
 	"bufio"
 	"encoding/hex"
-	"fmt"
+	"flag"
 	"io"
 	"os"
 
@@ -11,10 +11,16 @@ import (
 )
 
 func PackObjects(c *git.Client, input io.Reader, args []string) {
-	if len(args) != 1 || (len(args) == 1 && args[0] == "--help") {
-		fmt.Fprintf(os.Stdout, "Usage: %s pack-objects basename\n", os.Args[0])
-		return
+	if len(args) == 1 && args[0] == "--help" {
+		flag.Usage()
+		os.Exit(0)
 	}
+
+	if len(args) != 1 {
+		flag.Usage()
+		os.Exit(2)
+	}
+
 	f, _ := os.Create(args[0] + ".pack")
 	defer f.Close()
 

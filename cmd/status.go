@@ -3,6 +3,7 @@ package cmd
 import (
 	"flag"
 	"fmt"
+	"os"
 
 	"github.com/driusan/dgit/git"
 )
@@ -19,10 +20,10 @@ func Status(c *git.Client, args []string) error {
 	opts := git.StatusOptions{}
 
 	flags.BoolVar(&opts.Short, "short", false, "Give the output in short format")
-	s := flags.Bool("s", false, "Alias of --short")
+	flags.BoolVar(&opts.Short, "s", false, "Alias of --short")
 
 	flags.BoolVar(&opts.Branch, "branch", false, "Short branch and tracking info, even in short mode")
-	b := flags.Bool("b", false, "Alias of --branch")
+	flags.BoolVar(&opts.Branch, "b", false, "Alias of --branch")
 
 	flags.BoolVar(&opts.ShowStash, "show-stash", false, "Show the number of entries currently stashed")
 
@@ -31,7 +32,7 @@ func Status(c *git.Client, args []string) error {
 	flags.BoolVar(&opts.Long, "long", true, "Give the output in long format")
 
 	flags.BoolVar(&opts.Verbose, "verbose", false, "In addition to the modifies files, show a diff")
-	v := flags.Bool("v", false, "Alias of --verbose")
+	flags.BoolVar(&opts.Verbose, "v", false, "Alias of --verbose")
 
 	uno := flags.Bool("uno", false, "Do not show untracked files")
 	unormal := flags.Bool("unormal", false, "Show untracked files and directories (default)")
@@ -51,22 +52,13 @@ func Status(c *git.Client, args []string) error {
 
 	flags.Parse(args)
 
-	if *s {
-		opts.Short = true
-	}
-	if *b {
-		opts.Branch = true
-	}
-
 	switch *porcelain {
 	case 0, 1, 2:
 		opts.Porcelain = uint8(*porcelain)
 	default:
-		return fmt.Errorf("Invalid value for --porcelain")
-	}
-
-	if *v {
-		opts.Verbose = true
+		fmt.Fprintf(flag.CommandLine.Output(), "Invalid value for --porcelain, must be 0, 1 or 2\n")
+		flags.Usage()
+		os.Exit(2)
 	}
 
 	if *uno {
@@ -89,7 +81,9 @@ func Status(c *git.Client, args []string) error {
 	case "dirty":
 		opts.IgnoreSubmodules = git.StatusIgnoreSubmodulesAll
 	default:
-		return fmt.Errorf("Invalid option for --ignore-submodules")
+		fmt.Fprintf(flag.CommandLine.Output(), "Invalid option for --ignore-submodules, must be all, none, untracked or dirty.\n")
+		flags.Usage()
+		os.Exit(2)
 	}
 
 	if *column != "" {

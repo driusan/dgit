@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"io/ioutil"
 	"log"
+	"os"
 
 	"github.com/driusan/dgit/git"
 )
@@ -77,7 +78,8 @@ func Revert(c *git.Client, args []string) error {
 
 	}
 	if len(commits) < 0 {
-		return fmt.Errorf("No commit provided to revert")
+		flags.Usage()
+		os.Exit(2)
 	}
 	cid, err := commits[0].CommitID(c)
 	if err != nil {

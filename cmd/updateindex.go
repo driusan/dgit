@@ -69,7 +69,7 @@ func UpdateIndex(c *git.Client, args []string) error {
 	skipworktree := flags.Bool("skip-worktree", false, "Set the skip worktree bit")
 	noskipworktree := flags.Bool("no-skip-worktree", false, "Unset the --skip-worktree bit")
 	flags.BoolVar(&opts.Again, "again", false, "Runs git-update-index itself on the paths whose index entries are different from those from the HEAD commit. I don't know what this means, but it's what the man page says.")
-	g := flags.Bool("g", false, "Alias for --again")
+	flags.BoolVar(&opts.Again, "g", false, "Alias for --again")
 	flags.BoolVar(&opts.Unresolve, "unresolve", false, "Restores the unmerged or needs updating state of a file during a merge")
 	flags.BoolVar(&opts.InfoOnly, "info-only", false, "Do not create objects in the database, just insert their object IDs into the index")
 	flags.BoolVar(&opts.ForceRemove, "force-remove", false, "Remove the file from the index even when it exists in the working directory. Implies --remove")
@@ -90,9 +90,6 @@ func UpdateIndex(c *git.Client, args []string) error {
 	flags.Parse(args)
 	if *stdin {
 		opts.Stdin = os.Stdin
-	}
-	if *g {
-		opts.Again = true
 	}
 
 	if *splitindex {

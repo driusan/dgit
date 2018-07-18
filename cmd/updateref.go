@@ -72,6 +72,9 @@ func UpdateRef(c *git.Client, args []string) error {
 
 		return git.UpdateRef(c, opts, vals[0], cmt, *reason)
 	}
+
 	flags.Usage()
+	os.Exit(2)
+
 	return fmt.Errorf("Invalid usage")
 }

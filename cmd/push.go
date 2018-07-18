@@ -1,6 +1,7 @@
 package cmd
 
 import (
+	"flag"
 	"fmt"
 	"io/ioutil"
 	"os"
@@ -11,8 +12,9 @@ import (
 
 func Push(c *git.Client, args []string) {
 	if len(args) < 1 || (len(args) == 1 && args[0] == "--help") {
-		fmt.Fprintf(os.Stderr, "Missing repository to fetch")
-		return
+		fmt.Fprintf(flag.CommandLine.Output(), "Missing repository to fetch")
+		flag.Usage()
+		os.Exit(2)
 	}
 
 	file, err := c.GitDir.Open("config")

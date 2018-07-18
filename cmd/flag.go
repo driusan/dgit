@@ -28,3 +28,21 @@ func (s *aliasedStringValue) Set(val string) error {
 func (s *aliasedStringValue) Get() interface{} { return string(*s) }
 
 func (s *aliasedStringValue) String() string { return string(*s) }
+
+// A string value compatible with a flag var
+//  that allows you to assign multiple strings
+//  to the same string value as a string slice.
+type multiStringValue []string
+
+func newMultiStringValue(p *[]string) *multiStringValue {
+	return (*multiStringValue)(p)
+}
+
+func (s *multiStringValue) Set(val string) error {
+	*s = append(*s, val)
+	return nil
+}
+
+func (s *multiStringValue) Get() interface{} { return []string(*s) }
+
+func (s *multiStringValue) String() string { return fmt.Sprintf("%v\n", *s) }

@@ -3,6 +3,7 @@ package cmd
 import (
 	"flag"
 	"fmt"
+	"os"
 
 	"github.com/driusan/dgit/git"
 )
@@ -195,7 +196,9 @@ func Grep(c *git.Client, args []string) error {
 	case "always":
 		opts.Colour = true
 	default:
-		return fmt.Errorf("Invalid valid value for colour: %v", *colour)
+		fmt.Fprintf(flag.CommandLine.Output(), "Invalid valid value for colour: %v\n", *colour)
+		flags.Usage()
+		os.Exit(2)
 	}
 	if *nocolour {
 		opts.Colour = false
@@ -209,7 +212,9 @@ func Grep(c *git.Client, args []string) error {
 		args = args[1:]
 	}
 	if pattern == "" {
-		return fmt.Errorf("No pattern given.")
+		fmt.Fprintf(flag.CommandLine.Output(), "No pattern given.\n")
+		flags.Usage()
+		os.Exit(2)
 	}
 
 	var tree git.Treeish

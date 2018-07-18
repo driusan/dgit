@@ -1,7 +1,7 @@
 package cmd
 
 import (
-	"errors"
+	"flag"
 	"fmt"
 	"log"
 	"os"
@@ -67,9 +67,14 @@ func walkParents(c *git.Client, cmt git.CommitID) error {
 }
 
 func Log(c *git.Client, args []string) error {
+	if len(args) == 1 && args[0] == "--help" {
+		flag.Usage()
+		os.Exit(0)
+	}
+
 	if len(args) >= 2 {
-		fmt.Fprintf(os.Stderr, "Usage: %s log [commitish]\n", os.Args[0])
-		return errors.New("No options are currently supported for log")
+		flag.Usage()
+		os.Exit(2)
 	}
 
 	var commit git.Commitish

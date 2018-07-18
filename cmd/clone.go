@@ -1,6 +1,7 @@
 package cmd
 
 import (
+	"flag"
 	"fmt"
 	"os"
 	"strings"
@@ -9,13 +10,19 @@ import (
 )
 
 func Clone(c *git.Client, args []string) error {
+	if len(args) == 1 && args[0] == "--help" {
+		flag.Usage()
+		os.Exit(0)
+	}
+
 	var repoid string
 	var dirName string
 	// TODO: This argument parsing should be smarter and more
 	// in line with how cgit does it.
 	switch len(args) {
 	case 0:
-		return fmt.Errorf("Invalid usage")
+		flag.Usage()
+		os.Exit(2)
 	case 1:
 		repoid = args[0]
 	case 2:
