@@ -7,3 +7,6 @@ go:
 script:
     - diff -u <(echo -n) <(gofmt -d ./)
     - go test -v ./...
+    - chmod u+x run-official-tests.sh
+    - ./run-official-tests.sh t0000-basic.sh
+

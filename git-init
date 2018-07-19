@@ -1,0 +1,6 @@
+#!/bin/bash
+
+d=`dirname $0`
+
+${d}/git init "$@"
+
