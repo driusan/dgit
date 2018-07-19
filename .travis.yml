@@ -4,9 +4,12 @@ go:
   - "1.10.x"
   - master
 
+go_import_path: github.com/driusan/dgit
+
 script:
+    - pwd
     - diff -u <(echo -n) <(gofmt -d ./)
     - go test -v ./...
     - chmod u+x run-official-tests.sh
-    - ./run-official-tests.sh t0000-basic.sh
+    - ./run-official-tests.sh -i t0000-basic.sh t0005-signals.sh t0011-hashmap.sh t0040-parse-options.sh t0062-revision-walking.sh t0063-string-list.sh t0064-sha1-array.sh t0070-fundamental.sh t0081-line-buffer.sh t0110-urlmatch-normalization.sh t0200-gettext-basic.sh
 
