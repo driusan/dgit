@@ -48,10 +48,7 @@ func CommitTree(c *git.Client, args []string) (git.CommitID, error) {
 
 	flags.Parse(args)
 
-	finalMessage := ""
-	for _, msg := range m {
-		finalMessage = msg + "\n"
-	}
+	finalMessage := strings.Join(m, "\n\n") + "\n"
 
 	if len(flags.Args()) != 1 {
 		flags.Usage()
@@ -87,7 +84,7 @@ func CommitTree(c *git.Client, args []string) (git.CommitID, error) {
 
 	}
 
-	if (finalMessage == "" && messageFile == "") || messageFile == "-" {
+	if (finalMessage == "\n" && messageFile == "") || messageFile == "-" {
 		// No -m or -F provided, read from STDIN
 		m, err := ioutil.ReadAll(os.Stdin)
 		if err != nil {

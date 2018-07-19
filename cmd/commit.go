@@ -81,7 +81,7 @@ func Commit(c *git.Client, args []string) (string, error) {
 		opts.NoEdit = false
 	}
 
-	finalMessage := strings.Join(message, "\n")
+	finalMessage := strings.Join(message, "\n\n") + "\n"
 
 	if !opts.NoEdit {
 		s, err := git.StatusLong(
@@ -94,7 +94,7 @@ func Commit(c *git.Client, args []string) (string, error) {
 			return "", err
 		}
 
-		c.GitDir.WriteFile("COMMIT_EDITMSG", []byte(finalMessage+"\n"+s), 0660)
+		c.GitDir.WriteFile("COMMIT_EDITMSG", []byte(finalMessage+s), 0660)
 		if err := c.ExecEditor(c.GitDir.File("COMMIT_EDITMSG")); err != nil {
 			return "", err
 		}
@@ -104,6 +104,7 @@ func Commit(c *git.Client, args []string) (string, error) {
 		}
 		finalMessage = string(m2)
 	}
+
 	cmt, err := git.Commit(c, opts, git.CommitMessage(finalMessage), nil)
 	switch err {
 	case git.NoGlobalConfig:
