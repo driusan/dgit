@@ -67,22 +67,39 @@ func walkParents(c *git.Client, cmt git.CommitID) error {
 }
 
 func Log(c *git.Client, args []string) error {
-	if len(args) == 1 && args[0] == "--help" {
+	flags := flag.NewFlagSet("log", flag.ExitOnError)
+	flags.SetOutput(flag.CommandLine.Output())
+	flags.Usage = func() {
 		flag.Usage()
-		os.Exit(0)
+		fmt.Fprintf(flag.CommandLine.Output(), "\n\nOptions:\n")
+		flags.PrintDefaults()
 	}
 
-	if len(args) >= 2 {
-		flag.Usage()
+	flags.Var(newNotimplBoolValue(), "follow", "Not implemented")
+	flags.Var(newNotimplBoolValue(), "no-decorate", "Not implemented")
+	flags.Var(newNotimplStringValue(), "decorate", "Not implemented")
+	flags.Var(newNotimplStringValue(), "decorate-refs", "Not implemented")
+	flags.Var(newNotimplStringValue(), "decorate-refs-exclude", "Not implemented")
+	flags.Var(newNotimplBoolValue(), "source", "Not implemented")
+	flags.Var(newNotimplBoolValue(), "use-mailmap", "Not implemented")
+	flags.Var(newNotimplBoolValue(), "full-diff", "Not implemented")
+	flags.Var(newNotimplStringValue(), "log-size", "Not implemented")
+	flags.Var(newNotimplStringValue(), "L", "Not implemented")
+
+	flags.Parse(args)
+
+	if flags.NArg() > 1 {
+		fmt.Fprintf(flag.CommandLine.Output(), "Paths are not yet implemented, just the revision")
+		flags.Usage()
 		os.Exit(2)
 	}
 
 	var commit git.Commitish
 	var err error
-	if len(args) == 0 {
+	if flags.NArg() == 0 {
 		commit, err = git.RevParseCommitish(c, &git.RevParseOptions{}, "HEAD")
 	} else {
-		commit, err = git.RevParseCommitish(c, &git.RevParseOptions{}, args[0])
+		commit, err = git.RevParseCommitish(c, &git.RevParseOptions{}, flags.Arg(0))
 	}
 	if err != nil {
 		return err

@@ -46,3 +46,37 @@ func (s *multiStringValue) Set(val string) error {
 func (s *multiStringValue) Get() interface{} { return []string(*s) }
 
 func (s *multiStringValue) String() string { return fmt.Sprintf("%v\n", *s) }
+
+// A string value that indicates that it is not yet implemented if it's used.
+type notimplStringValue string
+
+func newNotimplStringValue() *notimplStringValue {
+	var s string
+	return (*notimplStringValue)(&s)
+}
+
+func (s *notimplStringValue) Set(val string) error {
+	return fmt.Errorf("Not yet implemented")
+}
+
+func (s *notimplStringValue) Get() interface{} { return string(*s) }
+
+func (s *notimplStringValue) String() string { return string(*s) }
+
+// A boolean value that indicates that it is not yet implemented if it's used.
+type notimplBoolValue bool
+
+func newNotimplBoolValue() *notimplBoolValue {
+	var b bool
+	return (*notimplBoolValue)(&b)
+}
+
+func (b *notimplBoolValue) Set(val string) error {
+	return fmt.Errorf("Not yet implemented")
+}
+
+func (b *notimplBoolValue) Get() interface{} { return bool(*b) }
+
+func (b *notimplBoolValue) String() string { return "false" }
+
+func (b *notimplBoolValue) IsBoolFlag() bool { return true }

@@ -47,3 +47,34 @@ func TestMultiStringValue(t *testing.T) {
 		t.Fail()
 	}
 }
+
+func TestNotImplStringValue(t *testing.T) {
+	flags := flag.NewFlagSet("test3", flag.ContinueOnError)
+	flags.Var(newNotimplStringValue(), "foo", "Not implemented")
+
+	err := flags.Parse([]string{"path1"})
+
+	if err != nil {
+		panic(err)
+	}
+
+	err = flags.Parse([]string{"--foo=bar"})
+	if err == nil {
+		t.Fail()
+	}
+}
+
+func TestNotImplBoolValue(t *testing.T) {
+	flags := flag.NewFlagSet("test4", flag.ContinueOnError)
+	flags.Var(newNotimplBoolValue(), "foo", "Not implemented")
+
+	err := flags.Parse([]string{"path1"})
+	if err != nil {
+		panic(err)
+	}
+
+	err = flags.Parse([]string{"--foo"})
+	if err == nil {
+		t.Fail()
+	}
+}
