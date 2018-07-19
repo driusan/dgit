@@ -63,7 +63,6 @@ func DiffFiles(c *Client, opt DiffFilesOptions, paths []File) ([]HashDiff, error
 			// Since we're diffing files in the index (which only holds files)
 			// against a directory, it means that the file was deleted and
 			// replaced by a directory.
-			//fs.FileMode = ModeTree
 			val = append(val, HashDiff{idx.PathName, idxtree, fs, uint(idx.Fsize), 0})
 			continue
 		case !stat.Mode().IsRegular():
