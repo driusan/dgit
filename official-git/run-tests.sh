@@ -1,4 +1,4 @@
-#!/bin/sh
+#!/bin/bash
 
 # Runs the offical git command line scripts from a specific version.
 # Command line arguments to this script are the ones given to make
@@ -12,19 +12,18 @@ set -e
 TAG=v2.8.0
 
 d=`dirname $0`
-cd "$d"
 
-test=$1
+pushd $d/..; go build
 
-go build
+popd
 
-git clone https://github.com/git/git.git official-git || echo "Using existing official git"
-cd official-git
+git clone https://github.com/git/git.git git || echo "Using existing official git"
+cd git
 git checkout "$TAG"
-patch -p0 < ../official-git.patch || echo "Patch already applied or conflicts with local changes"
+patch -p0 < ../git.patch || echo "Patch already applied or conflicts with local changes"
 make
 rm git
-cp ../dgit git
+cp ../../dgit git
 rm git-init
 cp ../git-init .
 chmod a+x git-init

@@ -10,6 +10,6 @@ script:
     - pwd
     - diff -u <(echo -n) <(gofmt -d ./)
     - go test -v ./...
-    - chmod u+x run-official-tests.sh
-    - ./run-official-tests.sh -i t0000-basic.sh t0007-git-var.sh t0062-revision-walking.sh t0070-fundamental.sh t0081-line-buffer.sh
+    - chmod u+x ./official-git/run-tests.sh
+    - ./official-git/run-tests.sh t0000-basic.sh t0007-git-var.sh t0062-revision-walking.sh t0070-fundamental.sh t0081-line-buffer.sh
 
