@@ -1,4 +1,6 @@
 // +build !dragonfly
+// +build !darwin
+// +build !linux
 
 package git
 

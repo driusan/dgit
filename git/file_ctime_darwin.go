@@ -10,6 +10,6 @@ func (f File) CTime() (uint32, uint32) {
 		return 0, 0
 	}
 	rawstat := stat.Sys().(*syscall.Stat_t)
-	tspec := rawstat.Ctim
+	tspec := rawstat.Ctimespec
 	return uint32(tspec.Sec), uint32(tspec.Nsec)
 }
