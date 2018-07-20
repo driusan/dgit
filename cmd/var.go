@@ -53,7 +53,7 @@ func getLogVar(c *git.Client, config *git.GitConfig, key string, envVar string) 
 			return editor
 		}
 
-		return "vi"
+		return "ed"
 	} else if key == "GIT_PAGER" {
 		corePager, _ := config.GetConfig("core.pager")
 		if corePager != "" {
