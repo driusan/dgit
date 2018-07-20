@@ -328,6 +328,12 @@ func main() {
 			fmt.Fprintln(os.Stderr, err)
 			os.Exit(4)
 		}
+	case "var":
+		subcommandUsage = "[variable]"
+		if err := cmd.Var(c, args); err != nil {
+			fmt.Fprintln(os.Stderr, err)
+			os.Exit(4)
+		}
 	case "help":
 		flag.CommandLine.SetOutput(os.Stdout)
 		flag.Usage()
@@ -375,6 +381,7 @@ func main() {
    revert
    help
    show             Show various types of objects
+   var              Show a Git logical variable
 `)
 
 		os.Exit(0)
