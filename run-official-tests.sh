@@ -21,6 +21,7 @@ go build
 git clone https://github.com/git/git.git official-git || echo "Using existing official git"
 cd official-git
 git checkout "$TAG"
+patch -p0 < ../official-git.patch || echo "Patch already applied or conflicts with local changes"
 make
 rm git
 cp ../dgit git
