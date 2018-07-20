@@ -13,10 +13,12 @@ TAG=v2.8.0
 
 d=`dirname $0`
 
-pushd $d/..; go build
+cd $d
+d=`pwd`
 
-popd
+cd $d/..; go build
 
+cd $d
 git clone https://github.com/git/git.git git || echo "Using existing official git"
 cd git
 git checkout "$TAG"
