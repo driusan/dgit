@@ -3,6 +3,7 @@ package cmd
 import (
 	"flag"
 	"fmt"
+	"os"
 
 	"github.com/driusan/dgit/git"
 )
@@ -35,7 +36,9 @@ func parseCommonDiffFlags(c *git.Client, options *git.DiffCommonOptions, default
 	}
 
 	if *unified != 3 && *U != 3 {
-		return nil, fmt.Errorf("Can not specify both --unified and -U")
+		fmt.Fprintf(flag.CommandLine.Output(), "Can not specify both --unified and -U\n")
+		flags.Usage()
+		os.Exit(2)
 	} else if *unified != 3 {
 		options.NumContextLines = *unified
 	} else if *U != 3 {

@@ -40,8 +40,9 @@ func IndexPack(c *git.Client, args []string) (err error) {
 	if *stdin {
 		packfile = os.Stdin
 	} else if len(args) < 1 {
+		fmt.Fprintf(flag.CommandLine.Output(), "Must provide pack file name or --stdin\n")
 		flags.Usage()
-		return fmt.Errorf("Must provide pack file name or --stdin")
+		os.Exit(2)
 	} else {
 		f, err := os.Open(args[0])
 		if err != nil {
@@ -83,7 +84,9 @@ func IndexPack(c *git.Client, args []string) (err error) {
 	} else {
 		// Guess based on the pack name.
 		if filepath.Ext(args[0]) != ".pack" {
-			return fmt.Errorf("File name does not end in .pack")
+			fmt.Fprintf(flag.CommandLine.Output(), "File name does not end in .pack\n")
+			flags.Usage()
+			os.Exit(2)
 		}
 		fname := strings.TrimSuffix(args[0], "pack") + "idx"
 

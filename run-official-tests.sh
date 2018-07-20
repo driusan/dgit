@@ -1,5 +1,11 @@
 #!/bin/sh
 
+# Runs the offical git command line scripts from a specific version.
+# Command line arguments to this script are the ones given to make
+#  in the git/t directory where the test cases are defined.
+# E.g. ./run-official-tests.sh -i t0000-basic.sh
+# Runs the tests defined in the shell script and ignores failures (-i)
+
 set -e
 
 # This is the tag of the release that dgit originated
@@ -23,4 +29,4 @@ cp ../git-init .
 chmod a+x git-init
 cd t
 
-make -i $test
+make "$@"

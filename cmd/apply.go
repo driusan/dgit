@@ -3,6 +3,7 @@ package cmd
 import (
 	"flag"
 	"fmt"
+	"os"
 
 	"github.com/driusan/dgit/git"
 )
@@ -25,10 +26,10 @@ func Apply(c *git.Client, args []string) error {
 	flags.BoolVar(&opts.Index, "index", false, "When checking or applying the patch, apply it to the index too")
 	flags.BoolVar(&opts.Cached, "cached", false, "Apply the patch to the index without touching the working tree")
 	flags.BoolVar(&opts.ThreeWay, "3way", false, "When the patch does not apply cleanly, fall back on a 3-way merge with conflict markers")
-	three := flags.Bool("3", false, "Alias of --3way")
+	flags.BoolVar(&opts.ThreeWay, "3", false, "Alias of --3way")
 	flags.StringVar(&opts.BuildFakeAncestor, "build-fake-ancestor", "", "I have no idea what this means")
 	flags.BoolVar(&opts.Reverse, "reverse", false, "Apply the patch in reverse")
-	R := flags.Bool("R", false, "Apply the patch in reverse")
+	flags.BoolVar(&opts.Reverse, "R", false, "Apply the patch in reverse")
 	flags.BoolVar(&opts.Reject, "reject", false, "Instead of atomically applying the patch, leave the rejected hunks in .rej files")
 
 	flags.BoolVar(&opts.NullTerminate, "z", false, "Null terminate paths with --num-stat")
@@ -51,7 +52,7 @@ func Apply(c *git.Client, args []string) error {
 	whitespace := flags.String("whitespace", "warn", "Determine how to handle patches with whitespace errors")
 
 	flags.BoolVar(&opts.Verbose, "verbose", false, "Report progress to stderr")
-	v := flags.Bool("v", false, "Alias of --verbose")
+	flags.BoolVar(&opts.Verbose, "v", false, "Alias of --verbose")
 
 	flags.BoolVar(&opts.Recount, "recount", false, "Do not trust the line counts from the patch")
 
@@ -62,25 +63,18 @@ func Apply(c *git.Client, args []string) error {
 	flags.Parse(args)
 	args = flags.Args()
 
-	if *v {
-		opts.Verbose = true
-	}
 	switch *whitespace {
 	case "nowarn", "warn", "fix", "error", "error-all":
 		opts.Whitespace = *whitespace
 	default:
 		return fmt.Errorf("Invalid option for --whitespace")
 	}
-	if *R {
-		opts.Reverse = true
-	}
-	if *three {
-		opts.ThreeWay = true
-	}
 	if opts.ThreeWay {
 		opts.Index = false
 		if opts.Reject || opts.Cached {
-			return fmt.Errorf("--3way is incompatible with --reject and --cached")
+			fmt.Fprintf(flag.CommandLine.Output(), "--3way is incompatible with --reject and --cached\n")
+			flags.Usage()
+			os.Exit(2)
 		}
 	}
 

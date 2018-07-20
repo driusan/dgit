@@ -3,6 +3,7 @@ package cmd
 import (
 	"flag"
 	"fmt"
+	"os"
 
 	"github.com/driusan/dgit/git"
 )
@@ -21,8 +22,8 @@ func ReadTree(c *git.Client, args []string) error {
 	flags.BoolVar(&options.Update, "u", false, "Update files in the work tree with the result of the merge")
 	flags.BoolVar(&options.IgnoreWorktreeCheck, "i", false, "Disable work tree check")
 
-	dryrun := flags.Bool("dry-run", false, "Do not update the index or files")
-	n := flags.Bool("n", false, "Alias of --dry-run")
+	flags.BoolVar(&options.DryRun, "dry-run", false, "Do not update the index or files")
+	flags.BoolVar(&options.DryRun, "n", false, "Alias of --dry-run")
 
 	flags.BoolVar(&options.TrivialMerge, "trivial", false, "Only perform three-way merge if there is no file level merging")
 	flags.BoolVar(&options.AggressiveMerge, "aggressive", false, "Perform more aggressive trivial merges.")
@@ -38,12 +39,11 @@ func ReadTree(c *git.Client, args []string) error {
 
 	flags.Parse(args)
 	args = flags.Args()
-	options.DryRun = *dryrun || *n
 	switch len(args) {
 	case 0:
 		if !options.Empty {
 			flags.Usage()
-			return fmt.Errorf("Invalid usage")
+			os.Exit(2)
 		}
 		_, err := git.ReadTree(c, options, nil)
 		if err != nil {

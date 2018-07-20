@@ -4,6 +4,7 @@ import (
 	"errors"
 	"flag"
 	"fmt"
+	"os"
 
 	"github.com/driusan/dgit/git"
 )
@@ -27,8 +28,8 @@ func MergeBase(c *git.Client, args []string) (git.CommitID, error) {
 	args = flags.Args()
 
 	if len(args) < 1 {
-		flag.Usage()
-		return git.CommitID{}, fmt.Errorf("Invalid usage of merge-base")
+		flags.Usage()
+		os.Exit(2)
 	}
 	if *ancestor {
 		commits, err := RevParse(c, args)

@@ -1,6 +1,7 @@
 package cmd
 
 import (
+	"flag"
 	"fmt"
 	"io/ioutil"
 	"os"
@@ -10,9 +11,32 @@ import (
 )
 
 func Push(c *git.Client, args []string) {
-	if len(args) < 1 || (len(args) == 1 && args[0] == "--help") {
-		fmt.Fprintf(os.Stderr, "Missing repository to fetch")
-		return
+	flags := flag.NewFlagSet("branch", flag.ExitOnError)
+	flags.SetOutput(flag.CommandLine.Output())
+	flags.Usage = func() {
+		flag.Usage()
+		fmt.Fprintf(flag.CommandLine.Output(), "\n\nOptions:\n")
+		flags.PrintDefaults()
+	}
+
+	// These flags can be moved out of these lists and below as proper flags as they are implemented
+	for _, bf := range []string{"all", "mirror", "tags", "follow-tags", "atomic", "n", "dry-run", "f", "force", "delete", "prune", "v", "verbose", "u", "set-upstream", "no-signed", "no-verify"} {
+		flags.Var(newNotimplBoolValue(), bf, "Not implemented")
+	}
+	for _, sf := range []string{"receive-pack", "repo", "o", "push-option", "signed", "force-with-lease"} {
+		flags.Var(newNotimplStringValue(), sf, "Not implemented")
+	}
+
+	flags.Parse(args)
+
+	if flags.NArg() < 1 {
+		fmt.Fprintf(flag.CommandLine.Output(), "Missing repository to fetch")
+		flag.Usage()
+		os.Exit(2)
+	} else if flags.NArg() > 1 {
+		fmt.Fprintf(flag.CommandLine.Output(), "Providing a refspect is not currently implemented")
+		flag.Usage()
+		os.Exit(2)
 	}
 
 	file, err := c.GitDir.Open("config")
@@ -21,8 +45,8 @@ func Push(c *git.Client, args []string) {
 	}
 	defer file.Close()
 	config := git.ParseConfig(file)
-	remote, _ := config.GetConfig("branch." + args[0] + ".remote")
-	mergebranch, _ := config.GetConfig("branch." + args[0] + ".merge")
+	remote, _ := config.GetConfig("branch." + flags.Arg(0) + ".remote")
+	mergebranch, _ := config.GetConfig("branch." + flags.Arg(0) + ".merge")
 	mergebranch = strings.TrimSpace(mergebranch)
 	repoid, _ := config.GetConfig("remote." + remote + ".url")
 	println(remote, " on ", repoid)
@@ -44,7 +68,7 @@ func Push(c *git.Client, args []string) {
 	for _, ref := range refs {
 		trimmed := ref.Refname.String()
 		if trimmed == mergebranch {
-			localSha, err := RevParse(c, []string{args[0]})
+			localSha, err := RevParse(c, []string{flags.Arg(0)})
 			if err != nil {
 				panic(err)
 			}

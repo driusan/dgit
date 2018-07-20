@@ -1,6 +1,7 @@
 package cmd
 
 import (
+	"flag"
 	"fmt"
 	"io/ioutil"
 	"os"
@@ -10,79 +11,94 @@ import (
 )
 
 func CommitTree(c *git.Client, args []string) (git.CommitID, error) {
-	if len(args) == 0 || (len(args) == 1 && args[0] == "--help") {
-		// This doesn't use the flag package, because -m or -p can be specified multiple times
-		return git.CommitID{}, fmt.Errorf("Usage: %s commit-tree [(-p <sha1>)...] [-m <message>] [-F <file>]  <sha1>", os.Args[0])
+	flags := flag.NewFlagSet("commit-tree", flag.ExitOnError)
+	flags.SetOutput(flag.CommandLine.Output())
+	flags.Usage = func() {
+		flag.Usage()
+		fmt.Fprintf(flag.CommandLine.Output(), "\n\nOptions:\n")
+		flags.PrintDefaults()
 	}
+
+	var p []string
+	flags.Var(newMultiStringValue(&p), "p", "Each -p indicates the id of a parent commit object")
+	var m []string
+	flags.Var(newMultiStringValue(&m), "m", "A paragraph in the commit log messages. This can be given more than once.")
+	messageFile := ""
+	flags.StringVar(&messageFile, "F", "", "Read the commit log message from the given file.")
+
+	// Commit-tree allows flags to go after the tree but flag package doesnt support it
+	// We shift them to the beginning of the arguments list and parse again.
+	extraFlags := []string{}
+	newArgs := []string{}
+	foundTree := false
+	for idx, arg := range args {
+		if foundTree && (arg == "-p" || arg == "-m" || arg == "-F" || len(extraFlags)%2 == 1) {
+			extraFlags = append(extraFlags, arg)
+		} else if foundTree {
+			newArgs = append(newArgs, arg)
+		} else if idx%2 == 0 && !strings.HasPrefix(arg, "-") {
+			newArgs = append(newArgs, arg)
+			foundTree = true
+		}
+	}
+
+	args = args[:len(args)-len(newArgs)-len(extraFlags)]
+	args = append(args, extraFlags...)
+	args = append(args, newArgs...)
+
+	flags.Parse(args)
+
+	finalMessage := strings.Join(m, "\n\n") + "\n"
+
+	if len(flags.Args()) != 1 {
+		flags.Usage()
+		os.Exit(2)
+	}
+
+	tree, err := git.RevParseTreeish(c, &git.RevParseOptions{}, flags.Arg(0))
+	if err != nil {
+		return git.CommitID{}, err
+	}
+
+	knownCommits := make(map[git.CommitID]bool)
 
 	var parents []git.CommitID
-	var messageString, messageFile string
-	var skipNext bool
-	var tree git.Treeish
-	knownCommits := make(map[git.CommitID]bool)
-	for idx, val := range args {
-		if idx == 0 && val[0] != '-' {
-			treeid, err := git.RevParseTreeish(c, &git.RevParseOptions{}, args[len(args)-1])
-			if err != nil {
-				return git.CommitID{}, err
-			}
-			tree = treeid
-			continue
-		}
-
-		if skipNext == true {
-			skipNext = false
-			continue
-		}
-		switch val {
-		case "-p":
-			pid, err := git.RevParseCommitish(c, &git.RevParseOptions{}, args[idx+1])
-			if err != nil {
-				return git.CommitID{}, err
-			}
-			pcid, err := pid.CommitID(c)
-			if err != nil {
-				return git.CommitID{}, err
-			}
-			skipNext = true
-
-			if _, ok := knownCommits[pcid]; ok {
-				// skip parents that have already been added
-				continue
-			}
-
-			parents = append(parents, pcid)
-			knownCommits[pcid] = true
-		case "-m":
-			messageString += "\n" + args[idx+1] + "\n"
-			skipNext = true
-		case "-F":
-			messageFile = args[idx+1]
-			skipNext = true
-		}
-	}
-	if messageString == "" && messageFile == "" {
-		// No -m or -F provided, read from STDIN
-		m, err := ioutil.ReadAll(os.Stdin)
-		if err != nil {
-			panic(err)
-		}
-		messageString = "\n" + string(m)
-	} else if messageString == "" && messageFile != "" {
-		// No -m, but -F was provided. Read from file passed.
-		m, err := ioutil.ReadFile(messageFile)
-		if err != nil {
-			panic(err)
-		}
-		messageString = "\n" + string(m)
-	}
-
-	if tree == nil {
-		treeid, err := git.RevParseTreeish(c, &git.RevParseOptions{}, args[len(args)-1])
+	for _, parent := range p {
+		pid, err := git.RevParseCommitish(c, &git.RevParseOptions{}, parent)
 		if err != nil {
 			return git.CommitID{}, err
 		}
-		tree = treeid
+
+		pcid, err := pid.CommitID(c)
+		if err != nil {
+			return git.CommitID{}, err
+		}
+
+		if _, ok := knownCommits[pcid]; ok {
+			// skip parents that have already been added
+			continue
+		}
+
+		parents = append(parents, pcid)
+		knownCommits[pcid] = true
+
 	}
-	return git.CommitTree(c, git.CommitTreeOptions{}, tree, parents, strings.TrimSpace(messageString))
+
+	if (finalMessage == "\n" && messageFile == "") || messageFile == "-" {
+		// No -m or -F provided, read from STDIN
+		m, err := ioutil.ReadAll(os.Stdin)
+		if err != nil {
+			return git.CommitID{}, err
+		}
+		finalMessage = "\n" + string(m)
+	} else if messageFile != "" {
+		// No -m, but -F was provided. Read from file passed.
+		m, err := ioutil.ReadFile(messageFile)
+		if err != nil {
+			return git.CommitID{}, err
+		}
+		finalMessage = "\n" + string(m)
+	}
+
+	return git.CommitTree(c, git.CommitTreeOptions{}, tree, parents, strings.TrimSpace(finalMessage))
 }

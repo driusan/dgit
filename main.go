@@ -107,6 +107,7 @@ func main() {
 			os.Exit(4)
 		}
 	case "branch":
+		subcommandUsage = "[branchname]"
 		cmd.Branch(c, args)
 	case "checkout":
 		if err := cmd.Checkout(c, args); err != nil {
@@ -158,7 +159,12 @@ func main() {
 			os.Exit(4)
 		}
 	case "log":
-		cmd.Log(c, args)
+		subcommandUsage = "[commitish]"
+		err := cmd.Log(c, args)
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "%v\n", err)
+			os.Exit(4)
+		}
 	case "symbolic-ref":
 		val, err := cmd.SymbolicRef(c, args)
 		if err != nil {
@@ -167,12 +173,14 @@ func main() {
 		}
 		fmt.Printf("%s\n", val)
 	case "clone":
+		subcommandUsage = "<repository> [<directory>]"
 		if err := cmd.Clone(c, args); err != nil {
 			fmt.Fprintf(os.Stderr, "%v\n", err)
 			os.Exit(2)
 
 		}
 	case "config":
+		subcommandUsage = "name [value]"
 		if err := cmd.Config(c, args); err != nil {
 			fmt.Fprintf(os.Stderr, "%v\n", err)
 			os.Exit(2)
@@ -191,11 +199,13 @@ func main() {
 			os.Exit(2)
 		}
 	case "merge":
+		subcommandUsage = "<commit>..."
 		if err := cmd.Merge(c, args); err != nil {
 			fmt.Fprintf(os.Stderr, "%v\n", err)
 			os.Exit(2)
 		}
 	case "merge-base":
+		subcommandUsage = "<commit>..."
 		switch c, err := cmd.MergeBase(c, args); err {
 		case cmd.Ancestor:
 			os.Exit(0)
@@ -209,6 +219,7 @@ func main() {
 			fmt.Printf("%v\n", c)
 		}
 	case "rev-parse":
+		subcommandUsage = "<args>..."
 		commits, err := cmd.RevParse(c, args)
 		if err != nil {
 			fmt.Fprintf(os.Stderr, "%v\n", err)
@@ -225,6 +236,7 @@ func main() {
 		subcommandUsage = "<commit>..."
 		cmd.RevList(c, args)
 	case "hash-object":
+		subcommandUsage = "[<file>...]"
 		cmd.HashObject(c, args)
 	case "status":
 		if err := cmd.Status(c, args); err != nil {
@@ -238,8 +250,10 @@ func main() {
 			os.Exit(4)
 		}
 	case "push":
+		subcommandUsage = "<repository>"
 		cmd.Push(c, args)
 	case "pack-objects":
+		subcommandUsage = "<basename>"
 		cmd.PackObjects(c, os.Stdin, args)
 	case "send-pack":
 		cmd.SendPack(c, args)
@@ -303,6 +317,7 @@ func main() {
 			os.Exit(4)
 		}
 	case "revert":
+		subcommandUsage = "<commit>..."
 		if err := cmd.Revert(c, args); err != nil {
 			fmt.Fprintln(os.Stderr, err)
 			os.Exit(4)
