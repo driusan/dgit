@@ -1,6 +1,7 @@
 package cmd
 
 import (
+	"flag"
 	"fmt"
 	"os"
 	"strings"
@@ -9,20 +10,39 @@ import (
 )
 
 func Clone(c *git.Client, args []string) error {
+	flags := flag.NewFlagSet("clone", flag.ExitOnError)
+	flags.SetOutput(flag.CommandLine.Output())
+	flags.Usage = func() {
+		flag.Usage()
+		fmt.Fprintf(flag.CommandLine.Output(), "\n\nOptions:\n")
+		flags.PrintDefaults()
+	}
+
+	// These flags can be moved out of these lists and below as proper flags as they are implemented
+	for _, bf := range []string{"l", "s", "no-hardlinks", "q", "n", "bare", "mirror", "dissociate", "single-branch", "no-single-branch", "no-tags", "shallow-submodules", "no-shallow-submodules"} {
+		flags.Var(newNotimplBoolValue(), bf, "Not implemented")
+	}
+	for _, sf := range []string{"template", "o", "b", "u", "reference", "separate-git-dir", "depth", "recurse-submodules", "jobs"} {
+		flags.Var(newNotimplStringValue(), sf, "Not implemented")
+	}
+
+	flags.Parse(args)
+
 	var repoid string
 	var dirName string
 	// TODO: This argument parsing should be smarter and more
 	// in line with how cgit does it.
-	switch len(args) {
+	switch flags.NArg() {
 	case 0:
-		return fmt.Errorf("Invalid usage")
+		flags.Usage()
+		os.Exit(2)
 	case 1:
-		repoid = args[0]
+		repoid = flags.Arg(0)
 	case 2:
-		repoid = args[0]
-		dirName = args[1]
+		repoid = flags.Arg(0)
+		dirName = flags.Arg(1)
 	default:
-		repoid = args[0]
+		repoid = flags.Arg(0)
 	}
 	repoid = strings.TrimRight(repoid, "/")
 	pieces := strings.Split(repoid, "/")
@@ -76,7 +96,7 @@ func Clone(c *git.Client, args []string) error {
 		git.UpdateRefOptions{CreateReflog: true, OldValue: git.CommitID{}},
 		git.RefSpec("refs/heads/master"),
 		cmt,
-		"clone: "+args[0],
+		"clone: "+flags.Arg(0),
 	); err != nil {
 		return err
 	}

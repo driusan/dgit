@@ -3,6 +3,7 @@ package cmd
 import (
 	"bufio"
 	"encoding/hex"
+	"flag"
 	"fmt"
 	"io"
 	"os"
@@ -11,11 +12,30 @@ import (
 )
 
 func PackObjects(c *git.Client, input io.Reader, args []string) {
-	if len(args) != 1 || (len(args) == 1 && args[0] == "--help") {
-		fmt.Fprintf(os.Stdout, "Usage: %s pack-objects basename\n", os.Args[0])
-		return
+	flags := flag.NewFlagSet("pack-objects", flag.ExitOnError)
+	flags.SetOutput(flag.CommandLine.Output())
+	flags.Usage = func() {
+		flag.Usage()
+		fmt.Fprintf(flag.CommandLine.Output(), "\n\nOptions:\n")
+		flags.PrintDefaults()
 	}
-	f, _ := os.Create(args[0] + ".pack")
+
+	// These flags can be moved out of these lists and below as proper flags as they are implemented
+	for _, bf := range []string{"q", "progress", "all-progress", "all-project-implied", "no-reuse-delta", "delta-base-offset", "non-empty", "local", "incremental", "revs", "unpacked", "all", "stdout", "shallow", "keep-true-parents"} {
+		flags.Var(newNotimplBoolValue(), bf, "Not implemented")
+	}
+	for _, sf := range []string{"window", "depth", "keep-pack"} {
+		flags.Var(newNotimplStringValue(), sf, "Not implemented")
+	}
+
+	flags.Parse(args)
+
+	if flags.NArg() != 1 {
+		flag.Usage()
+		os.Exit(2)
+	}
+
+	f, _ := os.Create(flags.Arg(0) + ".pack")
 	defer f.Close()
 
 	var objects []git.Sha1

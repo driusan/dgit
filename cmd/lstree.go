@@ -3,6 +3,7 @@ package cmd
 import (
 	"flag"
 	"fmt"
+	"os"
 
 	"github.com/driusan/dgit/git"
 )
@@ -23,21 +24,20 @@ func LsTree(c *git.Client, args []string) error {
 	flags.BoolVar(&opts.NullTerminate, "z", false, "\\0 line termination on output")
 	flags.IntVar(&opts.Abbrev, "abbrev", 40, "Abbreviate hexidecimal identifiers to <abbrev> digits")
 
-	long := flags.Bool("long", false, "Show size of blob entries")
-	l := flags.Bool("l", false, "Alias of --long")
+	flags.BoolVar(&opts.Long, "long", false, "Show size of blob entries")
+	flags.BoolVar(&opts.Long, "l", false, "Alias of --long")
 	flags.BoolVar(&opts.FullName, "full-name", false, "Show the full path name, not the pathname relative to the current working directory.")
 	flags.BoolVar(&opts.FullTree, "full-tree", false, "Do not limit the listing to the current working directory.")
-	nameonly := flags.Bool("name-only", false, "Only show the names of the files")
-	namestatus := flags.Bool("name-status", false, "Only show the names of the files")
+	flags.BoolVar(&opts.NameOnly, "name-only", false, "Only show the names of the files")
+	flags.BoolVar(&opts.NameOnly, "name-status", false, "Alias for --name-only")
 
 	flags.Parse(args)
-	opts.NameOnly = *nameonly || *namestatus
-	opts.Long = *long || *l
 
 	args = flags.Args()
 	if len(args) < 1 {
-		flag.Usage()
-		return fmt.Errorf("Missing tree")
+		fmt.Fprintf(flag.CommandLine.Output(), "Missing tree\n")
+		flags.Usage()
+		os.Exit(2)
 	}
 
 	treeID, err := git.RevParseTreeish(c, &git.RevParseOptions{}, args[0])

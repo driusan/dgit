@@ -3,6 +3,7 @@ package cmd
 import (
 	"flag"
 	"fmt"
+	"os"
 
 	"github.com/driusan/dgit/git"
 )
@@ -25,7 +26,9 @@ func DiffIndex(c *git.Client, args []string) error {
 	}
 
 	if len(args) < 1 {
-		return fmt.Errorf("Must provide a treeish to git diff-index")
+		fmt.Fprintf(flag.CommandLine.Output(), "Must provide a treeish to git diff-index\n")
+		flags.Usage()
+		os.Exit(2)
 	}
 
 	treeish, err := git.RevParseCommit(c, &git.RevParseOptions{}, args[0])

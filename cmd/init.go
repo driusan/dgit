@@ -38,8 +38,9 @@ func Init(c *git.Client, args []string) error {
 	case 1:
 		dir = args[0]
 	default:
+		fmt.Fprintf(flag.CommandLine.Output(), "Invalid init command. Must only provide one directory.\n")
 		flags.Usage()
-		return fmt.Errorf("Invalid init command. Must only provide one directory.")
+		os.Exit(2)
 	}
 
 	if template != "" {

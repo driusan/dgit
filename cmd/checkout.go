@@ -3,6 +3,7 @@ package cmd
 import (
 	"flag"
 	"fmt"
+	"os"
 
 	"github.com/driusan/dgit/git"
 )
@@ -18,14 +19,14 @@ func Checkout(c *git.Client, args []string) error {
 	}
 	options := git.CheckoutOptions{}
 
-	quiet := flags.Bool("quiet", false, "Quiet. Suppress feedback messages.")
-	q := flags.Bool("q", false, "Alias of --quiet.")
+	flags.BoolVar(&options.Quiet, "quiet", false, "Quiet. Suppress feedback messages.")
+	flags.BoolVar(&options.Quiet, "q", false, "Alias of --quiet.")
 
 	progress := flags.Bool("progress", true, "Report progress to standard error stream")
 	noprogress := flags.Bool("no-progress", false, "Override --progress and suppress progress reporting")
 
-	force := flags.Bool("force", false, "When switching branches, proceed even if the index differs from HEAD")
-	f := flags.Bool("f", false, "Alias of --force.")
+	flags.BoolVar(&options.Force, "force", false, "When switching branches, proceed even if the index differs from HEAD")
+	flags.BoolVar(&options.Force, "f", false, "Alias of --force.")
 
 	ours := flags.Bool("ours", false, "Use stage2 for checking out unmerged paths from the index")
 	theirs := flags.Bool("theirs", false, "Use stage3 for checking out unmerged paths from the index")
@@ -43,22 +44,20 @@ func Checkout(c *git.Client, args []string) error {
 
 	flags.BoolVar(&options.IgnoreSkipWorktreeBits, "ignore-skip-worktree-bits", false, "Unused (spare checkout not supported)")
 
-	merge := flags.Bool("merge", false, "Perform three-way merge with local modifications if switching branches")
-	m := flags.Bool("m", false, "Alias of --merge")
+	flags.BoolVar(&options.Merge, "merge", false, "Perform three-way merge with local modifications if switching branches")
+	flags.BoolVar(&options.Merge, "m", false, "Alias of --merge")
 
 	flags.StringVar(&options.ConflictStyle, "conflict", "merge", "Use style to display conflicts (valid values are merge or diff3) (Not implemented)")
 
-	patch := flags.Bool("patch", false, "Interactively select hunks to discard (not implemented")
-	p := flags.Bool("p", false, "Alias of --patch")
+	flags.BoolVar(&options.Patch, "patch", false, "Interactively select hunks to discard (not implemented")
+	flags.BoolVar(&options.Patch, "p", false, "Alias of --patch")
 
 	flags.BoolVar(&options.IgnoreOtherWorktrees, "ignore-other-worktrees", false, "Unused, for compatibility with git only.")
 
 	flags.Parse(args)
 	files := flags.Args()
 
-	options.Quiet = *quiet || *q
 	options.Progress = *progress && !*noprogress
-	options.Force = *force || *f
 	if *ours && *theirs {
 		return fmt.Errorf("--ours and --theirs are mutually exclusive.")
 	} else if *ours {
@@ -68,7 +67,9 @@ func Checkout(c *git.Client, args []string) error {
 	}
 
 	if *b != "" && *B != "" {
-		return fmt.Errorf("-b and -B are mutually exclusive.")
+		fmt.Fprintf(flag.CommandLine.Output(), "-b and -B are mutually exclusive.\n")
+		flags.Usage()
+		os.Exit(2)
 	} else if *b != "" {
 		options.Branch = *b
 	} else if *B != "" {
@@ -77,10 +78,14 @@ func Checkout(c *git.Client, args []string) error {
 	}
 
 	if *notrack && (*track != "" || *t != "") {
-		return fmt.Errorf("--track and --no-track are mutually exclusive.")
+		fmt.Fprintf(flag.CommandLine.Output(), "--track and --no-track are mutually exclusive.\n")
+		flags.Usage()
+		os.Exit(2)
 	} else if !*notrack {
 		if *track != "" && *t != "" {
-			return fmt.Errorf("--track and -t are mutually exclusive.")
+			fmt.Fprintf(flag.CommandLine.Output(), "--track and -t are mutually exclusive.\n")
+			flags.Usage()
+			os.Exit(2)
 		} else if *track != "" {
 			options.Track = *track
 		} else if *t != "" {
@@ -90,14 +95,13 @@ func Checkout(c *git.Client, args []string) error {
 
 	if *orphan != "" {
 		if options.Branch != "" {
-			return fmt.Errorf("--orphan is incompatible with -b/-B")
+			fmt.Fprintf(flag.CommandLine.Output(), "--orphan is incompatible with -b/-B\n")
+			flags.Usage()
+			os.Exit(2)
 		}
 		options.Branch = *orphan
 		options.OrphanBranch = true
 	}
-
-	options.Merge = *merge || *m
-	options.Patch = *patch || *p
 
 	var thing string = "HEAD"
 	if len(files) > 0 {

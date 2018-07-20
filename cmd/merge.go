@@ -3,6 +3,7 @@ package cmd
 import (
 	"flag"
 	"fmt"
+	"os"
 
 	"github.com/driusan/dgit/git"
 )
@@ -28,7 +29,7 @@ func Merge(c *git.Client, args []string) error {
 	merges := flags.Args()
 	if len(merges) < 1 {
 		flags.Usage()
-		return fmt.Errorf("Invalid usage.")
+		os.Exit(2)
 	}
 
 	others := make([]git.Commitish, 0, len(merges))

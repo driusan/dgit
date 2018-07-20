@@ -2,6 +2,7 @@ package cmd
 
 import (
 	"errors"
+	"flag"
 	"fmt"
 	"os"
 
@@ -9,19 +10,39 @@ import (
 )
 
 func Config(c *git.Client, args []string) error {
-	if len(args) < 1 {
-		fmt.Fprintf(os.Stderr, "Usage: dgit config [<options>]\n")
-		os.Exit(1)
+	flags := flag.NewFlagSet("config", flag.ExitOnError)
+	flags.SetOutput(flag.CommandLine.Output())
+	flags.Usage = func() {
+		flag.Usage()
+		fmt.Fprintf(flag.CommandLine.Output(), "\n\nOptions:\n")
+		flags.PrintDefaults()
 	}
+
+	get := flags.Bool("get", false, "Get the value for a given key")
+	unset := flags.Bool("unset", false, "Remove the line matching the key")
+	list := flags.Bool("list", false, "List all variables along with their values")
+	global := flags.Bool("global", false, "For writing options: write to global file rather than respository")
+
+	// Type canonicalization isn't currently supported
+	//  and so we just allow them and return the raw value
+	//  with no validation
+	flags.String("type", "", "")
+	flags.Bool("bool", false, "")
+	flags.Bool("int", false, "")
+	flags.Bool("bool-or-int", false, "")
+	flags.Bool("path", false, "")
+	flags.Bool("expiry-date", false, "")
+
+	flags.Parse(args)
+
 	var fname string
 
-	if args[0] == "--global" {
+	if *global {
 		home := os.Getenv("HOME")
 		if home == "" {
 			home = os.Getenv("home") // On some OSes, it is home
 		}
 		fname = home + "/.gitconfig"
-		args = args[1:]
 	} else {
 		fname = c.GitDir.String() + "/config"
 	}
@@ -37,59 +58,39 @@ func Config(c *git.Client, args []string) error {
 	}
 
 	var action string
-	switch args[0] {
-	case "--get":
+	if *get {
 		action = "get"
-		args = args[1:]
-	case "--unset":
+	} else if *unset {
 		action = "unset"
-		args = args[1:]
-	case "--list":
+	} else if *list {
 		action = "list"
-
-	// Type canonicalization isn't currently supported
-	//  and so we just strip them out and return the raw value
-	//  with no validation
-	case "--type":
-		args = args[1:]
-		fallthrough
-	case "--bool":
-		fallthrough
-	case "--int":
-		fallthrough
-	case "--bool-or-int":
-		fallthrough
-	case "--path":
-		fallthrough
-	case "--expiry-date":
-		if len(args) > 0 {
-			args = args[1:]
-		}
-		fallthrough
-
-	default:
-		if len(args) == 1 {
-			action = "get"
-		} else if len(args) == 2 {
-			action = "set"
-		}
+	} else if flags.NArg() == 1 {
+		action = "get"
+	} else if flags.NArg() == 2 {
+		action = "set"
 	}
 
 	switch action {
 	case "get":
-		val, code := config.GetConfig(args[0])
+		if flags.NArg() < 1 {
+			fmt.Fprintf(flag.CommandLine.Output(), "Missing value to get\n")
+			flags.Usage()
+			os.Exit(2)
+		}
+		val, code := config.GetConfig(flags.Arg(0))
 		if code != 0 {
 			os.Exit(code)
 		}
 		fmt.Printf("%s\n", val)
 		return nil
 	case "set":
-		if len(args) < 2 {
-			fmt.Fprintf(os.Stderr, "Missing value to set config to\n")
-			os.Exit(1)
+		if flags.NArg() < 2 {
+			fmt.Fprintf(flag.CommandLine.Output(), "Missing value to set config to\n")
+			flags.Usage()
+			os.Exit(2)
 		}
 
-		config.SetConfig(args[0], args[1])
+		config.SetConfig(flags.Arg(0), flags.Arg(1))
 		err = os.Remove(fname)
 		if err != nil {
 			return err
@@ -102,7 +103,12 @@ func Config(c *git.Client, args []string) error {
 		config.WriteFile(outfile)
 		return nil
 	case "unset":
-		code := config.Unset(args[0])
+		if flags.NArg() < 1 {
+			fmt.Fprintf(flag.CommandLine.Output(), "Missing value to unset\n")
+			flags.Usage()
+			os.Exit(2)
+		}
+		code := config.Unset(flags.Arg(0))
 		if code != 0 {
 			os.Exit(code)
 		}
@@ -125,5 +131,8 @@ func Config(c *git.Client, args []string) error {
 		return nil
 	}
 
-	return errors.New("Unhandled action " + args[0])
+	flags.Usage()
+	os.Exit(2)
+
+	return errors.New("Unhandled action")
 }

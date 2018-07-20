@@ -13,7 +13,6 @@ func WriteTree(c *git.Client, args []string) (string, error) {
 	flags := flag.NewFlagSet("write-tree", flag.ExitOnError)
 	flags.SetOutput(flag.CommandLine.Output())
 	flags.Usage = func() {
-		//fmt.Fprintf(os.Stderr, "usage: %v write-tree [--missing-ok] [--prefix <prefix>/]\n\n", os.Args[0])
 		flag.Usage()
 		fmt.Fprintf(flag.CommandLine.Output(), "\nOptions:\n\n")
 		flags.PrintDefaults()
