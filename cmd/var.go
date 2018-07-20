@@ -15,6 +15,24 @@ func getLogVar(c *git.Client, config *git.GitConfig, key string, envVar string) 
 		return envVar
 	}
 
+        if key == "GIT_AUTHOR_IDENT" {
+                name := os.Getenv("GIT_AUTHOR_NAME")
+                email := os.Getenv("GIT_AUTHOR_EMAIL")
+                date := os.Getenv("GIT_AUTHOR_DATE")
+                if name != "" && email != "" && date != "" {
+                        return fmt.Sprintf("%s <%s> %s", name, email, date)
+                }
+        }
+
+        if key == "GIT_COMMITTER_IDENT" {
+                name := os.Getenv("GIT_COMMITTER_NAME")
+                email := os.Getenv("GIT_COMMITTER_EMAIL")
+                date := os.Getenv("GIT_COMMITTER_DATE")
+                if name != "" && email != "" && date != "" {
+                        return fmt.Sprintf("%s <%s> %s", name, email, date)
+                }
+        }
+
 	if key == "GIT_AUTHOR_IDENT" || key == "GIT_COMMITTER_IDENT" {
 		t := time.Now()
 		person := c.GetAuthor(&t)
