@@ -217,7 +217,6 @@ func ParseConfig(configFile io.Reader) GitConfig {
 	lastClosingBracket := 0
 
 	for idx, b := range rawdata {
-		log.Printf("%v\n", rawdata)
 		if b == '[' && parsingSectionName == false {
 
 			parsingSectionName = true
