@@ -227,37 +227,42 @@ func (g *Index) AddStage(c *Client, path IndexPath, mode EntryMode, s Sha1, stag
 		defer g.RemoveUnmergedStages(c, path)
 	}
 
-        replaceEntriesCheck := func() error {
-                        // If replace is true then we search for any entries that
-                        //  should be replaced with this one. It could be that there
-                        //  are entries with the same SHA-1 hash or there are children
-                        //  that are orphaned because of the change from a directory to
-                        //  a file.
-                        newObjects := make([]*IndexEntry, 0, len(g.Objects))
-                        for _, e := range g.Objects {
-                                if strings.HasPrefix(string(e.PathName), string(path)+"/") {
-                                        if !replaceEntry {
-                                                return fmt.Errorf("There is an existing file %s under %s, should it be replaced?")
-                                        }
-                                        continue
-                                }
+	replaceEntriesCheck := func() error {
+		// If replace is true then we search for any entries that
+		//  should be replaced with this one. It could be that there
+		//  are entries with the same SHA-1 hash or there are children
+		//  that are orphaned because of the change from a directory to
+		//  a file.
+		newObjects := make([]*IndexEntry, 0, len(g.Objects))
+		for _, e := range g.Objects {
+			if strings.HasPrefix(string(e.PathName), string(path)+"/") {
+				if !replaceEntry {
+					return fmt.Errorf("There is an existing file %s under %s, should it be replaced?", e.PathName, path)
+				}
+				continue
+			} else if strings.HasPrefix(string(path), string(e.PathName)+"/") {
+				if !replaceEntry {
+					return fmt.Errorf("There is a parent file %s above %s, should it be replaced?", e.PathName, path)
+				}
+				continue
+			}
 
-                                newObjects = append(newObjects, e)
-                        }
-                        if replaceEntry {
-                                g.Objects = newObjects
-                        }
+			newObjects = append(newObjects, e)
+		}
+		if replaceEntry {
+			g.Objects = newObjects
+		}
 
-                        return nil
-       }
+		return nil
+	}
 
 	// Update the existing stage, if it exists.
 	for _, entry := range g.Objects {
 		if entry.PathName == path && entry.Stage() == stage {
-                        err := replaceEntriesCheck()
-                        if err != nil {
-                                return err
-                        }
+			err := replaceEntriesCheck()
+			if err != nil {
+				return err
+			}
 
 			entry.Sha1 = s
 			entry.Mtime = mtime
@@ -301,10 +306,10 @@ func (g *Index) AddStage(c *Client, path IndexPath, mode EntryMode, s Sha1, stag
 		flags |= (uint16(len(path)) & 0x0FFF)
 	}
 
-        err := replaceEntriesCheck()
-        if err != nil {
-                return err
-        }
+	err := replaceEntriesCheck()
+	if err != nil {
+		return err
+	}
 
 	g.Objects = append(g.Objects, &IndexEntry{
 		FixedIndexEntry{
