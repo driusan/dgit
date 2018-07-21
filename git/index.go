@@ -178,29 +178,28 @@ func ReadIndexEntry(file *os.File) (*IndexEntry, error) {
 		// incorporated into the index size calculation.
 		expectedOffset := 8 - ((82 + nameLength + 4) % 8)
 		file.Seek(int64(expectedOffset), 1)
-		/*
-			This was used to verify that the offset is correct, but it causes problems if the data following
-			the offset is empty..
-			whitespace := make([]byte, 1, 1)
-			var w uint16
-			// Read all the whitespace that git uses for alignment.
-			for _, _ = file.Read(whitespace); whitespace[0] == 0; _, _ = file.Read(whitespace) {
-				w += 1
-			}
-
-			if w % 8 != expectedOffset {
-				panic(fmt.Sprintf("Read incorrect number of whitespace characters %d vs %d", w, expectedOffset))
-			}
-			if w == 0 {
-				panic("Name was not null terminated in index")
-			}
-
-			// Undo the last read, which wasn't whitespace..
-			file.Seek(-1, 1)
-		*/
-
 	} else {
-		panic("TODO: I can't handle such long names yet")
+
+		nbyte := make([]byte, 1, 1)
+
+		// This algorithm isn't very efficient, reading one byte at a time, but we
+		// reserve a big space for name to make it slightly more efficient, since
+		// we know it's a large name
+		name = make([]byte, 0, 8192)
+		for _, err := file.Read(nbyte); nbyte[0] != 0; _, err = file.Read(nbyte) {
+			if err != nil {
+				return nil, err
+			}
+			name = append(name, nbyte...)
+		}
+		off, err := file.Seek(0, os.SEEK_CUR)
+		if err != nil {
+			return nil, err
+		}
+		padding := 8 - (off % 8) + 4
+		if _, err := file.Seek(padding, os.SEEK_CUR); err != nil {
+			return nil, err
+		}
 	}
 	return &IndexEntry{f, IndexPath(name)}, nil
 }
