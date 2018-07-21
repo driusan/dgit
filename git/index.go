@@ -9,6 +9,7 @@ import (
 	"io/ioutil"
 	"os"
 	"sort"
+	"strings"
 )
 
 var InvalidIndex error = errors.New("Invalid index")
@@ -187,7 +188,7 @@ const (
 //
 // As a special case, if something is added as Stage0, then Stage1-3 entries
 // will be removed.
-func (g *Index) AddStage(c *Client, path IndexPath, mode EntryMode, s Sha1, stage Stage, size uint32, mtime int64, createEntry bool) error {
+func (g *Index) AddStage(c *Client, path IndexPath, mode EntryMode, s Sha1, stage Stage, size uint32, mtime int64, createEntry bool, replaceEntry bool) error {
 	if stage == Stage0 {
 		defer g.RemoveUnmergedStages(c, path)
 	}
@@ -199,7 +200,26 @@ func (g *Index) AddStage(c *Client, path IndexPath, mode EntryMode, s Sha1, stag
 			entry.Mtime = mtime
 			entry.Fsize = size
 
-			// We found and updated the entry, no need to continue
+			// If replace is true then we search for any entries that
+			//  should be replaced with this one. It could be that there
+			//  are entries with the same SHA-1 hash or there are children
+			//  that are orphaned because of the change from a directory to
+			//  a file.
+			if replaceEntry {
+				newObjects := make([]*IndexEntry, 0, len(g.Objects))
+				for _, e := range g.Objects {
+					if e.Sha1 == s {
+						continue
+					}
+					if strings.HasPrefix(string(e.PathName), string(path)+"/") {
+						continue
+					}
+
+					newObjects = append(newObjects, e)
+				}
+				g.Objects = newObjects
+			}
+
 			return nil
 		}
 	}
@@ -284,7 +304,7 @@ func (g *Index) RemoveUnmergedStages(c *Client, path IndexPath) error {
 // 	else
 // 		add new GitIndexEntry if not found and createEntry is true, error otherwise
 //
-func (g *Index) AddFile(c *Client, file File, createEntry bool) error {
+func (g *Index) AddFile(c *Client, file File, createEntry bool, replaceEntry bool) error {
 	name, err := file.IndexPath(c)
 	if err != nil {
 		return err
@@ -340,6 +360,7 @@ func (g *Index) AddFile(c *Client, file File, createEntry bool) error {
 		fsize,
 		mtime,
 		createEntry,
+		replaceEntry,
 	)
 }
 

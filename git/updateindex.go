@@ -88,7 +88,7 @@ func UpdateIndex(c *Client, idx *Index, opts UpdateIndexOptions, files []File) (
 			} else {
 				return nil, fmt.Errorf("%v does not exist and --remove not passed", file)
 			}
-		} else if err := idx.AddFile(c, file, opts.Add); err != nil {
+		} else if err := idx.AddFile(c, file, opts.Add, opts.Replace); err != nil {
 			if !opts.Add {
 				// This is making invalid assumptions that the only
 				// thing that might go wrong is that createEntry was
@@ -142,7 +142,7 @@ func UpdateIndexFromReader(c *Client, opts UpdateIndexOptions, r io.Reader) (*In
 				if err != nil {
 					return nil, err
 				}
-				if err := idx.AddStage(c, IndexPath(path), mode, sha1, Stage0, 0, 0, true); err != nil {
+				if err := idx.AddStage(c, IndexPath(path), mode, sha1, Stage0, 0, 0, true, false); err != nil {
 					return nil, err
 				}
 			}
