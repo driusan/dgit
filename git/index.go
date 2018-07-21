@@ -222,26 +222,23 @@ const (
 //
 // As a special case, if something is added as Stage0, then Stage1-3 entries
 // will be removed.
-func (g *Index) AddStage(c *Client, path IndexPath, mode EntryMode, s Sha1, stage Stage, size uint32, mtime int64, createEntry bool, replaceEntry bool) error {
+func (g *Index) AddStage(c *Client, path IndexPath, mode EntryMode, s Sha1, stage Stage, size uint32, mtime int64, opts UpdateIndexOptions) error {
 	if stage == Stage0 {
 		defer g.RemoveUnmergedStages(c, path)
 	}
 
 	replaceEntriesCheck := func() error {
 		// If replace is true then we search for any entries that
-		//  should be replaced with this one. It could be that there
-		//  are entries with the same SHA-1 hash or there are children
-		//  that are orphaned because of the change from a directory to
-		//  a file.
+		//  should be replaced with this one.
 		newObjects := make([]*IndexEntry, 0, len(g.Objects))
 		for _, e := range g.Objects {
 			if strings.HasPrefix(string(e.PathName), string(path)+"/") {
-				if !replaceEntry {
+				if !opts.Replace {
 					return fmt.Errorf("There is an existing file %s under %s, should it be replaced?", e.PathName, path)
 				}
 				continue
 			} else if strings.HasPrefix(string(path), string(e.PathName)+"/") {
-				if !replaceEntry {
+				if !opts.Replace {
 					return fmt.Errorf("There is a parent file %s above %s, should it be replaced?", e.PathName, path)
 				}
 				continue
@@ -249,9 +246,8 @@ func (g *Index) AddStage(c *Client, path IndexPath, mode EntryMode, s Sha1, stag
 
 			newObjects = append(newObjects, e)
 		}
-		if replaceEntry {
-			g.Objects = newObjects
-		}
+
+		g.Objects = newObjects
 
 		return nil
 	}
@@ -279,7 +275,7 @@ func (g *Index) AddStage(c *Client, path IndexPath, mode EntryMode, s Sha1, stag
 		}
 	}
 
-	if !createEntry {
+	if !opts.Add {
 		return fmt.Errorf("%v not found in index", path)
 	}
 	// There was no path/stage combo already in the index. Add it.
@@ -364,7 +360,7 @@ func (g *Index) RemoveUnmergedStages(c *Client, path IndexPath) error {
 // 	else
 // 		add new GitIndexEntry if not found and createEntry is true, error otherwise
 //
-func (g *Index) AddFile(c *Client, file File, createEntry bool, replaceEntry bool) error {
+func (g *Index) AddFile(c *Client, file File, opts UpdateIndexOptions) error {
 	name, err := file.IndexPath(c)
 	if err != nil {
 		return err
@@ -419,8 +415,7 @@ func (g *Index) AddFile(c *Client, file File, createEntry bool, replaceEntry boo
 		Stage0,
 		fsize,
 		mtime,
-		createEntry,
-		replaceEntry,
+		opts,
 	)
 }
 
