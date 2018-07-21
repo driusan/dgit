@@ -10,7 +10,7 @@ import (
 // Parses the arguments from git-ls-files as if they were passed on the commandline
 // and calls git.LsFiles
 func LsFiles(c *git.Client, args []string) error {
-	flags := flag.NewFlagSet("ls-files", flag.ExitOnError)
+	flags := flag.NewFlagSet("ls-tree", flag.ExitOnError)
 	flags.SetOutput(flag.CommandLine.Output())
 	flags.Usage = func() {
 		flag.Usage()
