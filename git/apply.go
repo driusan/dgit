@@ -3,6 +3,7 @@ package git
 import (
 	"io"
 	"io/ioutil"
+	"log"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -58,6 +59,11 @@ func Apply(c *Client, opts ApplyOptions, patches []File) error {
 	}
 	defer os.RemoveAll(patchdir)
 
+	// --cached implies --index
+	if opts.Cached {
+		opts.Index = true
+	}
+
 	// First pass, parse the patches to figure out which files are involved
 	files := make(map[IndexPath]bool)
 	for _, patch := range patches {
@@ -77,7 +83,7 @@ func Apply(c *Client, opts ApplyOptions, patches []File) error {
 	// Copy all of the files. We do this in a second pass to avoid
 	// needlessly recopying the same files multiple times.
 	var idx *Index
-	if opts.Cached {
+	if opts.Index {
 		idx2, err := c.GitDir.ReadIndex()
 		if err != nil {
 			return err
@@ -116,8 +122,13 @@ func Apply(c *Client, opts ApplyOptions, patches []File) error {
 			return err
 		}
 	}
-	if opts.Cached {
-		return updateApplyIndex(c, idx, patchdir)
+	if opts.Index {
+		if err := updateApplyIndex(c, idx, patchdir); err != nil {
+			return err
+		}
+		if opts.Cached {
+			return nil
+		}
 	}
 	return copyApplyDir(c, patchdir)
 
@@ -155,13 +166,16 @@ func updateApplyIndex(c *Client, idx *Index, dir string) error {
 		}
 
 		ipath := IndexPath(relpath)
-		// Avoid using AddStage so that mtime doesn't get modified,
-		// and cause false negatives for file status
+
 		for _, entry := range idx.Objects {
 			if entry.PathName != ipath {
 				continue
 			}
+			log.Printf("Refreshing %v: %v", ipath, sha1)
 			entry.Sha1 = sha1
+			if err := entry.RefreshStat(c); err != nil {
+				return err
+			}
 			return nil
 		}
 		return nil

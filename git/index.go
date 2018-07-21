@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"io"
 	"io/ioutil"
+	"log"
 	"os"
 	"sort"
 )
@@ -70,6 +71,38 @@ type FixedIndexEntry struct {
 	Flags uint16 // 74
 }
 
+// Refreshes the stat information for this entry using the file
+// file
+func (i *FixedIndexEntry) RefreshStat(f File) error {
+	log.Printf("Refreshing stat info for %v\n", f)
+	// FIXME: Add other stat info here too, but these are the
+	// most important ones and the onlye ones that the os package
+	// exposes in a cross-platform way.
+	stat, err := f.Lstat()
+	if err != nil {
+		return err
+	}
+	fmtime, err := f.MTime()
+	if err != nil {
+		return err
+	}
+	i.Mtime = fmtime
+	i.Fsize = uint32(stat.Size())
+	i.Ctime, i.Ctimenano = f.CTime()
+
+	return nil
+}
+
+// Refreshes the stat information for an index entry by comparing
+// it against the path in the index.
+func (ie *IndexEntry) RefreshStat(c *Client) error {
+	f, err := ie.PathName.FilePath(c)
+	if err != nil {
+		return err
+	}
+	return ie.FixedIndexEntry.RefreshStat(f)
+}
+
 // Reads the index file from the GitDir and returns a Index object.
 // If the index file does not exist, it will return a new empty Index.
 func (d GitDir) ReadIndex() (*Index, error) {
@@ -111,6 +144,7 @@ func (d GitDir) ReadIndex() (*Index, error) {
 }
 
 func ReadIndexEntry(file *os.File) (*IndexEntry, error) {
+	log.Println("Reading from index entry from", file.Name())
 	var f FixedIndexEntry
 	var name []byte
 	binary.Read(file, binary.BigEndian, &f)
@@ -198,6 +232,13 @@ func (g *Index) AddStage(c *Client, path IndexPath, mode EntryMode, s Sha1, stag
 			entry.Sha1 = s
 			entry.Mtime = mtime
 			entry.Fsize = size
+
+			file, _ := path.FilePath(c)
+			if file.Exists() {
+				// FIXME: mtime/fsize/etc and ctime should either all be
+				// from the filesystem, or all come from the caller
+				entry.Ctime, entry.Ctimenano = file.CTime()
+			}
 
 			// We found and updated the entry, no need to continue
 			return nil
