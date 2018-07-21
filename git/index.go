@@ -233,6 +233,13 @@ func (g *Index) AddStage(c *Client, path IndexPath, mode EntryMode, s Sha1, stag
 			entry.Mtime = mtime
 			entry.Fsize = size
 
+			file, _ := path.FilePath(c)
+			if file.Exists() {
+				// FIXME: mtime/fsize/etc and ctime should either all be
+				// from the filesystem, or all come from the caller
+				entry.Ctime, entry.Ctimenano = file.CTime()
+			}
+
 			// We found and updated the entry, no need to continue
 			return nil
 		}
