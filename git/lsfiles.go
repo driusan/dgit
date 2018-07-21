@@ -137,7 +137,7 @@ func LsFiles(c *Client, opt LsFilesOptions, files []File) ([]*IndexEntry, error)
 				if err != nil {
 					return nil, err
 				}
-				if strings.HasPrefix(fAbs, eAbs) {
+				if fAbs == eAbs || strings.HasPrefix(fAbs, eAbs+"/") {
 					skip = false
 					break
 				}
@@ -213,7 +213,7 @@ func LsFiles(c *Client, opt LsFilesOptions, files []File) ([]*IndexEntry, error)
 					if err != nil {
 						return nil, err
 					}
-					if strings.HasPrefix(fAbs, eAbs) {
+					if fAbs == eAbs || strings.HasPrefix(fAbs, eAbs+"/") {
 						skip = false
 						break
 					}
