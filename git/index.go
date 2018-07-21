@@ -10,6 +10,7 @@ import (
 	"log"
 	"os"
 	"sort"
+	"strings"
 )
 
 var InvalidIndex error = errors.New("Invalid index")
@@ -221,14 +222,43 @@ const (
 //
 // As a special case, if something is added as Stage0, then Stage1-3 entries
 // will be removed.
-func (g *Index) AddStage(c *Client, path IndexPath, mode EntryMode, s Sha1, stage Stage, size uint32, mtime int64, createEntry bool) error {
+func (g *Index) AddStage(c *Client, path IndexPath, mode EntryMode, s Sha1, stage Stage, size uint32, mtime int64, opts UpdateIndexOptions) error {
 	if stage == Stage0 {
 		defer g.RemoveUnmergedStages(c, path)
+	}
+
+	replaceEntriesCheck := func() error {
+		// If replace is true then we search for any entries that
+		//  should be replaced with this one.
+		newObjects := make([]*IndexEntry, 0, len(g.Objects))
+		for _, e := range g.Objects {
+			if strings.HasPrefix(string(e.PathName), string(path)+"/") {
+				if !opts.Replace {
+					return fmt.Errorf("There is an existing file %s under %s, should it be replaced?", e.PathName, path)
+				}
+				continue
+			} else if strings.HasPrefix(string(path), string(e.PathName)+"/") {
+				if !opts.Replace {
+					return fmt.Errorf("There is a parent file %s above %s, should it be replaced?", e.PathName, path)
+				}
+				continue
+			}
+
+			newObjects = append(newObjects, e)
+		}
+
+		g.Objects = newObjects
+
+		return nil
 	}
 
 	// Update the existing stage, if it exists.
 	for _, entry := range g.Objects {
 		if entry.PathName == path && entry.Stage() == stage {
+			if err := replaceEntriesCheck(); err != nil {
+				return err
+			}
+
 			entry.Sha1 = s
 			entry.Mtime = mtime
 			entry.Fsize = size
@@ -240,12 +270,11 @@ func (g *Index) AddStage(c *Client, path IndexPath, mode EntryMode, s Sha1, stag
 				entry.Ctime, entry.Ctimenano = file.CTime()
 			}
 
-			// We found and updated the entry, no need to continue
 			return nil
 		}
 	}
 
-	if !createEntry {
+	if !opts.Add {
 		return fmt.Errorf("%v not found in index", path)
 	}
 	// There was no path/stage combo already in the index. Add it.
@@ -270,6 +299,10 @@ func (g *Index) AddStage(c *Client, path IndexPath, mode EntryMode, s Sha1, stag
 		flags |= 0x0FFF
 	} else {
 		flags |= (uint16(len(path)) & 0x0FFF)
+	}
+
+	if err := replaceEntriesCheck(); err != nil {
+		return err
 	}
 
 	g.Objects = append(g.Objects, &IndexEntry{
@@ -325,7 +358,7 @@ func (g *Index) RemoveUnmergedStages(c *Client, path IndexPath) error {
 // 	else
 // 		add new GitIndexEntry if not found and createEntry is true, error otherwise
 //
-func (g *Index) AddFile(c *Client, file File, createEntry bool) error {
+func (g *Index) AddFile(c *Client, file File, opts UpdateIndexOptions) error {
 	name, err := file.IndexPath(c)
 	if err != nil {
 		return err
@@ -380,7 +413,7 @@ func (g *Index) AddFile(c *Client, file File, createEntry bool) error {
 		Stage0,
 		fsize,
 		mtime,
-		createEntry,
+		opts,
 	)
 }
 
