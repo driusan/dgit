@@ -145,7 +145,7 @@ func UpdateIndexFromReader(c *Client, opts UpdateIndexOptions, r io.Reader) (*In
 				if err != nil {
 					return nil, err
 				}
-				if err := idx.AddStage(c, IndexPath(path), mode, sha1, Stage0, 0, 0, UpdateIndexOptions{ Add: true }); err != nil {
+				if err := idx.AddStage(c, IndexPath(path), mode, sha1, Stage0, 0, 0, UpdateIndexOptions{Add: true}); err != nil {
 					return nil, err
 				}
 			}
