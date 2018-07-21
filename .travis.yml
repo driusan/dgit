@@ -11,5 +11,5 @@ script:
     - diff -u <(echo -n) <(gofmt -d ./)
     - go test -v ./...
     - chmod u+x ./official-git/run-tests.sh
-    - GIT_SKIP_TESTS=t0000.77 ./official-git/run-tests.sh t0000-basic.sh t0004-unwritable.sh t0007-git-var.sh t0010-racy-git.sh t0062-revision-walking.sh t0070-fundamental.sh t0081-line-buffer.sh t1009-read-tree-new-index.sh t1304-default-acl.sh t2100-update-cache-badpath.sh t4113-apply-ending.sh t4123-apply-shrink.sh t5705-clone-2gb.sh t7062-wtstatus-ignorecase.sh t7511-status-index.sh
+    - ./official-git/run-tests.sh t0000-basic.sh t0004-unwritable.sh t0007-git-var.sh t0010-racy-git.sh t0062-revision-walking.sh t0070-fundamental.sh t0081-line-buffer.sh t1009-read-tree-new-index.sh t1304-default-acl.sh t2100-update-cache-badpath.sh t4113-apply-ending.sh t4123-apply-shrink.sh t5705-clone-2gb.sh t7062-wtstatus-ignorecase.sh t7511-status-index.sh
 
