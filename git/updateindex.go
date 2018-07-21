@@ -129,9 +129,32 @@ func UpdateIndexFromReader(c *Client, opts UpdateIndexOptions, r io.Reader) (*In
 			return nil, fmt.Errorf("update-index --index-info variant 1 not implemented")
 		case 3:
 			switch len(spaces[1]) {
-			case 20:
+			case 40:
 				// mode SP sha1 SP stage TAB path
-				return nil, fmt.Errorf("update-index --index-info variant 3 not implemented")
+				mode, err := ModeFromString(spaces[0])
+				if err != nil {
+					return nil, err
+				}
+				sha1, err := Sha1FromString(spaces[1])
+				if err != nil {
+					return nil, err
+				}
+				var stage Stage
+				switch spaces[2] {
+				case "0":
+					stage = Stage0
+				case "1":
+					stage = Stage1
+				case "2":
+					stage = Stage2
+				case "3":
+					stage = Stage3
+				default:
+					return nil, fmt.Errorf("Invalid stage: %v", spaces[2])
+				}
+				if err := idx.AddStage(c, IndexPath(path), mode, sha1, stage, 0, 0, UpdateIndexOptions{Add: true}); err != nil {
+					return nil, err
+				}
 			default:
 				// mode SP type SP sha1 TAB path
 				mode, err := ModeFromString(spaces[0])

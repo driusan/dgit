@@ -2,7 +2,6 @@ package git
 
 import (
 	"io/ioutil"
-	//"fmt"
 	"os"
 	"path/filepath"
 	"strings"
