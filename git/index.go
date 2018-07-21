@@ -255,8 +255,7 @@ func (g *Index) AddStage(c *Client, path IndexPath, mode EntryMode, s Sha1, stag
 	// Update the existing stage, if it exists.
 	for _, entry := range g.Objects {
 		if entry.PathName == path && entry.Stage() == stage {
-			err := replaceEntriesCheck()
-			if err != nil {
+			if err := replaceEntriesCheck(); err != nil {
 				return err
 			}
 
@@ -302,8 +301,7 @@ func (g *Index) AddStage(c *Client, path IndexPath, mode EntryMode, s Sha1, stag
 		flags |= (uint16(len(path)) & 0x0FFF)
 	}
 
-	err := replaceEntriesCheck()
-	if err != nil {
+	if err := replaceEntriesCheck(); err != nil {
 		return err
 	}
 
