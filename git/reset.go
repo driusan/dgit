@@ -157,7 +157,7 @@ func ResetUnstage(c *Client, opts ResetOptions, tree Treeish, files []File) erro
 					index.RemoveFile(entry.Name)
 				}
 			}
-		} else if err := index.AddStage(c, entry.Name, entry.Src.FileMode, entry.Src.Sha1, Stage0, uint32(entry.SrcSize), mtime, true); err != nil {
+		} else if err := index.AddStage(c, entry.Name, entry.Src.FileMode, entry.Src.Sha1, Stage0, uint32(entry.SrcSize), mtime, UpdateIndexOptions{Add: true}); err != nil {
 			return err
 		}
 	}
