@@ -62,6 +62,7 @@ func Add(c *Client, opts AddOptions, files []File) (*Index, error) {
 		}
 		return c.GitDir.ReadIndex()
 	}
+
 	if len(files) == 0 {
 		if !opts.All && !opts.Update {
 			return nil, fmt.Errorf("Nothing to add. Did you mean \"git add .\"")

@@ -67,7 +67,7 @@ func TestRevert(t *testing.T) {
 
 	// Revert the last commit, so that we know there won't be conflicts..
 	if err := Revert(c, RevertOptions{Edit: false}, []Commitish{last}); err != nil {
-		t.Error(err)
+		t.Fatal(err)
 	}
 
 	content, err := ioutil.ReadFile("foo.txt")
