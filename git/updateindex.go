@@ -70,6 +70,9 @@ func UpdateIndex(c *Client, idx *Index, opts UpdateIndexOptions, files []File) (
 	if opts.IndexInfo != nil {
 		return UpdateIndexFromReader(c, opts, opts.IndexInfo)
 	}
+	if opts.Refresh {
+		return UpdateIndexRefresh(c, idx, opts)
+	}
 	for _, file := range files {
 		ipath, err := file.IndexPath(c)
 		if err != nil {
@@ -152,6 +155,15 @@ func UpdateIndexFromReader(c *Client, opts UpdateIndexOptions, r io.Reader) (*In
 	}
 	if err := scanner.Err(); err != nil {
 		return nil, err
+	}
+	return idx, nil
+}
+
+func UpdateIndexRefresh(c *Client, idx *Index, opts UpdateIndexOptions) (*Index, error) {
+	for _, entry := range idx.Objects {
+		if err := entry.RefreshStat(c); err != nil {
+			return nil, err
+		}
 	}
 	return idx, nil
 }

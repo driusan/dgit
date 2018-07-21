@@ -52,7 +52,7 @@ func DiffFiles(c *Client, opt DiffFilesOptions, paths []File) ([]HashDiff, error
 			val = append(val, HashDiff{idx.PathName, idxtree, fs, uint(idx.Fsize), 0})
 			continue
 		}
-		stat, err := f.Stat()
+		stat, err := f.Lstat()
 		if err != nil {
 			val = append(val, HashDiff{idx.PathName, idxtree, fs, uint(idx.Fsize), 0})
 			continue
@@ -60,7 +60,11 @@ func DiffFiles(c *Client, opt DiffFilesOptions, paths []File) ([]HashDiff, error
 
 		switch {
 		case stat.Mode().IsDir():
-			fs.FileMode = ModeTree
+			// Since we're diffing files in the index (which only holds files)
+			// against a directory, it means that the file was deleted and
+			// replaced by a directory.
+			val = append(val, HashDiff{idx.PathName, idxtree, fs, uint(idx.Fsize), 0})
+			continue
 		case !stat.Mode().IsRegular():
 			// FIXME: This doesn't take into account that the file
 			// might be some kind of non-symlink non-regular file.
@@ -75,14 +79,23 @@ func DiffFiles(c *Client, opt DiffFilesOptions, paths []File) ([]HashDiff, error
 			return nil, err
 		}
 		size := stat.Size()
-		log.Printf("Mtime %v idxmtime %v Size: %v idxsize: %v\n", mtime, idx.Mtime, size, idx.Fsize)
-		//if mtime != idx.Mtime || size != int64(idx.Fsize) {
-		hash, _, _ := HashFile("blob", f.String())
-
-		if err != nil || hash != idx.Sha1 {
+		ctm, ctmn := f.CTime()
+		log.Printf("%v: Mtime %v idxmtime %v Size: %v idxsize: %v ctime: %v ctimenano:%v\n", f, mtime, idx.Mtime, size, idx.Fsize, idx.Ctime, idx.Ctimenano)
+		if mtime != idx.Mtime || size != int64(idx.Fsize) || ctm != idx.Ctime || ctmn != idx.Ctimenano {
 			val = append(val, HashDiff{idx.PathName, idxtree, fs, uint(idx.Fsize), uint(size)})
+			continue
 		}
-		//}
+
+		// The real git client appears to only compare lstat information and not hash the file. In fact,
+		// if we hash the file then the official git test suite fails on the basic tests. Go, unfortunately,
+		// only exposes mtime in an easy, cross-platform way, not ctime without going through the sys package
+		if idx.Ctime == 0 {
+			hash, _, err := HashFile("blob", f.String())
+
+			if err != nil || hash != idx.Sha1 {
+				val = append(val, HashDiff{idx.PathName, idxtree, fs, uint(idx.Fsize), uint(size)})
+			}
+		}
 	}
 
 	sort.Sort(ByName(val))

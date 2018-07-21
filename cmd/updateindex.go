@@ -166,8 +166,8 @@ func UpdateIndex(c *git.Client, args []string) error {
 	if err != nil {
 		return err
 	}
-	newidx, err := git.UpdateIndex(c, idx, opts, files)
 
+	newidx, err := git.UpdateIndex(c, idx, opts, files)
 	if err != nil {
 		return err
 	}

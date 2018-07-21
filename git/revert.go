@@ -84,7 +84,7 @@ func Revert(c *Client, opts RevertOptions, commits []Commitish) error {
 	if err := GeneratePatch(c, DiffCommonOptions{Patch: true}, diff, patch); err != nil {
 		return err
 	}
-	if err := Apply(c, ApplyOptions{ThreeWay: true, Reverse: true}, []File{File(patch.Name())}); err != nil {
+	if err := Apply(c, ApplyOptions{ThreeWay: true, Reverse: true, Index: true}, []File{File(patch.Name())}); err != nil {
 		return err
 	}
 	return nil
