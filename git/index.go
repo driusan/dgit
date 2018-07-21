@@ -196,7 +196,8 @@ func ReadIndexEntry(file *os.File) (*IndexEntry, error) {
 		if err != nil {
 			return nil, err
 		}
-		padding := 8 - (off % 8) + 4
+		// The mystery 4 appears again.
+		padding := 8 - ((off + 4) % 8)
 		if _, err := file.Seek(padding, os.SEEK_CUR); err != nil {
 			return nil, err
 		}

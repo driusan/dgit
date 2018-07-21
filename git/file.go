@@ -133,3 +133,12 @@ func (f File) Remove() error {
 func (f File) Open() (*os.File, error) {
 	return os.Open(f.String())
 }
+
+// Returns true if f matches the filesystem glob pattern pattern.
+func (f File) MatchGlob(pattern string) bool {
+	m, err := filepath.Match(pattern, string(f))
+	if err != nil {
+		panic(err)
+	}
+	return m
+}

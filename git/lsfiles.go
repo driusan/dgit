@@ -2,6 +2,7 @@ package git
 
 import (
 	"io/ioutil"
+	//"fmt"
 	"os"
 	"path/filepath"
 	"strings"
@@ -138,6 +139,10 @@ func LsFiles(c *Client, opt LsFilesOptions, files []File) ([]*IndexEntry, error)
 					return nil, err
 				}
 				if fAbs == eAbs || strings.HasPrefix(fAbs, eAbs+"/") {
+					skip = false
+					break
+				}
+				if f.MatchGlob(explicit.String()) {
 					skip = false
 					break
 				}
