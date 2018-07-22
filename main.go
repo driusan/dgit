@@ -334,6 +334,12 @@ func main() {
 			fmt.Fprintln(os.Stderr, err)
 			os.Exit(4)
 		}
+	case "check-ignore":
+		subcommandUsage = "<pathname>..."
+		if err := cmd.CheckIgnore(c, args); err != nil {
+			fmt.Fprintln(os.Stderr, err)
+			os.Exit(4)
+		}
 	case "help":
 		flag.CommandLine.SetOutput(os.Stdout)
 		flag.Usage()
