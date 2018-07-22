@@ -67,7 +67,7 @@ func Clone(c *git.Client, args []string) error {
 	}
 
 	if err := Config(c, []string{"remote.origin.url", repoid}); err != nil {
-		return nil
+		return err
 	}
 	if err := Config(c, []string{"branch.master.remote", "origin"}); err != nil {
 		return err
