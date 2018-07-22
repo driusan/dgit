@@ -7,6 +7,7 @@ import (
 	"log"
 	"os"
 	"path/filepath"
+	"strconv"
 	"strings"
 )
 
@@ -21,7 +22,11 @@ type IgnoreMatch struct {
 }
 
 func (im IgnoreMatch) String() string {
-	return fmt.Sprintf("%s:%v:%s\t%s", im.Source, im.LineNum, im.Pattern, im.PathName)
+	lineNum := ""
+	if im.LineNum != 0 {
+		lineNum = strconv.Itoa(im.LineNum)
+	}
+	return fmt.Sprintf("%s:%v:%s\t%s", im.Source, lineNum, im.Pattern, im.PathName)
 }
 
 func CheckIgnore(c *Client, opts CheckIgnoreOptions, paths []File) ([]IgnoreMatch, error) {
@@ -73,6 +78,9 @@ func CheckIgnore(c *Client, opts CheckIgnoreOptions, paths []File) ([]IgnoreMatc
 			}
 			dir = filepath.Dir(dir)
 		}
+
+		// Be sure to assign the pathname in all cases so that clients can match the outputs to their inputs
+		patternMatches[idx].PathName = path
 
 		// TODO: consider the other places where ignores can come from, such as core.excludesFile and .git/info/exclude
 	}

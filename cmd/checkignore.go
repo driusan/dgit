@@ -25,8 +25,11 @@ func CheckIgnore(c *git.Client, args []string) error {
 	verbose := false
 	flags.BoolVar(&verbose, "verbose", false, "Also output details about the matching pattern (if any) for each given pathname.")
 	flags.BoolVar(&verbose, "v", false, "Alias for --verbose")
+	nonMatch := false
+	flags.BoolVar(&nonMatch, "non-matching", false, "Show given paths which don’t match any pattern.")
+	flags.BoolVar(&nonMatch, "n", false, "Alias for --non-matching.")
 
-	for _, v := range []string{"stdin", "n", "non-matching", "no-index"} {
+	for _, v := range []string{"stdin", "no-index"} {
 		flags.Var(newNotimplBoolValue(), v, "Not implemented")
 	}
 
@@ -34,13 +37,17 @@ func CheckIgnore(c *git.Client, args []string) error {
 	args = flags.Args()
 
 	if len(args) < 1 {
-		fmt.Fprintf(flag.CommandLine.Output(), "Check ignore requires at least one path.\n")
+		fmt.Fprintf(flag.CommandLine.Output(), "fatal: no path specified\n")
 		flags.Usage()
-		os.Exit(2)
+		os.Exit(128)
 	} else if quiet && len(args) != 1 {
-		fmt.Fprintf(flag.CommandLine.Output(), "Quiet is only valid with one pathname.\n")
+		fmt.Fprintf(flag.CommandLine.Output(), "fatal: --quiet is only valid with a single pathname\n")
 		flags.Usage()
-		os.Exit(2)
+		os.Exit(128)
+	} else if quiet && verbose {
+		fmt.Fprintf(flag.CommandLine.Output(), "fatal: cannot have both --quiet and --verbose\n")
+		flags.Usage()
+		os.Exit(128)
 	}
 
 	paths := make([]git.File, 0, len(args))
@@ -57,7 +64,7 @@ func CheckIgnore(c *git.Client, args []string) error {
 
 	exitCode := 1
 	for _, match := range matches {
-		if match.Pattern != "" {
+		if match.Pattern != "" || nonMatch {
 			if !quiet && !verbose {
 				fmt.Printf("%s\n", match.PathName.String())
 			} else if !quiet && verbose {
