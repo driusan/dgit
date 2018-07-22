@@ -13,20 +13,30 @@ import (
 type CheckIgnoreOptions struct {
 }
 
-func CheckIgnore(c *Client, opts CheckIgnoreOptions, paths []File) ([]string, error) {
-	patternMatches := make([]string, len(paths))
+type IgnoreMatch struct {
+	PathName File
+	Pattern  string
+	Source   File
+	LineNum  int
+}
+
+func (im IgnoreMatch) String() string {
+	return fmt.Sprintf("%s:%v:%s\t%s", im.Source, im.LineNum, im.Pattern, im.PathName)
+}
+
+func CheckIgnore(c *Client, opts CheckIgnoreOptions, paths []File) ([]IgnoreMatch, error) {
+	patternMatches := make([]IgnoreMatch, len(paths))
 
 	for idx, path := range paths {
 		log.Printf("Checking if %s is tracked by git\n", path.String())
-		entries, err := LsFiles(c, LsFilesOptions{ExcludeStandard: false}, []File{path})
+		entries, err := LsFiles(c, LsFilesOptions{Cached: true, ExcludeStandard: false}, []File{path})
 		if err != nil {
 			return nil, err
 		}
 
 		// As a default, nothing that is tracked by git is ignored
 		if len(entries) > 0 {
-			log.Printf("Path %v is tracked by git and not ignored\n")
-			patternMatches[idx] = ""
+			log.Printf("Path %v is tracked by git and not ignored.\n", path)
 			continue
 		}
 
@@ -44,14 +54,17 @@ func CheckIgnore(c *Client, opts CheckIgnoreOptions, paths []File) ([]string, er
 		dir := filepath.Dir(abs)
 
 		for {
-			log.Printf("Checking .gitignore in %s\n", dir)
-			pattern, err := findPatternInGitIgnore(c, filepath.Join(dir, ".gitignore"), wdpath)
+			gitignore := filepath.Join(dir, ".gitignore")
+			log.Printf("Checking .gitignore in %s\n", gitignore)
+			pattern, lineNumber, err := findPatternInGitIgnore(c, gitignore, wdpath)
 			if err != nil {
 				return nil, err
 			}
 
 			if pattern != "" {
-				patternMatches[idx] = pattern
+				gitignore, _ = filepath.Rel(c.WorkDir.String(), gitignore)
+				patternMatches[idx] = IgnoreMatch{Pattern: pattern, LineNum: lineNumber, Source: File(gitignore), PathName: path}
+
 				break
 			}
 
@@ -60,28 +73,31 @@ func CheckIgnore(c *Client, opts CheckIgnoreOptions, paths []File) ([]string, er
 			}
 			dir = filepath.Dir(dir)
 		}
+
+		// TODO: consider the other places where ignores can come from, such as core.excludesFile and .git/info/exclude
 	}
 
 	return patternMatches, nil
 }
 
-func findPatternInGitIgnore(c *Client, gitignore string, wdpath string) (string, error) {
+func findPatternInGitIgnore(c *Client, gitignore string, wdpath string) (string, int, error) {
 	_, err := os.Stat(gitignore)
 	if os.IsNotExist(err) {
-		return "", nil
+		return "", 0, nil
 	}
 
 	if err != nil {
-		return "", err
+		return "", 0, err
 	}
 
 	ignorefile, err := os.Open(gitignore)
 	if err != nil {
-		return "", err
+		return "", 0, err
 	}
 	defer ignorefile.Close()
 
 	reader := bufio.NewReader(ignorefile)
+	lineNumber := 0
 
 	for {
 		pattern := ""
@@ -94,6 +110,8 @@ func findPatternInGitIgnore(c *Client, gitignore string, wdpath string) (string,
 			if isprefix {
 				continue
 			}
+
+			lineNumber++
 
 			if err == io.EOF {
 				log.Printf("Error is %v\n", err)
@@ -110,7 +128,7 @@ func findPatternInGitIgnore(c *Client, gitignore string, wdpath string) (string,
 			continue
 		}
 
-		matched, err := filepath.Match(pattern, filepath.Base(wdpath))
+		matched := File(wdpath).MatchGlob(pattern)
 		if err != nil {
 			if isEof {
 				break
@@ -121,7 +139,7 @@ func findPatternInGitIgnore(c *Client, gitignore string, wdpath string) (string,
 		// TODO matches based on other segments of the path, not just the file name
 
 		if matched {
-			return pattern, nil
+			return pattern, lineNumber, nil
 		}
 
 		if isEof {
@@ -129,5 +147,5 @@ func findPatternInGitIgnore(c *Client, gitignore string, wdpath string) (string,
 		}
 	}
 
-	return "", nil
+	return "", 0, nil
 }
