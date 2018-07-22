@@ -12,6 +12,7 @@ import (
 )
 
 type CheckIgnoreOptions struct {
+	NoIndex bool
 }
 
 type IgnoreMatch struct {
@@ -33,16 +34,18 @@ func CheckIgnore(c *Client, opts CheckIgnoreOptions, paths []File) ([]IgnoreMatc
 	patternMatches := make([]IgnoreMatch, len(paths))
 
 	for idx, path := range paths {
-		log.Printf("Checking if %s is tracked by git\n", path.String())
-		entries, err := LsFiles(c, LsFilesOptions{Cached: true, ExcludeStandard: false}, []File{path})
-		if err != nil {
-			return nil, err
-		}
+		if !opts.NoIndex {
+			log.Printf("Checking if %s is tracked by git\n", path.String())
+			entries, err := LsFiles(c, LsFilesOptions{Cached: true, ExcludeStandard: false}, []File{path})
+			if err != nil {
+				return nil, err
+			}
 
-		// As a default, nothing that is tracked by git is ignored
-		if len(entries) > 0 {
-			log.Printf("Path %v is tracked by git and not ignored.\n", path)
-			continue
+			// As a default, nothing that is tracked by git is ignored
+			if len(entries) > 0 {
+				log.Printf("Path %v is tracked by git and not ignored.\n", path)
+				continue
+			}
 		}
 
 		abs, err := filepath.Abs(path.String())

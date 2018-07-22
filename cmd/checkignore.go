@@ -34,7 +34,9 @@ func CheckIgnore(c *git.Client, args []string) error {
 	stdin := false
 	flags.BoolVar(&stdin, "stdin", false, "Read pathnames from the standard input, one per line, instead of from the command-line.")
 
-	for _, v := range []string{"no-index", "z"} {
+	flags.BoolVar(&opts.NoIndex, "no-index", false, "Don’t look in the index when undertaking the checks.")
+
+	for _, v := range []string{"z"} {
 		flags.Var(newNotimplBoolValue(), v, "Not implemented")
 	}
 
