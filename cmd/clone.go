@@ -66,12 +66,12 @@ func Clone(c *git.Client, args []string) error {
 		return err
 	}
 
-	Config(c, []string{"--set", "remote.origin.url", repoid})
-	Config(c, []string{"--set", "branch.master.remote", "origin"})
+	Config(c, []string{"remote.origin.url", repoid})
+	Config(c, []string{"branch.master.remote", "origin"})
 
 	// This should be smarter and try and get the HEAD branch from Fetch.
 	// The HEAD refspec isn't necessarily named refs/heads/master.
-	Config(c, []string{"--set", "branch.master.merge", "refs/heads/master"})
+	Config(c, []string{"branch.master.merge", "refs/heads/master"})
 
 	Fetch(c, []string{"origin"})
 
