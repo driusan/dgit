@@ -19,7 +19,11 @@ func CheckIgnore(c *git.Client, args []string) error {
 
 	opts := git.CheckIgnoreOptions{}
 
-	for _, v := range []string{"q", "quiet", "v", "stdin", "n", "non-matching", "no-index"} {
+	quiet := false
+	flags.BoolVar(&quiet, "quiet", false, "Don't output anything, just set exit status. This is only valid with a single pathname.")
+	flags.BoolVar(&quiet, "q", false, "Alias for --quiet")
+
+	for _, v := range []string{"v", "stdin", "n", "non-matching", "no-index"} {
 		flags.Var(newNotimplBoolValue(), v, "Not implemented")
 	}
 
@@ -27,7 +31,11 @@ func CheckIgnore(c *git.Client, args []string) error {
 	args = flags.Args()
 
 	if len(args) < 1 {
-		fmt.Fprintf(flag.CommandLine.Output(), "Check ignore requires at least one path")
+		fmt.Fprintf(flag.CommandLine.Output(), "Check ignore requires at least one path.\n")
+		flags.Usage()
+		os.Exit(2)
+	} else if quiet && len(args) != 1 {
+		fmt.Fprintf(flag.CommandLine.Output(), "Quiet is only valid with one pathname.\n")
 		flags.Usage()
 		os.Exit(2)
 	}
@@ -47,7 +55,9 @@ func CheckIgnore(c *git.Client, args []string) error {
 	exitCode := 1
 	for idx, pattern := range patterns {
 		if pattern != "" {
-			fmt.Printf("%s\n", paths[idx].String())
+			if !quiet {
+				fmt.Printf("%s\n", paths[idx].String())
+			}
 			exitCode = 0
 		}
 	}
