@@ -122,7 +122,6 @@ func findPatternInGitIgnore(c *Client, gitignore string, wdpath string) (string,
 			lineNumber++
 
 			if err == io.EOF {
-				log.Printf("Error is %v\n", err)
 				isEof = true
 			}
 			break
