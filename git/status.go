@@ -346,6 +346,11 @@ func StatusLong(c *Client, files []File, untracked StatusUntrackedMode, linepref
 				if err != nil {
 					return "", err
 				}
+				// TODO instead of filtering afterwards, perhaps the untracked should be filtered at the source
+				matches, _ := CheckIgnore(c, CheckIgnoreOptions{}, []File{fname})
+				if len(matches) == 1 && matches[0].Pattern != "" {
+					continue
+				}
 				if fname.IsDir() {
 					ret += fmt.Sprintf("%v\t%v/\n", lineprefix, fname)
 				} else {
