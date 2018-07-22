@@ -128,7 +128,7 @@ func findPatternInGitIgnore(c *Client, gitignore string, wdpath string) (string,
 			continue
 		}
 
-		matched := File(wdpath).MatchGlob(pattern)
+		matched := File(filepath.Base(wdpath)).MatchGlob(pattern)
 		if err != nil {
 			if isEof {
 				break
