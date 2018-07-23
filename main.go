@@ -335,7 +335,7 @@ func main() {
 			os.Exit(4)
 		}
 	case "check-ignore":
-		subcommandUsage = "<pathname>..."
+		subcommandUsage = "[<pathname>...]"
 		if err := cmd.CheckIgnore(c, args); err != nil {
 			fmt.Fprintln(os.Stderr, err)
 			os.Exit(4)
