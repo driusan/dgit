@@ -82,6 +82,18 @@ func CheckIgnore(c *Client, opts CheckIgnoreOptions, paths []File) ([]IgnoreMatc
 			dir = filepath.Dir(dir)
 		}
 
+		// Check .git/info/exclude
+		if patternMatches[idx].Pattern == "" {
+			pattern, lineNumber, err := findPatternInGitIgnore(c, filepath.Join(c.GitDir.String(), "info/exclude"), wdpath)
+			if err != nil {
+				return nil, err
+			}
+
+			if pattern != "" {
+				patternMatches[idx] = IgnoreMatch{Pattern: pattern, LineNum: lineNumber, Source: File(".git/info/exclude"), PathName: path} // TODO .git/info/exclude is hard coded here instead of being calculated from c.GitDir
+			}
+		}
+
 		// Be sure to assign the pathname in all cases so that clients can match the outputs to their inputs
 		patternMatches[idx].PathName = path
 
