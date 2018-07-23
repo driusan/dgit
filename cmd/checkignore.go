@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"strings"
 
 	"github.com/driusan/dgit/git"
 )
@@ -42,8 +43,14 @@ func CheckIgnore(c *git.Client, args []string) error {
 	flags.Parse(args)
 	args = flags.Args()
 
+	if dir, err := os.Getwd(); err == nil && (dir == c.GitDir.String() || strings.HasPrefix(dir, c.GitDir.String()+"/")) {
+		fmt.Fprintf(flag.CommandLine.Output(), "fatal: This operation must be run in a work tree\n")
+		flags.Usage()
+		os.Exit(128)
+	}
+
 	if machine && !stdin {
-		fmt.Fprintf(flag.CommandLine.Output(), "fatal: -z only makes sense with --stdin")
+		fmt.Fprintf(flag.CommandLine.Output(), "fatal: -z only makes sense with --stdin\n")
 		flags.Usage()
 		os.Exit(128)
 	}
