@@ -36,12 +36,17 @@ func CheckIgnore(c *git.Client, args []string) error {
 
 	flags.BoolVar(&opts.NoIndex, "no-index", false, "Don’t look in the index when undertaking the checks.")
 
-	for _, v := range []string{"z"} {
-		flags.Var(newNotimplBoolValue(), v, "Not implemented")
-	}
+	machine := false
+	flags.BoolVar(&machine, "z", false, "The output format is modified to be machine-parseable.")
 
 	flags.Parse(args)
 	args = flags.Args()
+
+	if machine && !stdin {
+		fmt.Fprintf(flag.CommandLine.Output(), "fatal: -z only makes sense with --stdin")
+		flags.Usage()
+		os.Exit(128)
+	}
 
 	if !stdin && len(args) < 1 {
 		fmt.Fprintf(flag.CommandLine.Output(), "fatal: no path specified\n")
@@ -97,14 +102,23 @@ func CheckIgnore(c *git.Client, args []string) error {
 		for {
 			path := ""
 			isEof := false
-			for {
-				lineBytes, isPrefix, err := reader.ReadLine()
-				path = path + string(lineBytes)
+
+			if !machine {
+				for {
+					lineBytes, isPrefix, err := reader.ReadLine()
+					path = path + string(lineBytes)
+					if err == io.EOF {
+						isEof = true
+					}
+					if !isPrefix {
+						break
+					}
+				}
+			} else {
+				p, err := reader.ReadString(0)
+				path = p
 				if err == io.EOF {
 					isEof = true
-				}
-				if !isPrefix {
-					break
 				}
 			}
 
@@ -117,9 +131,22 @@ func CheckIgnore(c *git.Client, args []string) error {
 
 			if match.Pattern != "" || nonMatch {
 				if !quiet && !verbose {
-					fmt.Printf("%s\n", match.PathName.String())
-				} else if !quiet && verbose {
+					fmt.Printf("%s", match.PathName.String())
+					if !machine {
+						fmt.Printf("\n")
+					} else {
+						os.Stdout.Write([]byte{0})
+					}
+				} else if !quiet && verbose && !machine {
 					fmt.Printf("%s\n", match)
+				} else if !quiet && verbose && machine {
+					fmt.Printf("%s", match.Source)
+					os.Stdout.Write([]byte{0})
+					fmt.Printf("%s", match.LineNum) // TODO will output 0, instead of blank for non-match
+					os.Stdout.Write([]byte{0})
+					fmt.Printf("%s", match.Pattern)
+					os.Stdout.Write([]byte{0})
+					fmt.Printf("%s", match.PathName)
 				}
 
 				if match.Pattern != "" {
