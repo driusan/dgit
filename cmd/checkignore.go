@@ -149,7 +149,7 @@ func CheckIgnore(c *git.Client, args []string) error {
 				} else if !quiet && verbose && machine {
 					fmt.Printf("%s", match.Source)
 					os.Stdout.Write([]byte{0})
-					fmt.Printf("%s", match.LineNum) // TODO will output 0, instead of blank for non-match
+					fmt.Printf("%d", match.LineNum) // TODO will output 0, instead of blank for non-match
 					os.Stdout.Write([]byte{0})
 					fmt.Printf("%s", match.Pattern)
 					os.Stdout.Write([]byte{0})
