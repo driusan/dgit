@@ -36,7 +36,7 @@ func CheckIgnore(c *Client, opts CheckIgnoreOptions, paths []File) ([]IgnoreMatc
 
 	for idx, path := range paths {
 		if !opts.NoIndex {
-			log.Printf("Checking if %s is tracked by git\n", path.String())
+			log.Printf("Checking if %s is tracked by git\n", path)
 			entries, err := LsFiles(c, LsFilesOptions{Cached: true, ExcludeStandard: false}, []File{path})
 			if err != nil {
 				return nil, err
