@@ -53,9 +53,17 @@ func CheckIgnore(c *Client, opts CheckIgnoreOptions, paths []File) ([]IgnoreMatc
 			return nil, err
 		}
 
+		// Does this go through a symbolic link?
+		evalPath, _ := filepath.EvalSymlinks(filepath.Dir(abs))
+		log.Printf("Eval symlink path of %v is %v\n", abs, evalPath)
+		if evalPath != "" && evalPath != filepath.Dir(abs) {
+			return nil, fmt.Errorf("fatal: pathspec '%v' is beyond a symbolic link", path)
+		}
+
 		stat, _ := os.Lstat(abs)
 		isDir := false
 		if stat != nil {
+			log.Printf("Path %v has an lstat\n", abs)
 			isDir = stat.IsDir()
 		}
 

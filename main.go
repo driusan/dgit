@@ -338,7 +338,7 @@ func main() {
 		subcommandUsage = "[<pathname>...]"
 		if err := cmd.CheckIgnore(c, args); err != nil {
 			fmt.Fprintln(os.Stderr, err)
-			os.Exit(4)
+			os.Exit(128)
 		}
 	case "help":
 		flag.CommandLine.SetOutput(os.Stdout)

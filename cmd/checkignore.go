@@ -129,6 +129,10 @@ func CheckIgnore(c *git.Client, args []string) error {
 				}
 			}
 
+			if path == "" {
+				os.Exit(1)
+			}
+
 			matches, err := git.CheckIgnore(c, opts, []git.File{git.File(path)})
 			if err != nil {
 				return err
