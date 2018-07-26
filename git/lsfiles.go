@@ -96,7 +96,6 @@ type LsFilesOptions struct {
 	Directory bool
 
 	// Exclude standard patterns (ie. .gitignore and .git/info/exclude)
-	// (Not implemented.)
 	ExcludeStandard bool
 }
 
@@ -205,6 +204,15 @@ func LsFiles(c *Client, opt LsFilesOptions, files []File) ([]*IndexEntry, error)
 			f, err := file.PathName.FilePath(c)
 			if err != nil {
 				return nil, err
+			}
+			if opt.ExcludeStandard {
+				matches, err := CheckIgnore(c, CheckIgnoreOptions{NoIndex: true}, []File{f})
+				if err != nil {
+					return nil, err
+				}
+				if len(matches) == 1 && matches[0].Pattern != "" {
+					continue
+				}
 			}
 			if strings.HasPrefix(f.String(), "../") || len(files) > 0 {
 				skip := true

@@ -76,8 +76,7 @@ func Add(c *Client, opts AddOptions, files []File) (*Index, error) {
 	}
 
 	// Start by using ls-files to convert directories to files, and
-	// (eventually) ignore .gitignore (once ls-files supports
-	// --exclude-standard.)
+	// ignore .gitignore
 	lsOpts := LsFilesOptions{
 		Deleted:  true,
 		Modified: true,

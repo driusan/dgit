@@ -323,7 +323,8 @@ func StatusLong(c *Client, files []File, untracked StatusUntrackedMode, linepref
 	hasUntracked := false
 	if untracked != StatusUntrackedNo {
 		lsfilesopts := LsFilesOptions{
-			Others: true,
+			Others:          true,
+			ExcludeStandard: true, // Configurable some day
 		}
 		if untracked == StatusUntrackedNormal {
 			lsfilesopts.Directory = true
@@ -345,11 +346,6 @@ func StatusLong(c *Client, files []File, untracked StatusUntrackedMode, linepref
 				fname, err := f.PathName.FilePath(c)
 				if err != nil {
 					return "", err
-				}
-				// TODO instead of filtering afterwards, perhaps the untracked should be filtered at the source
-				matches, _ := CheckIgnore(c, CheckIgnoreOptions{}, []File{fname})
-				if len(matches) == 1 && matches[0].Pattern != "" {
-					continue
 				}
 				if fname.IsDir() {
 					ret += fmt.Sprintf("%v\t%v/\n", lineprefix, fname)
