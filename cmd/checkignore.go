@@ -20,7 +20,7 @@ func CheckIgnore(c *git.Client, args []string) error {
 		flags.PrintDefaults()
 	}
 
-	opts := git.CheckIgnoreOptions{}
+	opts := git.CheckIgnoreOptions{CheckSubModule: true}
 
 	quiet := false
 	flags.BoolVar(&quiet, "quiet", false, "Don't output anything, just set exit status. This is only valid with a single pathname.")

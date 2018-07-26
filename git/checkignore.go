@@ -12,7 +12,8 @@ import (
 )
 
 type CheckIgnoreOptions struct {
-	NoIndex bool
+	NoIndex        bool
+	CheckSubModule bool
 }
 
 type IgnoreMatch struct {
@@ -58,6 +59,20 @@ func CheckIgnore(c *Client, opts CheckIgnoreOptions, paths []File) ([]IgnoreMatc
 		log.Printf("Eval symlink path of %v is %v\n", abs, evalPath)
 		if evalPath != "" && evalPath != filepath.Dir(abs) {
 			return nil, fmt.Errorf("fatal: pathspec '%v' is beyond a symbolic link", path)
+		}
+
+		// Does it go through a submodule?
+		if opts.CheckSubModule {
+			submodule := findSubmodule(c, abs)
+			if submodule != "" {
+				submoduleRel, err := filepath.Rel(c.WorkDir.String(), submodule)
+				if err != nil {
+					return nil, err
+				}
+				if submoduleRel != "" {
+					return nil, fmt.Errorf("fatal: Pathspec '%v' is in submodule '%v'", path, submoduleRel)
+				}
+			}
 		}
 
 		stat, _ := os.Lstat(abs)
@@ -213,4 +228,17 @@ func matchesGlob(path string, isDir bool, pattern string) bool {
 	} else {
 		return false
 	}
+}
+
+func findSubmodule(c *Client, absPath string) string {
+	for absPath != c.WorkDir.String() {
+		stat, _ := os.Lstat(filepath.Join(absPath, ".git"))
+		if stat != nil {
+			return absPath
+		}
+
+		absPath = filepath.Dir(absPath)
+	}
+
+	return ""
 }
