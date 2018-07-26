@@ -1,0 +1,13 @@
+diff --git a/t/t0008-ignores.sh b/t/t0008-ignores.sh
+index 89544dd83..217068733 100755
+--- a/t/t0008-ignores.sh
++++ b/t/t0008-ignores.sh
+@@ -187,7 +187,7 @@ test_expect_success 'setup' '
+ 		git init &&
+ 		echo a >a &&
+ 		git add a &&
+-		git commit -m"commit in submodule"
++		git commit -m "commit in submodule"
+ 	) &&
+ 	git add a/submodule &&
+ 	cat <<-\EOF >.gitignore &&
