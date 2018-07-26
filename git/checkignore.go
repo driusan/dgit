@@ -53,6 +53,12 @@ func CheckIgnore(c *Client, opts CheckIgnoreOptions, paths []File) ([]IgnoreMatc
 			return nil, err
 		}
 
+		stat, _ := os.Lstat(abs)
+		isDir := false
+		if stat != nil {
+			isDir = stat.IsDir()
+		}
+
 		// Let's check that this path is in the git work dir first
 		wdpath, err := filepath.Rel(c.WorkDir.String(), abs)
 		if err != nil || wdpath == "." {
@@ -64,7 +70,8 @@ func CheckIgnore(c *Client, opts CheckIgnoreOptions, paths []File) ([]IgnoreMatc
 		for {
 			gitignore := filepath.Join(dir, ".gitignore")
 			log.Printf("Checking .gitignore in %s\n", gitignore)
-			pattern, lineNumber, err := findPatternInGitIgnore(c, gitignore, wdpath)
+			ignorePath, err := filepath.Rel(dir, abs)
+			pattern, lineNumber, err := findPatternInIgnoreFile(c, gitignore, ignorePath, isDir)
 			if err != nil {
 				return nil, err
 			}
@@ -84,7 +91,7 @@ func CheckIgnore(c *Client, opts CheckIgnoreOptions, paths []File) ([]IgnoreMatc
 
 		// Check .git/info/exclude
 		if patternMatches[idx].Pattern == "" {
-			pattern, lineNumber, err := findPatternInGitIgnore(c, filepath.Join(c.GitDir.String(), "info/exclude"), wdpath)
+			pattern, lineNumber, err := findPatternInIgnoreFile(c, filepath.Join(c.GitDir.String(), "info/exclude"), wdpath, isDir)
 			if err != nil {
 				return nil, err
 			}
@@ -103,8 +110,12 @@ func CheckIgnore(c *Client, opts CheckIgnoreOptions, paths []File) ([]IgnoreMatc
 	return patternMatches, nil
 }
 
-func findPatternInGitIgnore(c *Client, gitignore string, wdpath string) (string, int, error) {
-	_, err := os.Stat(gitignore)
+// Finds the first matching pattern and line number in the provided ignoreFile that matches the ignorePath, relative to the
+//  the ignoreFile, if one exists. If no pattern matches or the ignoreFile doesn't exist then the returned pattern is an empty string.
+//  If the ignoreFile is not within the work directory then the ignorePath should be made relative to the work directory.
+func findPatternInIgnoreFile(c *Client, ignoreFile string, ignorePath string, isDir bool) (string, int, error) {
+	log.Printf("Searching for matching ignore pattern for %s in %s\n", ignorePath, ignoreFile)
+	_, err := os.Stat(ignoreFile)
 	if os.IsNotExist(err) {
 		return "", 0, nil
 	}
@@ -113,13 +124,13 @@ func findPatternInGitIgnore(c *Client, gitignore string, wdpath string) (string,
 		return "", 0, err
 	}
 
-	ignorefile, err := os.Open(gitignore)
+	file, err := os.Open(ignoreFile)
 	if err != nil {
 		return "", 0, err
 	}
-	defer ignorefile.Close()
+	defer file.Close()
 
-	reader := bufio.NewReader(ignorefile)
+	reader := bufio.NewReader(file)
 	lineNumber := 0
 
 	for {
@@ -142,7 +153,7 @@ func findPatternInGitIgnore(c *Client, gitignore string, wdpath string) (string,
 			break
 		}
 
-		log.Printf("Checking pattern %s in %s\n", pattern, gitignore)
+		log.Printf("Checking pattern %s in %s\n", pattern, ignoreFile)
 		if pattern == "" || strings.HasPrefix(pattern, "#") {
 			if isEof {
 				break
@@ -150,16 +161,7 @@ func findPatternInGitIgnore(c *Client, gitignore string, wdpath string) (string,
 			continue
 		}
 
-		matched := File(filepath.Base(wdpath)).MatchGlob(pattern)
-		if err != nil {
-			if isEof {
-				break
-			}
-			continue // Problem with the pattern in the gitignore file
-		}
-
-		// TODO matches based on other segments of the path, not just the file name
-
+		matched := MatchesGlob("/"+ignorePath, isDir, pattern)
 		if matched {
 			return pattern, lineNumber, nil
 		}
@@ -170,4 +172,37 @@ func findPatternInGitIgnore(c *Client, gitignore string, wdpath string) (string,
 	}
 
 	return "", 0, nil
+}
+
+func MatchesGlob(path string, isDir bool, pattern string) bool {
+	if !strings.HasPrefix(pattern, "/") {
+		pattern = "/**/" + pattern
+	}
+
+	pathSegs := strings.Split(path, "/")
+	patternSegs := strings.Split(pattern, "/")
+
+	for len(pathSegs) > 0 && len(patternSegs) > 0 {
+		if patternSegs[0] == "**" && len(patternSegs) > 1 {
+			if m, _ := filepath.Match(patternSegs[1], pathSegs[0]); m {
+				patternSegs = patternSegs[2:]
+			}
+		} else if m, _ := filepath.Match(patternSegs[0], pathSegs[0]); m {
+			patternSegs = patternSegs[1:]
+		} else {
+			break
+		}
+
+		pathSegs = pathSegs[1:]
+	}
+
+	if len(patternSegs) == 0 {
+		return true
+	} else if patternSegs[0] == "" && len(pathSegs) > 0 {
+		return true
+	} else if patternSegs[0] == "" && isDir {
+		return true
+	} else {
+		return false
+	}
 }
