@@ -161,7 +161,7 @@ func findPatternInIgnoreFile(c *Client, ignoreFile string, ignorePath string, is
 			continue
 		}
 
-		matched := MatchesGlob("/"+ignorePath, isDir, pattern)
+		matched := matchesGlob("/"+ignorePath, isDir, pattern)
 		if matched {
 			return pattern, lineNumber, nil
 		}
@@ -174,7 +174,7 @@ func findPatternInIgnoreFile(c *Client, ignoreFile string, ignorePath string, is
 	return "", 0, nil
 }
 
-func MatchesGlob(path string, isDir bool, pattern string) bool {
+func matchesGlob(path string, isDir bool, pattern string) bool {
 	if !strings.HasPrefix(pattern, "/") {
 		pattern = "/**/" + pattern
 	}
