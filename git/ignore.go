@@ -236,6 +236,8 @@ func MatchIgnores(c *Client, patterns []IgnorePattern, paths []File) ([]IgnoreMa
 		patternMatches[idx].PathName = path
 	}
 
+	log.Printf("Ignore matches: %+v\n", patternMatches)
+
 	return patternMatches, nil
 }
 

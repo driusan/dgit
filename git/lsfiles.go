@@ -265,7 +265,11 @@ func LsFiles(c *Client, opt LsFilesOptions, files []File) ([]*IndexEntry, error)
 
 		for _, match := range matches {
 			if match.Pattern == "" { // TODO add ignore here
-				fs = append(fs, &IndexEntry{PathName: IndexPath(match.PathName)})
+				indexPath, err := match.PathName.IndexPath(c)
+				if err != nil {
+					return nil, err
+				}
+				fs = append(fs, &IndexEntry{PathName: indexPath})
 			}
 		}
 	}
