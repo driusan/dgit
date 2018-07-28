@@ -20,8 +20,6 @@ func CheckIgnore(c *git.Client, args []string) error {
 		flags.PrintDefaults()
 	}
 
-	opts := git.CheckIgnoreOptions{CheckSubModule: true}
-
 	quiet := false
 	flags.BoolVar(&quiet, "quiet", false, "Don't output anything, just set exit status. This is only valid with a single pathname.")
 	flags.BoolVar(&quiet, "q", false, "Alias for --quiet")
@@ -35,7 +33,8 @@ func CheckIgnore(c *git.Client, args []string) error {
 	stdin := false
 	flags.BoolVar(&stdin, "stdin", false, "Read pathnames from the standard input, one per line, instead of from the command-line.")
 
-	flags.BoolVar(&opts.NoIndex, "no-index", false, "Don’t look in the index when undertaking the checks.")
+	noIndex := false
+	flags.BoolVar(&noIndex, "no-index", false, "Don’t look in the index when undertaking the checks.")
 
 	machine := false
 	flags.BoolVar(&machine, "z", false, "The output format is modified to be machine-parseable.")
@@ -76,21 +75,53 @@ func CheckIgnore(c *git.Client, args []string) error {
 	if !stdin {
 		paths := make([]git.File, 0, len(args))
 
+		// Assemble the list of files, checking for any invalid input
 		for _, p := range args {
+			f := git.File(p)
+			if s, submodule, _ := f.IsInSubmodule(c); s {
+				fmt.Fprintf(os.Stderr, "fatal: Pathspec '%v' is in submodule '%s'\n", p, submodule)
+				os.Exit(128)
+			}
+			if i, _ := f.IsInsideSymlink(); i {
+				fmt.Fprintf(os.Stderr, "fatal: pathspec '%v' is beyond a symbolic link\n", p)
+				os.Exit(128)
+			}
+
 			paths = append(paths, git.File(p))
 		}
 
-		matches, err := git.CheckIgnore(c, opts, paths)
-
+		// Invoke the ignore routines directly, rather than relying on
+		//  LsFiles because we need to be able to do things such as
+		//  return non-matches and match details that aren't supported there.
+		// Note that check-ignore has no choice but to use standard ignore
+		//  patterns. There is no way to specify custom patterns on the command-line.
+		standardIgnores, err := git.StandardIgnorePatterns(c, paths)
 		if err != nil {
 			return err
 		}
 
 		exitCode := 1
-		for _, match := range matches {
+
+		for _, path := range paths {
+			matches, err := git.MatchIgnores(c, standardIgnores, []git.File{path})
+			if err != nil {
+				return err
+			}
+
+			match := matches[0]
+
+			// Zero out any match pattern if it's in the index and the no-index options was
+			//  not specified.
+			if !noIndex {
+				entries, _ := git.LsFiles(c, git.LsFilesOptions{Cached: true, Others: false, ExcludeStandard: false}, []git.File{path})
+				if len(entries) > 0 {
+					match.IgnorePattern = git.IgnorePattern{}
+				}
+			}
+
 			if match.Pattern != "" || nonMatch {
 				if !quiet && !verbose {
-					fmt.Printf("%s\n", match.PathName.String())
+					fmt.Printf("%s\n", match.PathName)
 				} else if !quiet && verbose {
 					fmt.Printf("%s\n", match)
 				}
@@ -133,12 +164,41 @@ func CheckIgnore(c *git.Client, args []string) error {
 				os.Exit(1)
 			}
 
-			matches, err := git.CheckIgnore(c, opts, []git.File{git.File(path)})
+			f := git.File(path)
+			if s, submodule, _ := f.IsInSubmodule(c); s {
+				fmt.Fprintf(os.Stderr, "fatal: Pathspec '%v' is in submodule '%s'\n", path, submodule)
+				os.Exit(128)
+			}
+			if i, _ := f.IsInsideSymlink(); i {
+				fmt.Fprintf(os.Stderr, "fatal: pathspec '%v' is beyond a symbolic link", path)
+				os.Exit(128)
+			}
+
+			// Invoke the ignore routines directly, rather than relying on
+			//  LsFiles because we need to be able to do things such as
+			//  return non-matches and match details that aren't supported there.
+			// Note that check-ignore has no choice but to use standard ignore
+			//  patterns. There is no way to specify custom patterns on the command-line.
+			standardIgnores, err := git.StandardIgnorePatterns(c, []git.File{git.File(path)})
+			if err != nil {
+				return err
+			}
+
+			matches, err := git.MatchIgnores(c, standardIgnores, []git.File{git.File(path)})
 			if err != nil {
 				return err
 			}
 
 			match := matches[0]
+
+			// Zero out any match pattern if it's in the index and the no-index options was
+			//  not specified.
+			if !noIndex {
+				entries, _ := git.LsFiles(c, git.LsFilesOptions{Cached: true, Others: false, ExcludeStandard: false}, []git.File{git.File(path)})
+				if len(entries) > 0 {
+					match.IgnorePattern = git.IgnorePattern{}
+				}
+			}
 
 			if match.Pattern != "" || nonMatch {
 				if !quiet && !verbose {
@@ -153,7 +213,7 @@ func CheckIgnore(c *git.Client, args []string) error {
 				} else if !quiet && verbose && machine {
 					fmt.Printf("%s", match.Source)
 					os.Stdout.Write([]byte{0})
-					fmt.Printf("%d", match.LineNum) // TODO will output 0, instead of blank for non-match
+					fmt.Printf("%s", match.LineString())
 					os.Stdout.Write([]byte{0})
 					fmt.Printf("%s", match.Pattern)
 					os.Stdout.Write([]byte{0})

@@ -72,6 +72,45 @@ func (f File) IsDir() bool {
 
 }
 
+// Returns true if the file is inside a submodule and the submodule file.
+func (f File) IsInSubmodule(c *Client) (bool, File, error) {
+	abs, err := filepath.Abs(f.String())
+	if err != nil {
+		return false, File(""), err
+	}
+
+	for abs != c.WorkDir.String() {
+		stat, _ := os.Lstat(filepath.Join(abs, ".git"))
+		if stat != nil {
+			submodule, err := File(abs).IndexPath(c)
+			if err != nil {
+				return false, File(""), err
+			}
+			return true, File(string(submodule)), nil
+		}
+
+		abs = filepath.Dir(abs)
+	}
+
+	return false, File(""), nil
+}
+
+func (f File) IsInsideSymlink() (bool, error) {
+	abs, err := filepath.Abs(f.String())
+	if err != nil {
+		return false, err
+	}
+
+	dir := filepath.Dir(abs)
+
+	evalPath, _ := filepath.EvalSymlinks(dir)
+	if evalPath != "" && evalPath != dir {
+		return true, nil
+	}
+
+	return false, nil
+}
+
 func (f File) IsSymlink() bool {
 	stat, err := f.Lstat()
 	if err != nil {

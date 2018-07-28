@@ -37,10 +37,7 @@ func main() {
 	if traceLevel == "" {
 		log.SetOutput(ioutil.Discard)
 	} else if traceLevel != "1" && traceLevel != "2" {
-		logfile, err := os.Open(traceLevel)
-		if os.IsNotExist(err) {
-			logfile, err = os.Create(traceLevel)
-		}
+		logfile, err := os.OpenFile(traceLevel, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
 
 		if err != nil {
 			fmt.Printf("Could not open file %v for tracing: %v\n", traceLevel, err)
@@ -50,7 +47,9 @@ func main() {
 		log.SetOutput(logfile)
 	}
 
-	log.Printf("Dgit started\n")
+	wd, _ := os.Getwd()
+
+	log.Printf("Dgit started: (%v) %v\n", wd, os.Args)
 
 	// Special case, just reverse the arguments to force regular --help handling
 	if len(os.Args) == 3 && os.Args[1] == "help" && !strings.HasPrefix(os.Args[2], "-") {

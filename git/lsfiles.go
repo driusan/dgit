@@ -21,7 +21,7 @@ func findUntrackedFilesFromDir(c *Client, root, parent, dir File, tracked map[In
 				continue
 			}
 			if !recursedir {
-				// This isn't very efficient, but let's us implement git ls-files --directory
+				// This isn't very efficient, but lets us implement git ls-files --directory
 				// without too many changes.
 				indexPath, err := (parent + "/" + fname).IndexPath(c)
 				if err != nil {
@@ -97,6 +97,12 @@ type LsFilesOptions struct {
 
 	// Exclude standard patterns (ie. .gitignore and .git/info/exclude)
 	ExcludeStandard bool
+
+	// Exclude using the provided pattern
+	ExcludePattern string
+
+	// Exclude using the provided file with the patterns
+	ExcludeFile string
 }
 
 // LsFiles implements the git ls-files command. It returns an array of files
@@ -200,20 +206,14 @@ func LsFiles(c *Client, opt LsFilesOptions, files []File) ([]*IndexEntry, error)
 	if opt.Others {
 		wd := File(c.WorkDir)
 		others := findUntrackedFilesFromDir(c, wd+"/", wd, wd, filesInIndex, !opt.Directory)
+		otherFiles := make([]File, 0, len(others))
+
 		for _, file := range others {
 			f, err := file.PathName.FilePath(c)
 			if err != nil {
 				return nil, err
 			}
-			if opt.ExcludeStandard {
-				matches, err := CheckIgnore(c, CheckIgnoreOptions{NoIndex: true}, []File{f})
-				if err != nil {
-					return nil, err
-				}
-				if len(matches) == 1 && matches[0].Pattern != "" {
-					continue
-				}
-			}
+
 			if strings.HasPrefix(f.String(), "../") || len(files) > 0 {
 				skip := true
 				for _, explicit := range files {
@@ -234,7 +234,39 @@ func LsFiles(c *Client, opt LsFilesOptions, files []File) ([]*IndexEntry, error)
 					continue
 				}
 			}
-			fs = append(fs, file)
+
+			otherFiles = append(otherFiles, f)
+		}
+
+		ignorePatterns := []IgnorePattern{}
+
+		if opt.ExcludeStandard {
+			standardPatterns, err := StandardIgnorePatterns(c, otherFiles)
+			if err != nil {
+				return nil, err
+			}
+			ignorePatterns = append(ignorePatterns, standardPatterns...)
+		}
+		if opt.ExcludePattern != "" {
+			ignorePatterns = append(ignorePatterns, IgnorePattern{Pattern: opt.ExcludePattern, Source: "", LineNum: 1, Scope: ""})
+		}
+		if opt.ExcludeFile != "" {
+			patterns, err := ParseIgnorePatterns(c, File(opt.ExcludeFile), File(""))
+			if err != nil {
+				return nil, err
+			}
+			ignorePatterns = append(ignorePatterns, patterns...)
+		}
+
+		matches, err := MatchIgnores(c, ignorePatterns, otherFiles)
+		if err != nil {
+			return nil, err
+		}
+
+		for _, match := range matches {
+			if match.Pattern == "" { // TODO add ignore here
+				fs = append(fs, &IndexEntry{PathName: IndexPath(match.PathName)})
+			}
 		}
 	}
 

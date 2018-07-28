@@ -40,7 +40,16 @@ func LsFiles(c *git.Client, args []string) error {
 	unmerged := flags.Bool("unmerged", false, "Show unmerged files. Implies --stage")
 	u := flags.Bool("u", false, "Alias of --unmerged")
 
+	flags.BoolVar(&options.ExcludeStandard, "exclude-standard", false, "Add the standard Git exclusions.")
+
 	flags.BoolVar(&options.Directory, "directory", false, "Show only directory, not its contents if a directory is untracked")
+
+	flags.Var(newAliasedStringValue(&options.ExcludePattern, ""), "exclude", "Skip untracked files matching pattern.")
+	flags.Var(newAliasedStringValue(&options.ExcludePattern, ""), "x", "Alias for --exclude")
+
+	flags.Var(newAliasedStringValue(&options.ExcludeFile, ""), "exclude-from", "Read exclude patterns from a file.")
+	flags.Var(newAliasedStringValue(&options.ExcludeFile, ""), "X", "Alias for --exclude-from")
+
 	flags.Parse(args)
 	oargs := flags.Args()
 
