@@ -70,10 +70,11 @@ func StandardIgnorePatterns(c *Client, paths []File) ([]IgnorePattern, error) {
 
 		// Let's check that this path is in the git work dir first
 		wdpath, err := filepath.Rel(c.WorkDir.String(), abs)
-		if err != nil || wdpath == "." {
+		if err != nil || strings.HasPrefix(wdpath, "..") {
 			return nil, fmt.Errorf("Path %v is not in the git work directory.", path.String())
 		}
 
+		// this could be the work dir specified as '.' so let's start with that.
 		dir := filepath.Dir(abs)
 
 		for {
@@ -103,7 +104,7 @@ func StandardIgnorePatterns(c *Client, paths []File) ([]IgnorePattern, error) {
 
 			finalPatterns = append(finalPatterns, ignorePatterns...)
 
-			if dir == c.WorkDir.String() {
+			if dir == c.WorkDir.String() || dir == filepath.Dir(c.WorkDir.String()) {
 				break
 			}
 			dir = filepath.Dir(dir)
@@ -217,7 +218,7 @@ func MatchIgnores(c *Client, patterns []IgnorePattern, paths []File) ([]IgnoreMa
 
 		// Let's check that this path is in the git work dir first
 		wdpath, err := filepath.Rel(c.WorkDir.String(), abs)
-		if err != nil || wdpath == "." {
+		if err != nil || strings.HasPrefix(wdpath, "..") {
 			return nil, fmt.Errorf("Path %v is not in the git work directory.", path.String())
 		}
 
