@@ -361,7 +361,7 @@ func main() {
    update-ref
    log              
    symbolic-ref
-   clone          
+   clone          Clone a repository into a new directory   
    config
    fetch          Download objects and refs from another repository
    reset
