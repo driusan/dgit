@@ -10,7 +10,7 @@ import (
 type FetchOptions struct {
 }
 
-func FetchRepository(c *Client, opts FetchOptions, repository string) error {
+func Fetch(c *Client, opts FetchOptions, repository string) error {
 	config, err := LoadLocalConfig(c)
 	if err != nil {
 		panic(err)

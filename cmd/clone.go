@@ -93,7 +93,7 @@ func Clone(c *git.Client, args []string) error {
 		return err
 	}
 
-	err = git.FetchRepository(c, git.FetchOptions{}, "origin")
+	err = git.Fetch(c, git.FetchOptions{}, "origin")
 	if err != nil {
 		return err
 	}

@@ -40,5 +40,5 @@ func Fetch(c *git.Client, args []string) error {
 		os.Exit(1)
 	}
 
-	return git.FetchRepository(c, opts, repository)
+	return git.Fetch(c, opts, repository)
 }

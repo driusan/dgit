@@ -246,17 +246,24 @@ func ParseConfig(configFile io.Reader) GitConfig {
 	return GitConfig{sections: sections}
 }
 
-func LoadGlobalConfig() (GitConfig, error) {
+func findGlobalConfigFile() (string, error) {
 	home := os.Getenv("HOME")
 	if home == "" {
 		home = os.Getenv("home") // On some OSes, it is home
 	}
 
 	if home == "" {
-		return GitConfig{}, fmt.Errorf("Global git configuration could not be found since HOME and home environment variables were not defined.")
+		return "", fmt.Errorf("Global git configuration could not be found since HOME and home environment variables were not defined.")
 	}
 
-	fname := home + "/.gitconfig"
+	return home + "/.gitconfig", nil
+}
+
+func LoadGlobalConfig() (GitConfig, error) {
+	fname, err := findGlobalConfigFile()
+	if err != nil {
+		return GitConfig{}, err
+	}
 
 	file, err := os.OpenFile(fname, os.O_RDWR|os.O_CREATE, 0644)
 	if err != nil {
@@ -301,10 +308,5 @@ func (g GitConfig) WriteConfig() error {
 		return err
 	}
 	g.WriteFile(configFile)
-	err = configFile.Close()
-	if err != nil {
-		return err
-	}
-
-	return nil
+	return configFile.Close()
 }
