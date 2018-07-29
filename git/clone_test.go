@@ -49,7 +49,7 @@ func TestCloneRepo(t *testing.T) {
 		t.Error(err)
 	}
 
-	err = FetchRepository(c, FetchOptions{}, "origin")
+	err = Fetch(c, FetchOptions{}, "origin")
 	if err != nil {
 		t.Error(err)
 	}
