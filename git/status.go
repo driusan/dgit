@@ -323,7 +323,8 @@ func StatusLong(c *Client, files []File, untracked StatusUntrackedMode, linepref
 	hasUntracked := false
 	if untracked != StatusUntrackedNo {
 		lsfilesopts := LsFilesOptions{
-			Others: true,
+			Others:          true,
+			ExcludeStandard: true, // Configurable some day
 		}
 		if untracked == StatusUntrackedNormal {
 			lsfilesopts.Directory = true
