@@ -18,11 +18,10 @@ func Clone(c *git.Client, args []string) error {
 		flags.PrintDefaults()
 	}
 
-	opts := git.CloneOptions{}
-
-	flags.BoolVar(&opts.InitOptions.Quiet, "quiet", false, "Operate quietly")
-	flags.BoolVar(&opts.InitOptions.Quiet, "q", false, "Alias for --quiet")
-	flags.BoolVar(&opts.InitOptions.Bare, "bare", false, "Make a bare Git repository.")
+	initOpts := git.InitOptions{}
+	flags.BoolVar(&initOpts.Quiet, "quiet", false, "Operate quietly")
+	flags.BoolVar(&initOpts.Quiet, "q", false, "Alias for --quiet")
+	flags.BoolVar(&initOpts.Bare, "bare", false, "Make a bare Git repository.")
 	template := ""
 	flags.StringVar(&template, "template", "", "Specify the directory from which templates will be used.")
 
@@ -37,7 +36,7 @@ func Clone(c *git.Client, args []string) error {
 	flags.Parse(args)
 
 	if template != "" {
-		opts.InitOptions.Template = git.File(template)
+		initOpts.Template = git.File(template)
 	}
 
 	var repoid string
@@ -73,7 +72,7 @@ func Clone(c *git.Client, args []string) error {
 		}
 	}
 
-	c, err := git.Init(c, opts.InitOptions, dirName)
+	c, err := git.Init(c, initOpts, dirName)
 	if err != nil {
 		return err
 	}
