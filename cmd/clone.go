@@ -18,8 +18,16 @@ func Clone(c *git.Client, args []string) error {
 		flags.PrintDefaults()
 	}
 
+	opts := git.CloneOptions{}
+
+	flag.BoolVar(&opts.InitOptions.Quiet, "quiet", false, "Operate quietly")
+	flag.BoolVar(&opts.InitOptions.Quiet, "q", false, "Alias for --quiet")
+	flag.BoolVar(&opts.InitOptions.Bare, "bare", false, "Make a bare Git repository.")
+	template := ""
+	flag.StringVar(&template, "template", "", "Specify the directory from which templates will be used.")
+
 	// These flags can be moved out of these lists and below as proper flags as they are implemented
-	for _, bf := range []string{"l", "s", "no-hardlinks", "q", "n", "bare", "mirror", "dissociate", "single-branch", "no-single-branch", "no-tags", "shallow-submodules", "no-shallow-submodules"} {
+	for _, bf := range []string{"l", "s", "no-hardlinks", "n", "mirror", "dissociate", "single-branch", "no-single-branch", "no-tags", "shallow-submodules", "no-shallow-submodules"} {
 		flags.Var(newNotimplBoolValue(), bf, "Not implemented")
 	}
 	for _, sf := range []string{"template", "o", "b", "u", "reference", "separate-git-dir", "depth", "recurse-submodules", "jobs"} {
@@ -27,6 +35,10 @@ func Clone(c *git.Client, args []string) error {
 	}
 
 	flags.Parse(args)
+
+	if template != "" {
+		opts.InitOptions.Template = git.File(template)
+	}
 
 	var repoid string
 	var dirName string
@@ -61,25 +73,31 @@ func Clone(c *git.Client, args []string) error {
 		}
 	}
 
-	c, err := git.Init(c, git.InitOptions{Quiet: true}, dirName)
+	c, err := git.Init(c, opts.InitOptions, dirName)
 	if err != nil {
 		return err
 	}
 
-	if err := Config(c, []string{"remote.origin.url", repoid}); err != nil {
-		return err
-	}
-	if err := Config(c, []string{"branch.master.remote", "origin"}); err != nil {
+	config, err := git.LoadLocalConfig(c)
+	if err != nil {
 		return err
 	}
 
+	config.SetConfig("remote.origin.url", repoid)
+	config.SetConfig("branch.master.remote", "origin")
 	// This should be smarter and try and get the HEAD branch from Fetch.
 	// The HEAD refspec isn't necessarily named refs/heads/master.
-	if err := Config(c, []string{"branch.master.merge", "refs/heads/master"}); err != nil {
+	config.SetConfig("branch.master.merge", "refs/heads/master")
+
+	err = config.WriteConfig()
+	if err != nil {
 		return err
 	}
 
-	Fetch(c, []string{"origin"})
+	err = git.FetchRepository(c, git.FetchOptions{}, "origin")
+	if err != nil {
+		return err
+	}
 
 	// Create an empty reflog for HEAD, since this is an initial clone, and then
 	// point HEAD at refs/heads/master
@@ -121,5 +139,5 @@ func Clone(c *git.Client, args []string) error {
 
 	// Since this is an initial clone, we just do a hard reset and don't
 	// try and be intelligent about what we're checking out.
-	return Reset(c, []string{"--hard"})
+	return git.Reset(c, git.ResetOptions{Hard: true}, []git.File{})
 }

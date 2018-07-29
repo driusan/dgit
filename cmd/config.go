@@ -35,24 +35,15 @@ func Config(c *git.Client, args []string) error {
 
 	flags.Parse(args)
 
-	var fname string
+	var config git.GitConfig
+	var err error
 
 	if *global {
-		home := os.Getenv("HOME")
-		if home == "" {
-			home = os.Getenv("home") // On some OSes, it is home
-		}
-		fname = home + "/.gitconfig"
+		config, err = git.LoadGlobalConfig()
 	} else {
-		fname = c.GitDir.String() + "/config"
+		config, err = git.LoadLocalConfig(c)
 	}
 
-	file, err := os.OpenFile(fname, os.O_RDWR|os.O_CREATE, 0644)
-	if err != nil {
-		return err
-	}
-	config := git.ParseConfig(file)
-	err = file.Close()
 	if err != nil {
 		return err
 	}
@@ -91,17 +82,7 @@ func Config(c *git.Client, args []string) error {
 		}
 
 		config.SetConfig(flags.Arg(0), flags.Arg(1))
-		err = os.Remove(fname)
-		if err != nil {
-			return err
-		}
-		outfile, err := os.Create(fname)
-		if err != nil {
-			return err
-		}
-		defer outfile.Close()
-		config.WriteFile(outfile)
-		return nil
+		return config.WriteConfig()
 	case "unset":
 		if flags.NArg() < 1 {
 			fmt.Fprintf(flag.CommandLine.Output(), "Missing value to unset\n")
@@ -112,17 +93,7 @@ func Config(c *git.Client, args []string) error {
 		if code != 0 {
 			os.Exit(code)
 		}
-		err = os.Remove(fname)
-		if err != nil {
-			return err
-		}
-		outfile, err := os.Create(fname)
-		if err != nil {
-			return err
-		}
-		defer outfile.Close()
-		config.WriteFile(outfile)
-		return nil
+		return config.WriteConfig()
 	case "list":
 		list := config.GetConfigList()
 		for _, entry := range list {

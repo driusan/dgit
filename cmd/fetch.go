@@ -1,67 +1,44 @@
 package cmd
 
 import (
+	"flag"
 	"fmt"
-	"io/ioutil"
 	"os"
-	"strings"
 
 	"github.com/driusan/dgit/git"
 )
 
-func Fetch(c *git.Client, args []string) {
-	if len(args) < 1 {
-		fmt.Fprintf(os.Stderr, "Missing repository to fetch")
-		return
+func Fetch(c *git.Client, args []string) error {
+	flags := flag.NewFlagSet("fetch", flag.ExitOnError)
+	flags.SetOutput(flag.CommandLine.Output())
+	flags.Usage = func() {
+		flag.Usage()
+		fmt.Fprintf(flag.CommandLine.Output(), "\n\nOptions:\n")
+		flags.PrintDefaults()
 	}
 
-	file, err := c.GitDir.Open("config")
-	if err != nil {
-		panic("Couldn't open config\n")
+	opts := git.FetchOptions{}
+
+	// These flags can be moved out of these lists and below as proper flags as they are implemented
+	for _, bf := range []string{"all", "a", "append", "unshallow", "update-shallow", "dry-run", "f", "force", "k", "keep", "multiple", "p", "prune", "P", "prune-tags", "n", "no-tags", "t", "tags", "no-recurse-submodules", "u", "update-head-ok", "q", "quiet", "v", "verbose", "progress", "4", "ipv4", "ipv6"} {
+		flags.Var(newNotimplBoolValue(), bf, "Not implemented")
 	}
-	defer file.Close()
-	config := git.ParseConfig(file)
-	repoid, _ := config.GetConfig("remote." + args[0] + ".url")
-	var ups git.Uploadpack
-	if strings.HasPrefix(repoid, "http://") || strings.HasPrefix(repoid, "https://") {
-		ups = &git.SmartHTTPServerRetriever{Location: repoid,
-			C: c,
-		}
+	for _, sf := range []string{"depth", "deepend", "shallow-since", "shallow-exclude", "refmap", "recurse-submodules", "j", "jobs", "submodule-prefix", "recurse-submodules-default", "upload-pack", "o", "server-option"} {
+		flags.Var(newNotimplStringValue(), sf, "Not implemented")
+	}
+
+	flags.Parse(args)
+
+	var repository string
+	if flags.NArg() < 1 {
+		repository = "origin" // FIXME origin is the default unless the current branch unless there is an upstream branch configured for the current branch
+	} else if flags.NArg() == 1 {
+		repository = flags.Arg(0)
 	} else {
-		fmt.Fprintln(os.Stderr, "Unknown protocol.")
-		return
+		fmt.Fprintf(os.Stderr, "Group and multiple repositories is not currently implemented\n")
+		flags.Usage()
+		os.Exit(1)
 	}
-	refs, pack, err := ups.NegotiatePack()
-	switch err {
-	case git.NoNewCommits:
-		return
-	case nil:
-		break
-	default:
-		panic(err)
-	}
-	if pack != nil {
-		defer pack.Close()
-	}
-	_, err = git.IndexAndCopyPack(c, git.IndexPackOptions{Verbose: true}, pack)
-	if err != nil {
-		panic(err)
-	}
-	for _, ref := range refs {
-		if c.GitDir != "" {
-			refname := ref.Refname.String()
-			if strings.HasPrefix(refname, "refs/heads") {
-				os.MkdirAll(c.GitDir.File(git.File("refs/remotes/"+args[0])).String(), 0755)
-				refname = strings.Replace(refname, "refs/heads/", "refs/remotes/"+args[0]+"/", 1)
-				refloc := fmt.Sprintf("%s/%s", c.GitDir, refname)
-				fmt.Printf("Creating %s with %s", refloc, ref.Sha1)
-				ioutil.WriteFile(
-					refloc,
-					[]byte(ref.Sha1),
-					0644,
-				)
-			}
 
-		}
-	}
+	return git.FetchRepository(c, opts, repository)
 }
