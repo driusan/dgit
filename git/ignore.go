@@ -194,7 +194,7 @@ func ParseIgnorePatterns(c *Client, patternFile File, scope File) ([]IgnorePatte
 //  in the future.
 func sortPatterns(patterns *[]IgnorePattern) {
 	sort.Slice(*patterns, func(i, j int) bool {
-		return len((*patterns)[i].Scope.String()) > len((*patterns)[i].Scope.String())
+		return len((*patterns)[i].Scope.String()) > len((*patterns)[j].Scope.String())
 	})
 }
 
