@@ -73,6 +73,7 @@ func (f File) IsDir() bool {
 }
 
 // Returns true if the file is inside a submodule and the submodule file.
+// FIXME: invert this when submodules are implemented
 func (f File) IsInSubmodule(c *Client) (bool, File, error) {
 	abs, err := filepath.Abs(f.String())
 	if err != nil {
