@@ -20,17 +20,17 @@ func Clone(c *git.Client, args []string) error {
 
 	opts := git.CloneOptions{}
 
-	flag.BoolVar(&opts.InitOptions.Quiet, "quiet", false, "Operate quietly")
-	flag.BoolVar(&opts.InitOptions.Quiet, "q", false, "Alias for --quiet")
-	flag.BoolVar(&opts.InitOptions.Bare, "bare", false, "Make a bare Git repository.")
+	flags.BoolVar(&opts.InitOptions.Quiet, "quiet", false, "Operate quietly")
+	flags.BoolVar(&opts.InitOptions.Quiet, "q", false, "Alias for --quiet")
+	flags.BoolVar(&opts.InitOptions.Bare, "bare", false, "Make a bare Git repository.")
 	template := ""
-	flag.StringVar(&template, "template", "", "Specify the directory from which templates will be used.")
+	flags.StringVar(&template, "template", "", "Specify the directory from which templates will be used.")
 
 	// These flags can be moved out of these lists and below as proper flags as they are implemented
 	for _, bf := range []string{"l", "s", "no-hardlinks", "n", "mirror", "dissociate", "single-branch", "no-single-branch", "no-tags", "shallow-submodules", "no-shallow-submodules"} {
 		flags.Var(newNotimplBoolValue(), bf, "Not implemented")
 	}
-	for _, sf := range []string{"template", "o", "b", "u", "reference", "separate-git-dir", "depth", "recurse-submodules", "jobs"} {
+	for _, sf := range []string{"o", "b", "u", "reference", "separate-git-dir", "depth", "recurse-submodules", "jobs"} {
 		flags.Var(newNotimplStringValue(), sf, "Not implemented")
 	}
 
