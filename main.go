@@ -185,7 +185,11 @@ func main() {
 			os.Exit(2)
 		}
 	case "fetch":
-		cmd.Fetch(c, args)
+		subcommandUsage = "[<repository>]"
+		if err := cmd.Fetch(c, args); err != nil {
+			fmt.Fprintf(os.Stderr, "%v\n", err)
+			os.Exit(2)
+		}
 	case "reset":
 		if err := cmd.Reset(c, args); err != nil {
 			fmt.Fprintf(os.Stderr, "%v\n", err)
@@ -357,9 +361,9 @@ func main() {
    update-ref
    log              
    symbolic-ref
-   clone          
+   clone          Clone a repository into a new directory   
    config
-   fetch          
+   fetch          Download objects and refs from another repository
    reset
    merge-file
    merge

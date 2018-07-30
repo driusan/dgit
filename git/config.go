@@ -5,6 +5,8 @@ import (
 	"io"
 	"io/ioutil"
 	"log"
+	"os"
+	"path/filepath"
 	"strings"
 )
 
@@ -19,6 +21,7 @@ type GitConfigSection struct {
 }
 type GitConfig struct {
 	sections []GitConfigSection
+	fname    string
 }
 
 func (g *GitConfig) SetConfig(name, value string) {
@@ -207,6 +210,7 @@ func (s *GitConfigSection) ParseSectionHeader(headerline string) {
 		s.name = headerline
 	}
 }
+
 func ParseConfig(configFile io.Reader) GitConfig {
 	rawdata, _ := ioutil.ReadAll(configFile)
 	section := &GitConfigSection{}
@@ -239,5 +243,70 @@ func ParseConfig(configFile io.Reader) GitConfig {
 			sections = append(sections, *section)
 		}
 	}
-	return GitConfig{sections}
+	return GitConfig{sections: sections}
+}
+
+func findGlobalConfigFile() (string, error) {
+	home := os.Getenv("HOME")
+	if home == "" {
+		home = os.Getenv("home") // On some OSes, it is home
+	}
+
+	if home == "" {
+		return "", fmt.Errorf("Global git configuration could not be found since HOME and home environment variables were not defined.")
+	}
+
+	return home + "/.gitconfig", nil
+}
+
+func LoadGlobalConfig() (GitConfig, error) {
+	fname, err := findGlobalConfigFile()
+	if err != nil {
+		return GitConfig{}, err
+	}
+
+	file, err := os.OpenFile(fname, os.O_RDWR|os.O_CREATE, 0644)
+	if err != nil {
+		return GitConfig{}, err
+	}
+	config := ParseConfig(file)
+	err = file.Close()
+	if err != nil {
+		return GitConfig{}, err
+	}
+
+	config.fname = fname
+
+	return config, nil
+}
+
+func LoadLocalConfig(c *Client) (GitConfig, error) {
+	fname := filepath.Join(c.GitDir.String(), "config")
+
+	file, err := os.OpenFile(fname, os.O_RDWR|os.O_CREATE, 0644)
+	if err != nil {
+		return GitConfig{}, err
+	}
+	config := ParseConfig(file)
+	err = file.Close()
+	if err != nil {
+		return GitConfig{}, err
+	}
+
+	config.fname = fname
+
+	return config, nil
+}
+
+func (g GitConfig) WriteConfig() error {
+	err := os.Remove(g.fname)
+	if err != nil {
+		return err
+	}
+	configFile, err := os.Create(g.fname)
+	if err != nil {
+		return err
+	}
+	g.WriteFile(configFile)
+	return configFile.Close()
 }
