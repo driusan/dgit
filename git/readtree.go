@@ -3,6 +3,8 @@ package git
 import (
 	"fmt"
 	"os"
+	"sort"
+	"strings"
 	"time"
 )
 
@@ -47,20 +49,26 @@ type ReadTreeOptions struct {
 }
 
 // Helper to safely check if path is the same in p1 and p2
-func samePath(p1, p2 map[IndexPath]*IndexEntry, path IndexPath) bool {
+func samePath(p1, p2 IndexMap, path IndexPath) bool {
 	p1i, p1ok := p1[path]
 	p2i, p2ok := p2[path]
 
-	// It's in one but not the other
+	// It's in one but not the other directly, so it's not
+	// the same.
 	if p1ok != p2ok {
 		return false
 	}
-	// It's not in either, so it's the same
-	if p1ok == false && p2ok == false {
-		return true
+
+	// Avoid a nil pointer below by explicitly checking if one
+	// is missing.
+	if p1ok == false {
+		return p2ok == false
+	}
+	if p2ok == false {
+		return p1ok == false
 	}
 
-	// It's in both, so we can safely check
+	// It's in both, so we can safely check the sha
 	return p1i.Sha1 == p2i.Sha1
 
 }
@@ -92,43 +100,118 @@ func ReadTreeMerge(c *Client, opt ReadTreeOptions, stage1, stage2, stage3 Treeis
 		return nil, err
 	}
 
-	// Create a fake map which contains all objects in base, ours, or theirs
-	allObjects := make(map[IndexPath]bool)
+	// Create a slice which contins all objects in base, ours, or theirs
+	var allPaths []*IndexEntry
 	for path, _ := range base {
-		allObjects[path] = true
+		allPaths = append(allPaths, &IndexEntry{PathName: path})
 	}
 	for path, _ := range ours {
-		allObjects[path] = true
+		allPaths = append(allPaths, &IndexEntry{PathName: path})
 	}
 	for path, _ := range theirs {
-		allObjects[path] = true
+		allPaths = append(allPaths, &IndexEntry{PathName: path})
 	}
+	// Sort to ensure directories come before files.
+	sort.Sort(ByPath(allPaths))
 
-	for path, _ := range allObjects {
+	// Remove duplicates
+	var allObjects []IndexPath
+	for i := range allPaths {
+		if i > 0 && allPaths[i].PathName == allPaths[i-1].PathName {
+			continue
+		}
+		allObjects = append(allObjects, allPaths[i].PathName)
+	}
+	var dirs []IndexPath
+
+	idx = NewIndex()
+paths:
+	for _, path := range allObjects {
+		// Handle directory/file conflicts.
+		if base.HasDir(path) || ours.HasDir(path) || theirs.HasDir(path) {
+			// Keep track of what was a directory so that other
+			// other paths know if they had a conflict higher
+			// up in the tree.
+			dirs = append(dirs, path)
+
+			// Add the non-directory version fo the appropriate stage
+			if p, ok := base[path]; ok {
+				idx.AddStage(c, path, p.Mode, p.Sha1, Stage1, p.Fsize, time.Now().UnixNano(), UpdateIndexOptions{Add: true})
+			}
+			if p, ok := ours[path]; ok {
+				idx.AddStage(c, path, p.Mode, p.Sha1, Stage2, p.Fsize, time.Now().UnixNano(), UpdateIndexOptions{Add: true})
+			}
+			if p, ok := theirs[path]; ok {
+				idx.AddStage(c, path, p.Mode, p.Sha1, Stage3, p.Fsize, time.Now().UnixNano(), UpdateIndexOptions{Add: true})
+			}
+			continue
+		}
+
+		// Handle the subfiles in any directory that had a conflict
+		// by just adding them in the appropriate stage, because
+		// there's no way for a directory and file to not be in
+		// conflict.
+		for _, d := range dirs {
+			if strings.HasPrefix(string(path), string(d+"/")) {
+				if p, ok := base[path]; ok {
+					if err := idx.AddStage(c, path, p.Mode, p.Sha1, Stage1, p.Fsize, time.Now().UnixNano(), UpdateIndexOptions{Add: true}); err != nil {
+						panic(err)
+					}
+				}
+				if p, ok := ours[path]; ok {
+					if err := idx.AddStage(c, path, p.Mode, p.Sha1, Stage2, p.Fsize, time.Now().UnixNano(), UpdateIndexOptions{Add: true, Replace: true}); err != nil {
+						panic(err)
+					}
+				}
+				if p, ok := theirs[path]; ok {
+					if err := idx.AddStage(c, path, p.Mode, p.Sha1, Stage3, p.Fsize, time.Now().UnixNano(), UpdateIndexOptions{Add: true}); err != nil {
+						panic(err)
+					}
+				}
+				continue paths
+			}
+		}
+
+		// From here on out, we assume everything is a file.
+
 		// All three trees are the same, don't do anything to the index.
 		if samePath(base, ours, path) && samePath(base, theirs, path) {
+			if err := idx.AddStage(c, path, ours[path].Mode, ours[path].Sha1, Stage0, ours[path].Fsize, time.Now().UnixNano(), UpdateIndexOptions{Add: true}); err != nil {
+				panic(err)
+			}
 			continue
 		}
 
 		// If both stage2 and stage3 are the same, the work has been done in
 		// both branches, so collapse to stage0 (use our changes)
 		if samePath(ours, theirs, path) {
-			idx.AddStage(c, path, ours[path].Mode, ours[path].Sha1, Stage0, ours[path].Fsize, time.Now().UnixNano(), UpdateIndexOptions{Add: true})
-			continue
+			if ours.Contains(path) {
+				if err := idx.AddStage(c, path, ours[path].Mode, ours[path].Sha1, Stage0, ours[path].Fsize, time.Now().UnixNano(), UpdateIndexOptions{Add: true}); err != nil {
+					panic(err)
+				}
+				continue
+			}
 		}
 
 		// If stage1 and stage2 are the same, our branch didn't do anything,
 		// but theirs did, so take their changes.
 		if samePath(base, ours, path) {
-			idx.AddStage(c, path, theirs[path].Mode, theirs[path].Sha1, Stage0, theirs[path].Fsize, time.Now().UnixNano(), UpdateIndexOptions{Add: true})
-			continue
+			if theirs.Contains(path) {
+				if err := idx.AddStage(c, path, theirs[path].Mode, theirs[path].Sha1, Stage0, theirs[path].Fsize, time.Now().UnixNano(), UpdateIndexOptions{Add: true}); err != nil {
+					panic(err)
+				}
+				continue
+			}
 		}
 
-		// If stage1 and stage3 are the same, we did something but they didn't,
-		// so take our changes
+		// If stage1 and stage3 are the same, we did something
+		// but they didn't, so take our changes
 		if samePath(base, theirs, path) {
-			if o, ok := ours[path]; ok {
-				idx.AddStage(c, path, o.Mode, o.Sha1, Stage0, o.Fsize, time.Now().UnixNano(), UpdateIndexOptions{Add: true})
+			if ours.Contains(path) {
+				o := ours[path]
+				if err := idx.AddStage(c, path, o.Mode, o.Sha1, Stage0, o.Fsize, time.Now().UnixNano(), UpdateIndexOptions{Add: true}); err != nil {
+					panic(err)
+				}
 				continue
 			}
 		}
@@ -149,6 +232,7 @@ func ReadTreeMerge(c *Client, opt ReadTreeOptions, stage1, stage2, stage3 Treeis
 			idx.AddStage(c, path, t.Mode, t.Sha1, Stage3, t.Fsize, time.Now().UnixNano(), UpdateIndexOptions{Add: true})
 		}
 	}
+
 	if err := checkMergeAndUpdate(c, opt, origMap, idx); err != nil {
 		return nil, err
 	}

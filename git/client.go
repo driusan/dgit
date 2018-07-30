@@ -393,7 +393,7 @@ func (f IndexPath) IsClean(c *Client, s Sha1) bool {
 	}
 	fs, _, err := HashFile("blob", fi.String())
 	if err != nil {
-		panic(err)
+		return false
 	}
 	return fs == s
 }
