@@ -228,6 +228,9 @@ func (g *Index) AddStage(c *Client, path IndexPath, mode EntryMode, s Sha1, stag
 	}
 
 	replaceEntriesCheck := func() error {
+		if stage != Stage0 {
+			return nil
+		}
 		// If replace is true then we search for any entries that
 		//  should be replaced with this one.
 		newObjects := make([]*IndexEntry, 0, len(g.Objects))
@@ -455,13 +458,6 @@ func (i *Index) GetUnmerged() map[IndexPath]*UnmergedPath {
 	}
 	return r
 }
-func (i *Index) GetMap() map[IndexPath]*IndexEntry {
-	r := make(map[IndexPath]*IndexEntry)
-	for _, entry := range i.Objects {
-		r[entry.PathName] = entry
-	}
-	return r
-}
 
 // Remove the first instance of file from the index. (This will usually
 // be stage 0.)
@@ -545,4 +541,32 @@ func (g Index) String() string {
 		ret += fmt.Sprintf("%v %v %v\n", i.Mode, i.Sha1, i.PathName)
 	}
 	return ret
+}
+
+type IndexMap map[IndexPath]*IndexEntry
+
+func (i *Index) GetMap() IndexMap {
+	r := make(IndexMap)
+	for _, entry := range i.Objects {
+		r[entry.PathName] = entry
+	}
+	return r
+}
+
+func (im IndexMap) Contains(path IndexPath) bool {
+	if _, ok := im[path]; ok {
+		return true
+	}
+
+	// Check of there is a directory named path in the IndexMap
+	return im.HasDir(path)
+}
+
+func (im IndexMap) HasDir(path IndexPath) bool {
+	for _, im := range im {
+		if strings.HasPrefix(string(im.PathName), string(path+"/")) {
+			return true
+		}
+	}
+	return false
 }
