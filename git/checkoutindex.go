@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"io"
 	"io/ioutil"
+	"log"
 	"os"
 	"path"
 	"strconv"
@@ -126,11 +127,11 @@ func checkoutFile(c *Client, entry *IndexEntry, opts CheckoutIndexOptions) error
 	}
 
 	// Update the stat information, but only if it's the same
-	// file name. We only change the mtime, because the only
+	// file name. We only change the mtime, and ctime because the only
 	// other thing we track is the file size, and that couldn't
 	// have changed.
 	// Don't change the stat info if there's a prefix, because
-	// if we're checkout out into a prefix, it means we haven't
+	// if we checkout out into a prefix, it means we haven't
 	// touched the index.
 	if opts.Prefix == "" {
 		mtime, err := f.MTime()
@@ -138,6 +139,7 @@ func checkoutFile(c *Client, entry *IndexEntry, opts CheckoutIndexOptions) error
 			return err
 		}
 		entry.Mtime = mtime
+		entry.Ctime, entry.Ctimenano = f.CTime()
 	}
 	return nil
 }
@@ -188,7 +190,7 @@ func CheckoutIndexUncommited(c *Client, idx *Index, opts CheckoutIndexOptions, f
 					// but it's what the official git client says when
 					// you try and checkout-index --stage=all a file that isn't
 					// in conflict.
-					fmt.Fprintf(os.Stderr, "git checkout-index: %v does not exist at stage 4\n", indexpath)
+					fmt.Fprintf(os.Stderr, "git checkout-index: %v does not exist at stage 0\n", indexpath)
 				}
 				continue
 			}
@@ -227,12 +229,14 @@ func CheckoutIndexUncommited(c *Client, idx *Index, opts CheckoutIndexOptions, f
 				continue
 			}
 
-			if entry.PathName.IsClean(c, entry.Sha1) && !opts.Temp {
+			if !opts.Temp && !opts.Force && opts.Prefix == "" && entry.PathName.IsClean(c, entry.Sha1) {
 				// don't bother checkout out the file
 				// if it's already clean. This makes us less
 				// likely to avoid GetObject have an error
 				// trying to read from a packfile (which isn't
 				// supported yet.)
+				// We don't check this if there's a prefix, since it's not checking out
+				// into the same location as the index.
 				// FIXME: This should use stat information, not hash
 				// the whole file.
 				continue
