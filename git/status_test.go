@@ -276,7 +276,7 @@ nothing to commit, working tree clean
 	if err != nil {
 		t.Fatal(err)
 	}
-	if _, err := ReadTreeMerge(c, ReadTreeOptions{}, initial, c2, c3); err != nil {
+	if _, err := ReadTreeThreeWay(c, ReadTreeOptions{}, initial, c2, c3); err != nil {
 		t.Fatal(err)
 	}
 	cid = c3.String()

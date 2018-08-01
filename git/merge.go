@@ -148,7 +148,7 @@ func Merge(c *Client, opts MergeOptions, others []Commitish) error {
 		return err
 	}
 
-	idx, err := ReadTreeMerge(c,
+	idx, err := ReadTreeThreeWay(c,
 		ReadTreeOptions{
 			Merge:  true,
 			Update: true,

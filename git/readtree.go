@@ -73,12 +73,12 @@ func samePath(p1, p2 IndexMap, path IndexPath) bool {
 
 }
 
-// ReadTreeMerge will perform a three-way merge on the trees stage1, stage2, and stage3.
+// ReadTreeThreeWay will perform a three-way merge on the trees stage1, stage2, and stage3.
 // In a normal merge, stage1 is the common ancestor, stage2 is "our" changes, and
 // stage3 is "their" changes. See git-read-tree(1) for details.
 //
 // If options.DryRun is not false, it will also be written to the Client's index file.
-func ReadTreeMerge(c *Client, opt ReadTreeOptions, stage1, stage2, stage3 Treeish) (*Index, error) {
+func ReadTreeThreeWay(c *Client, opt ReadTreeOptions, stage1, stage2, stage3 Treeish) (*Index, error) {
 	idx, err := c.GitDir.ReadIndex()
 	if err != nil {
 		return nil, err
