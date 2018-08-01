@@ -124,6 +124,13 @@ func ReadTreeMerge(c *Client, opt ReadTreeOptions, stage1, stage2, stage3 Treeis
 	}
 	var dirs []IndexPath
 
+	// Checking for merge conflict with index
+	for path, orig := range origMap {
+		ours, ok := ours[path]
+		if !ok || ours.Sha1 != orig.Sha1 {
+			return idx, fmt.Errorf("Entry '%v' would be overwritten by a merge. Cannot merge.", path)
+		}
+	}
 	idx = NewIndex()
 paths:
 	for _, path := range allObjects {
