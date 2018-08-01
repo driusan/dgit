@@ -9,7 +9,7 @@ import (
 
 // Tests that ReadTree creates Stage1, Stage2, and Stage3 when
 // they can't be resolved.
-func TestReadTreeMergeConflict(t *testing.T) {
+func TestReadTreeThreeWayConflict(t *testing.T) {
 	gitdir, err := ioutil.TempDir("", "gitreadtree")
 	if err != nil {
 		t.Fatal(err)
@@ -66,7 +66,7 @@ func TestReadTreeMergeConflict(t *testing.T) {
 
 	// Case 1: base, ours, and theirs are all modified in different ways.
 	// There should be 2 stages.
-	idx, err := ReadTreeMerge(c, ReadTreeOptions{Reset: true}, TreeID(foo), TreeID(bar), TreeID(baz))
+	idx, err := ReadTreeThreeWay(c, ReadTreeOptions{Reset: true}, TreeID(foo), TreeID(bar), TreeID(baz))
 	if err != nil {
 		t.Errorf("ReadTree error: %v", err)
 	}
@@ -110,7 +110,7 @@ func TestReadTreeMergeConflict(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	idx, err = ReadTreeMerge(c, ReadTreeOptions{Reset: true}, TreeID(foo), TreeID(bar), TreeID(nofoo))
+	idx, err = ReadTreeThreeWay(c, ReadTreeOptions{Reset: true}, TreeID(foo), TreeID(bar), TreeID(nofoo))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -142,7 +142,7 @@ func TestReadTreeMergeConflict(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	idx, err = ReadTreeMerge(c, ReadTreeOptions{Reset: true}, TreeID(foo), TreeID(nofoo), TreeID(baz))
+	idx, err = ReadTreeThreeWay(c, ReadTreeOptions{Reset: true}, TreeID(foo), TreeID(nofoo), TreeID(baz))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -175,7 +175,7 @@ func TestReadTreeMergeConflict(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	idx, err = ReadTreeMerge(c, ReadTreeOptions{Reset: true}, TreeID(nofoo), TreeID(bar), TreeID(baz))
+	idx, err = ReadTreeThreeWay(c, ReadTreeOptions{Reset: true}, TreeID(nofoo), TreeID(bar), TreeID(baz))
 	if err != nil {
 		t.Fatal(err)
 	}

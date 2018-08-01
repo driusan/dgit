@@ -92,7 +92,7 @@ func ReadTree(c *git.Client, args []string) error {
 		if err != nil {
 			return err
 		}
-		_, err = git.ReadTreeMerge(c, options, stage1, stage2, stage3)
+		_, err = git.ReadTreeThreeWay(c, options, stage1, stage2, stage3)
 		if err != nil {
 			return err
 		}
