@@ -124,10 +124,68 @@ func ReadTreeMerge(c *Client, opt ReadTreeOptions, stage1, stage2, stage3 Treeis
 	}
 	var dirs []IndexPath
 
-	// Checking for merge conflict with index
+	// Checking for merge conflict with index. If this seems like a confusing mess, it's mostly
+	// because it was written to pass the t1000-read-tree-m-3way test case from the official git
+	// test suite.
+	//
+	// The logic can probably be cleaned up.
 	for path, orig := range origMap {
-		ours, ok := ours[path]
-		if !ok || ours.Sha1 != orig.Sha1 {
+		o, ok := ours[path]
+		if !ok {
+			// If it's been added to the index in the same state as Stage 3, and it's not in
+			// stage 1 or 2 it's fine.
+			if !base.Contains(path) && !ours.Contains(path) && samePath(origMap, theirs, path) {
+				continue
+			}
+
+			return idx, fmt.Errorf("Entry '%v' would be overwritten by a merge. Cannot merge.", path)
+		}
+
+		// Variable names mirror the O/A/B from the test suite, with "c" for contains
+		oc := base.Contains(path)
+		ac := ours.Contains(path)
+		bc := theirs.Contains(path)
+
+		if oc && ac && bc {
+			oa := samePath(base, ours, path)
+			ob := samePath(base, theirs, path)
+
+			// t1000-read-tree-m-3way.sh test 75 "must match A in O && A && B && O!=A && O==B case.
+			// (This means we can't error out if the Sha1s dont match.)
+			if !oa && ob {
+				continue
+			}
+			if oa && !ob {
+				// Relevent cases:
+				// Must match and be up-to-date in O && A && B && O==A && O!=B
+				// May  match B in                 O && A && B && O==A && O!=B
+				b, ok := theirs[path]
+				if ok && b.Sha1 == orig.Sha1 {
+					continue
+				} else if !path.IsClean(c, o.Sha1) {
+					return idx, fmt.Errorf("Entry '%v' would be overwritten by a merge. Cannot merge.", path)
+				}
+			}
+		}
+		// Must match and be up-to-date in !O && A && B && A != B case test from AND
+		// Must match and be up-to-date in O && A && B && A != B case test from
+		// t1000-read-tree-m-3way.sh in official git
+		if ac && bc && !samePath(ours, theirs, path) {
+			if !path.IsClean(c, o.Sha1) {
+				return idx, fmt.Errorf("Entry '%v' would be overwritten by a merge. Cannot merge.", path)
+			}
+		}
+
+		// Must match and be up-to-date in O && A && !B && !B && O != A case AND
+		// Must match and be up-to-date in O && A && !B && !B && O == A case from
+		// t1000-read-tree-m-3way.sh in official git
+		if oc && ac && !bc {
+			if !path.IsClean(c, o.Sha1) {
+				return idx, fmt.Errorf("Entry '%v' would be overwritten by a merge. Cannot merge.", path)
+			}
+		}
+
+		if o.Sha1 != orig.Sha1 {
 			return idx, fmt.Errorf("Entry '%v' would be overwritten by a merge. Cannot merge.", path)
 		}
 	}
@@ -162,17 +220,17 @@ paths:
 			if strings.HasPrefix(string(path), string(d+"/")) {
 				if p, ok := base[path]; ok {
 					if err := idx.AddStage(c, path, p.Mode, p.Sha1, Stage1, p.Fsize, time.Now().UnixNano(), UpdateIndexOptions{Add: true}); err != nil {
-						panic(err)
+						return nil, err
 					}
 				}
 				if p, ok := ours[path]; ok {
 					if err := idx.AddStage(c, path, p.Mode, p.Sha1, Stage2, p.Fsize, time.Now().UnixNano(), UpdateIndexOptions{Add: true, Replace: true}); err != nil {
-						panic(err)
+						return nil, err
 					}
 				}
 				if p, ok := theirs[path]; ok {
 					if err := idx.AddStage(c, path, p.Mode, p.Sha1, Stage3, p.Fsize, time.Now().UnixNano(), UpdateIndexOptions{Add: true}); err != nil {
-						panic(err)
+						return nil, err
 					}
 				}
 				continue paths
