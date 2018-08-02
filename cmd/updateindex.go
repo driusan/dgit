@@ -203,7 +203,7 @@ func UpdateIndex(c *git.Client, args []string) error {
 		}
 	}
 
-	if len(files) > 0 {
+	if len(files) > 0 || opts.Refresh || opts.ReallyRefresh || opts.IndexInfo != nil {
 		idx, err = git.UpdateIndex(c, idx, opts, files)
 		if err != nil {
 			return err
