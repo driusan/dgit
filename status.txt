@@ -119,7 +119,7 @@ prune-packed   None                                 (3)
 read-tree      Almost        git 2.9.2              (6) missing --prefix, -i, --trivial/aggressive, --exclude-per-directory, and --nosparse-checkout
 symbolic-ref   Done          git 2.9.2
 unpack-objects Almost        git 2.9.2              (3) Dryrun, strict, and max-input-size options are missing
-update-index   HappyPath     git 2.14.2             (22) Only --add, --remove and --verbose are implemented
+update-index   HappyPath     git 2.14.2             (22) Only --add, --remove, --force-remove, --refresh and --verbose are implemented
 update-ref     Almost        git 2.9.2              (2) missing -d(elete), and --stdin/-z
 write-tree     Done          git 2.9.2
 

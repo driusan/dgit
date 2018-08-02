@@ -78,8 +78,8 @@ func UpdateIndex(c *Client, idx *Index, opts UpdateIndexOptions, files []File) (
 		if err != nil {
 			return nil, err
 		}
-		if !file.Exists() {
-			if opts.Remove {
+		if !file.Exists() || opts.ForceRemove {
+			if opts.Remove || opts.ForceRemove {
 				idx.RemoveFile(ipath)
 				if opts.Verbose {
 					if opts.correctRemoveMsg {

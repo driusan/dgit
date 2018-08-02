@@ -156,10 +156,7 @@ func UpdateIndex(c *git.Client, args []string) error {
 		opts.IndexInfo = os.Stdin
 	}
 	vals := flags.Args()
-	files := make([]git.File, len(vals), len(vals))
-	for i, val := range vals {
-		files[i] = git.File(val)
-	}
+	files := make([]git.File, 0, len(vals))
 
 	// Load the index file and call UpdateIndex on it.
 	idx, err := c.GitDir.ReadIndex()
@@ -167,9 +164,50 @@ func UpdateIndex(c *git.Client, args []string) error {
 		return err
 	}
 
-	newidx, err := git.UpdateIndex(c, idx, opts, files)
-	if err != nil {
-		return err
+	for _, val := range vals {
+		// This is a hack to handle commands like "git update-index --add foo bar --force-remove baz"
+		// FIXME: Need to handle dashpaths. ie. "git update-index -- --force-remove" should apply
+		// to the file named "--force-remove"
+		switch val {
+		case "-force-remove", "--force-remove":
+			if len(files) > 0 {
+				idx, err = git.UpdateIndex(c, idx, opts, files)
+				if err != nil {
+					return err
+				}
+			}
+			opts.ForceRemove = true
+			opts.Remove = true
+			opts.Add = false
+			files = make([]git.File, 0, len(vals))
+		case "-remove", "--remove":
+			if len(files) > 0 {
+				idx, err = git.UpdateIndex(c, idx, opts, files)
+				if err != nil {
+					return err
+				}
+			}
+			opts.Remove = true
+			files = make([]git.File, 0, len(vals))
+		case "-add", "--add":
+			if len(files) > 0 {
+				idx, err = git.UpdateIndex(c, idx, opts, files)
+				if err != nil {
+					return err
+				}
+			}
+			opts.Add = true
+			files = make([]git.File, 0, len(vals))
+		default:
+			files = append(files, git.File(val))
+		}
+	}
+
+	if len(files) > 0 {
+		idx, err = git.UpdateIndex(c, idx, opts, files)
+		if err != nil {
+			return err
+		}
 	}
 
 	// Write the index file back to disk if there were no errors.
@@ -178,5 +216,5 @@ func UpdateIndex(c *git.Client, args []string) error {
 		return err
 	}
 	defer f.Close()
-	return newidx.WriteIndex(f)
+	return idx.WriteIndex(f)
 }
