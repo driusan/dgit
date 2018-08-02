@@ -28,7 +28,7 @@ func LsFiles(c *git.Client, args []string) error {
 	modified := flags.Bool("modified", false, "Show modified files in output")
 	m := flags.Bool("m", false, "Alias of --modified")
 
-	others := flags.Bool("other", false, "Show other (ie. untracked) files in output")
+	others := flags.Bool("others", false, "Show other (ie. untracked) files in output")
 	o := flags.Bool("o", false, "Alias of --others")
 
 	ignored := flags.Bool("ignored", false, "Show only ignored files in output")
