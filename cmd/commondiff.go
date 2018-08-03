@@ -23,6 +23,7 @@ func parseCommonDiffFlags(c *git.Client, options *git.DiffCommonOptions, default
 	unified := flags.Int("unified", 3, "Generate <n> lines of context")
 	U := flags.Int("U", 3, "Alias of --unified")
 	flags.BoolVar(&options.Raw, "raw", true, "Generate the diff in raw format")
+	flags.BoolVar(&options.ExitCode, "exit-code", false, "Exit with an exit code of 1 if there are any diffs")
 
 	flags.Parse(args)
 	args = flags.Args()
@@ -52,5 +53,13 @@ func parseCommonDiffFlags(c *git.Client, options *git.DiffCommonOptions, default
 // Print the diffs that come back from either diff-files, diff-index, or diff-tree
 // in the appropriate format according to options.
 func printDiffs(c *git.Client, options git.DiffCommonOptions, diffs []git.HashDiff) error {
-	return git.GeneratePatch(c, options, diffs, nil)
+	if err := git.GeneratePatch(c, options, diffs, nil); err != nil {
+		return err
+	}
+	if options.ExitCode {
+		if len(diffs) > 0 {
+			os.Exit(1)
+		}
+	}
+	return nil
 }
