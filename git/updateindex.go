@@ -80,17 +80,19 @@ func UpdateIndex(c *Client, idx *Index, opts UpdateIndexOptions, files []File) (
 		}
 		if file.IsDir() {
 			if opts.Remove || opts.ForceRemove {
-				entries, err := LsFiles(c, LsFilesOptions{Cached: true}, nil)
+				entries, err := LsFiles(c, LsFilesOptions{Cached: true}, []File{file})
 				if err != nil {
 					return nil, err
 				}
 				for _, i := range entries {
 					idx.RemoveFile(i.PathName)
 				}
+				continue
 			} else if opts.Add {
 				return nil, fmt.Errorf("%v is a directory - add files inside instead", file)
 			}
-		} else if !file.Exists() || opts.ForceRemove {
+		}
+		if !file.Exists() || opts.ForceRemove {
 			if opts.Remove || opts.ForceRemove {
 				idx.RemoveFile(ipath)
 				if opts.Verbose {

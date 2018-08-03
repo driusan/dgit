@@ -173,6 +173,10 @@ func LsFiles(c *Client, opt LsFilesOptions, files []File) ([]*IndexEntry, error)
 		}
 
 		if opt.Modified {
+			if f.IsDir() {
+				fs = append(fs, entry)
+				continue
+			}
 			_, err := f.Stat()
 			// The file being deleted means it was modified
 			if os.IsNotExist(err) {
@@ -181,14 +185,7 @@ func LsFiles(c *Client, opt LsFilesOptions, files []File) ([]*IndexEntry, error)
 			} else if err != nil {
 				return nil, err
 			}
-			// Checking mtime doesn't seem to be reliable, so for now we always hash
-			// the file to check if it's been modified.
-			//mtime, err := f.MTime()
-			//if err != nil {
-			//		return nil, err
-			//	}
 
-			//if size := stat.Size(); size != int64(entry.Fsize) || mtime != entry.Mtime {
 			// We've done everything we can to avoid hashing the file, but now
 			// we need to to avoid the case where someone changes a file, then
 			// changes it back to the original contents
@@ -199,7 +196,6 @@ func LsFiles(c *Client, opt LsFilesOptions, files []File) ([]*IndexEntry, error)
 			if hash != entry.Sha1 {
 				fs = append(fs, entry)
 			}
-			//}
 		}
 	}
 

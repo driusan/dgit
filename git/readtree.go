@@ -564,14 +564,12 @@ func checkMergeAndUpdate(c *Client, opt ReadTreeOptions, origidx map[IndexPath]*
 			}
 
 			if f.IsDir() && opt.Update {
-				untracked, err := LsFiles(c, LsFilesOptions{Others: true}, []File{f})
+				untracked, err := LsFiles(c, LsFilesOptions{Others: true, Modified: true}, []File{f})
 				if err != nil {
 					return err
 				}
 				if len(untracked) > 0 {
 					return fmt.Errorf("error: Updating '%s%s' would lose untracked files in it", c.SuperPrefix, entry.PathName)
-				} else {
-					os.RemoveAll(f.String())
 				}
 			}
 			if entry.Stage() != Stage0 {
@@ -629,7 +627,7 @@ func checkMergeAndUpdate(c *Client, opt ReadTreeOptions, origidx map[IndexPath]*
 		}
 	}
 
-	if opt.Update || opt.Reset {
+	if !opt.DryRun && (opt.Update || opt.Reset) {
 		if err := CheckoutIndexUncommited(c, newidx, CheckoutIndexOptions{Quiet: true, Force: true}, files); err != nil {
 			return err
 		}
