@@ -71,6 +71,9 @@ func TestReadTreeThreeWayConflict(t *testing.T) {
 		t.Errorf("ReadTree error: %v", err)
 	}
 
+	if idx == nil {
+		t.Fatalf("Got nil index from read-tree")
+	}
 	if len(idx.Objects) != 3 {
 		t.Fatalf("Unexpected number of stages in tree. Got %v want %v", len(idx.Objects), 3)
 	}

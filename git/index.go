@@ -90,7 +90,48 @@ func (i *FixedIndexEntry) RefreshStat(f File) error {
 	i.Mtime = fmtime
 	i.Fsize = uint32(stat.Size())
 	i.Ctime, i.Ctimenano = f.CTime()
+	i.Ino = f.INode()
+	return nil
+}
 
+// Refreshes the stat information for this entry in the index against
+// the stat info on the filesystem for things that we know about.
+func (i *FixedIndexEntry) CompareStat(f File) error {
+	log.Printf("Comparing stat info for %v\n", f)
+	// FIXME: Add other stat info here too, but these are the
+	// most important ones and the onlye ones that the os package
+	// exposes in a cross-platform way.
+	stat, err := f.Lstat()
+	if err != nil {
+		return err
+	}
+	fmtime, err := f.MTime()
+	if err != nil {
+		return err
+	}
+	if i.Mtime != fmtime {
+		return fmt.Errorf("MTime does not match for %v", f)
+	}
+	if f.IsSymlink() {
+		dst, err := os.Readlink(string(f))
+		if err != nil {
+			return err
+		}
+		if int(i.Fsize) != len(dst) {
+			return fmt.Errorf("Size does not match for symlink %v", f)
+		}
+	} else {
+		if i.Fsize != uint32(stat.Size()) {
+			return fmt.Errorf("Size does not match for %v", f)
+		}
+	}
+	ctime, ctimenano := f.CTime()
+	if i.Ctime != ctime || i.Ctimenano != ctimenano {
+		return fmt.Errorf("CTime does not match for %v", f)
+	}
+	if i.Ino != f.INode() {
+		return fmt.Errorf("INode does not match for %v", f)
+	}
 	return nil
 }
 
@@ -262,17 +303,17 @@ func (g *Index) AddStage(c *Client, path IndexPath, mode EntryMode, s Sha1, stag
 				return err
 			}
 
+			file, _ := path.FilePath(c)
+			if file.Exists() && stage == Stage0 {
+				// FIXME: mtime/fsize/etc and ctime should either all be
+				// from the filesystem, or all come from the caller
+				// For now we just refresh the stat, and then overwrite with
+				// the stuff from the caller.
+				entry.RefreshStat(c)
+			}
 			entry.Sha1 = s
 			entry.Mtime = mtime
 			entry.Fsize = size
-
-			file, _ := path.FilePath(c)
-			if file.Exists() {
-				// FIXME: mtime/fsize/etc and ctime should either all be
-				// from the filesystem, or all come from the caller
-				entry.Ctime, entry.Ctimenano = file.CTime()
-			}
-
 			return nil
 		}
 	}
