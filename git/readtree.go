@@ -2,6 +2,7 @@ package git
 
 import (
 	"fmt"
+	"log"
 	"os"
 	"sort"
 	"strings"
@@ -621,18 +622,12 @@ func checkMergeAndUpdate(c *Client, opt ReadTreeOptions, origidx map[IndexPath]*
 
 		// Update stat information for things changed by CheckoutIndex.
 		for _, entry := range newidx.Objects {
-			fname, err := entry.PathName.FilePath(c)
-			if err != nil {
-				return err
-			}
-			if _, ok := filemap[fname]; ok {
-				mtime, err := fname.MTime()
-				if err == nil && mtime != entry.Mtime {
-					entry.Mtime = mtime
-				}
+			if err := entry.RefreshStat(c); err != nil {
+				// The error is likely just "no such file or directory", but
+				// trace it just in case.
+				log.Println(err)
 			}
 		}
-
 	}
 	return nil
 }

@@ -7,6 +7,7 @@ import (
 	"io"
 	"io/ioutil"
 	"os"
+	"strings"
 )
 
 // Hashes the data of r with object type t, and returns
@@ -30,10 +31,18 @@ func HashSlice(t string, data []byte) (Sha1, []byte, error) {
 }
 
 func HashFile(t, filename string) (Sha1, []byte, error) {
-	r, err := os.Open(filename)
-	if err != nil {
-		return Sha1{}, nil, err
+	if File(filename).IsSymlink() {
+		l, err := os.Readlink(filename)
+		if err != nil {
+			return Sha1{}, nil, err
+		}
+		return HashReader(t, strings.NewReader(l))
+	} else {
+		r, err := os.Open(filename)
+		if err != nil {
+			return Sha1{}, nil, err
+		}
+		defer r.Close()
+		return HashReader(t, r)
 	}
-	defer r.Close()
-	return HashReader(t, r)
 }
