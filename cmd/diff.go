@@ -3,6 +3,8 @@ package cmd
 import (
 	"flag"
 	"fmt"
+	"os"
+	"os/exec"
 
 	"github.com/driusan/dgit/git"
 )
@@ -21,6 +23,7 @@ func Diff(c *git.Client, args []string) error {
 	flags.BoolVar(&staged, "staged", false, "Synonym for cached")
 	var cached bool
 	flags.BoolVar(&cached, "cached", false, "Display changes staged for commit")
+	flags.BoolVar(&options.NoIndex, "no-index", false, "Use diff to display difference between files on the filesystem")
 
 	args, err := parseCommonDiffFlags(c, &options.DiffCommonOptions, true, flags, args)
 
@@ -34,6 +37,19 @@ func Diff(c *git.Client, args []string) error {
 	}
 	diffs, err := git.Diff(c, options, files)
 	if err != nil {
+		if options.NoIndex {
+			switch e := err.(type) {
+			case *exec.ExitError:
+				if e.Exited() {
+					// We don't want the exit status printed by returning it,
+					// so we just call os.Exit.
+					// (If there were no diffs err will be nil)
+					os.Exit(1)
+				}
+
+			default:
+			}
+		}
 		return err
 	}
 	return printDiffs(c, options.DiffCommonOptions, diffs)
