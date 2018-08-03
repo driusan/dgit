@@ -1,8 +1,10 @@
 package git
 
 import (
+	"fmt"
 	"os"
 	"os/exec"
+	"strconv"
 )
 
 // Describes the options that may be specified on the command line for
@@ -19,17 +21,16 @@ type DiffOptions struct {
 // It compares the file system to the index.
 func Diff(c *Client, opt DiffOptions, paths []File) ([]HashDiff, error) {
 	if opt.NoIndex {
-		// we just directly invoke diff if --no-index is specified.
-		var strpaths []string
-		for _, path := range paths {
-			strpaths = append(strpaths, string(path))
+		if len(paths) != 2 {
+			return nil, fmt.Errorf("Must provide 2 paths for git diff --no-index")
 		}
 
 		// Just invoke the system diff command, we can't return a HashDiff
 		// since we're not working things that are tracked by the repo.
-		diffcmd := exec.Command(posixDiff, strpaths...)
+		// we just directly invoke diff if --no-index is specified.
+		diffcmd := exec.Command(posixDiff, "-u", "-U", strconv.Itoa(opt.NumContextLines), paths[0].String(), paths[1].String())
 		diffcmd.Stderr = os.Stderr
-		diffcmd.Stdout = os.Stderr
+		diffcmd.Stdout = os.Stdout
 
 		if err := diffcmd.Run(); err != nil {
 			return nil, err
