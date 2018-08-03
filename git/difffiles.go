@@ -15,6 +15,9 @@ type DiffCommonOptions struct {
 
 	// Generate the diff in raw format, not a unified diff
 	Raw bool
+
+	// Exit with a exit code of 1 if there are any diffs
+	ExitCode bool
 }
 
 // Describes the options that may be specified on the command line for
