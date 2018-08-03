@@ -63,6 +63,7 @@ func main() {
 	workdir := flag.String("work-tree", "", "specify the working directory of git")
 	gitdir := flag.String("git-dir", "", "specify the repository of git")
 	dir := flag.String("C", "", "chdir before starting git")
+	superprefix := flag.String("super-prefix", "", "useless option used internally by git test suite")
 
 	flag.Usage = func() {
 		if subcommand == "" {
@@ -97,6 +98,9 @@ func main() {
 	if c != nil && c.GitDir == "" && requiresGitDir(subcommand) {
 		fmt.Fprint(os.Stderr, "Could not find .git directory\n")
 		os.Exit(4)
+	}
+	if *superprefix != "" {
+		c.SuperPrefix = *superprefix
 	}
 
 	switch subcommand {

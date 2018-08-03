@@ -1,6 +1,7 @@
 package git
 
 import (
+	"log"
 	"sort"
 )
 
@@ -77,7 +78,8 @@ func DiffFiles(c *Client, opt DiffFilesOptions, paths []File) ([]HashDiff, error
 			fs.FileMode = ModeBlob
 		}
 		size := stat.Size()
-		if idx.CompareStat(f) != nil {
+		if err := idx.CompareStat(f); err != nil {
+			log.Printf("Stat information does not match for %v: %v\n", f, err)
 			val = append(val, HashDiff{idx.PathName, idxtree, fs, uint(idx.Fsize), uint(size)})
 			continue
 		}

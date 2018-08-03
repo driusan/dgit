@@ -309,7 +309,10 @@ func (g *Index) AddStage(c *Client, path IndexPath, mode EntryMode, s Sha1, stag
 				// from the filesystem, or all come from the caller
 				// For now we just refresh the stat, and then overwrite with
 				// the stuff from the caller.
-				entry.RefreshStat(c)
+				log.Println("Refreshing stat for", path)
+				if err := entry.RefreshStat(c); err != nil {
+					return err
+				}
 			}
 			entry.Sha1 = s
 			entry.Mtime = mtime
@@ -348,8 +351,7 @@ func (g *Index) AddStage(c *Client, path IndexPath, mode EntryMode, s Sha1, stag
 	if err := replaceEntriesCheck(); err != nil {
 		return err
 	}
-
-	g.Objects = append(g.Objects, &IndexEntry{
+	newentry := &IndexEntry{
 		FixedIndexEntry{
 			0, //uint32(csec),
 			0, //uint32(cnano),
@@ -364,7 +366,10 @@ func (g *Index) AddStage(c *Client, path IndexPath, mode EntryMode, s Sha1, stag
 			flags,
 		},
 		path,
-	})
+	}
+	newentry.RefreshStat(c)
+
+	g.Objects = append(g.Objects, newentry)
 	g.NumberIndexEntries += 1
 	sort.Sort(ByPath(g.Objects))
 	return nil

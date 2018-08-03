@@ -133,12 +133,9 @@ func checkoutFile(c *Client, entry *IndexEntry, opts CheckoutIndexOptions) error
 	// if we checkout out into a prefix, it means we haven't
 	// touched the index.
 	if opts.Prefix == "" {
-		mtime, err := f.MTime()
-		if err != nil {
+		if err := entry.RefreshStat(c); err != nil {
 			return err
 		}
-		entry.Mtime = mtime
-		entry.Ctime, entry.Ctimenano = f.CTime()
 	}
 	return nil
 }
@@ -239,10 +236,6 @@ func CheckoutIndexUncommited(c *Client, idx *Index, opts CheckoutIndexOptions, f
 				// FIXME: This should use stat information, not hash
 				// the whole file.
 				continue
-			}
-			mtime, err := fname.MTime()
-			if err == nil {
-				entry.Mtime = mtime
 			}
 
 			switch opts.Stage {
