@@ -394,7 +394,7 @@ func ReadTreeFastForward(c *Client, opt ReadTreeOptions, parent, dst Treeish) (*
 				continue
 			}
 			// Case 8-9
-			return nil, fmt.Errorf("Could not fast-forward. (Case 8-9.)")
+			return nil, fmt.Errorf("error: Entry '%s' would be overwritten by merge. Cannot merge.", pathname)
 		} else if HExists && !MExists {
 			if pathname.IsClean(c, IEntry.Sha1) && IEntry.Sha1 == HEntry.Sha1 {
 				// Case 10. Remove from the index.
@@ -402,7 +402,10 @@ func ReadTreeFastForward(c *Client, opt ReadTreeOptions, parent, dst Treeish) (*
 				continue
 			}
 			// Case 11 or 13 if it's not clean, case 12 if they don't match
-			return nil, fmt.Errorf("Could not fast-forward (case 11-13)")
+			if IEntry.Sha1 != HEntry.Sha1 {
+				return nil, fmt.Errorf("error: Entry '%s' would be overwritten by merge. Cannot merge.", pathname)
+			}
+			return nil, fmt.Errorf("Entry '%v' not uptodate. Cannot merge.", pathname)
 		} else {
 			if HEntry.Sha1 == MEntry.Sha1 {
 				// Case 14-15
@@ -412,7 +415,7 @@ func ReadTreeFastForward(c *Client, opt ReadTreeOptions, parent, dst Treeish) (*
 			// H != M
 			if IEntry.Sha1 != HEntry.Sha1 && IEntry.Sha1 != MEntry.Sha1 {
 				// Case 16-17
-				return nil, fmt.Errorf("Could not fast-forward (case 16-17.)")
+				return nil, fmt.Errorf("error: Entry '%s' would be overwritten by merge. Cannot merge.", pathname)
 			} else if IEntry.Sha1 != HEntry.Sha1 && IEntry.Sha1 == MEntry.Sha1 {
 				// Case 18-19
 				newidx.Objects = append(newidx.Objects, IEntry)
@@ -423,7 +426,7 @@ func ReadTreeFastForward(c *Client, opt ReadTreeOptions, parent, dst Treeish) (*
 					newidx.Objects = append(newidx.Objects, MEntry)
 					continue
 				} else {
-					return nil, fmt.Errorf("Could not fast-forward (case 21.)")
+					return nil, fmt.Errorf("Entry '%v' not uptodate. Cannot merge.", pathname)
 				}
 			}
 		}
