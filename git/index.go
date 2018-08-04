@@ -561,24 +561,26 @@ func (g ByPath) Less(i, j int) bool {
 	if g[i].PathName == g[j].PathName {
 		return g[i].Stage() < g[j].Stage()
 	}
-	for k := range g[i].PathName {
-		if k >= len(g[j].PathName) {
+	ibytes := []byte(g[i].PathName)
+	jbytes := []byte(g[j].PathName)
+	for k := range ibytes {
+		if k >= len(jbytes) {
 			// We reached the end of j and there was stuff
 			// leftover in i, so i > j
-			return true
+			return false
 		}
 
 		// If a character is not equal, return if it's
 		// less or greater
-		if g[i].PathName[k] < g[j].PathName[k] {
+		if ibytes[k] < jbytes[k] {
 			return true
-		} else if g[i].PathName[k] > g[j].PathName[k] {
+		} else if ibytes[k] > jbytes[k] {
 			return false
 		}
 	}
 	// Everything equal up to the end of i, and there is stuff
 	// left in j, so i < j
-	return false
+	return true
 }
 
 // Replaces the index of Client with the the tree from the provided Treeish.

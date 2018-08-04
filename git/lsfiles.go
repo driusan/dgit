@@ -278,6 +278,12 @@ func LsFiles(c *Client, opt LsFilesOptions, files []File) ([]*IndexEntry, error)
 				if err != nil {
 					return nil, err
 				}
+				// Add a "/" if --directory is set so that it sorts properly in some
+				// edge cases.
+				if match.PathName.IsDir() && opt.Directory {
+					indexPath += "/"
+
+				}
 				fs = append(fs, &IndexEntry{PathName: indexPath})
 			}
 		}
