@@ -558,13 +558,27 @@ type ByPath []*IndexEntry
 func (g ByPath) Len() int      { return len(g) }
 func (g ByPath) Swap(i, j int) { g[i], g[j] = g[j], g[i] }
 func (g ByPath) Less(i, j int) bool {
-	if g[i].PathName < g[j].PathName {
-		return true
-	} else if g[i].PathName == g[j].PathName {
+	if g[i].PathName == g[j].PathName {
 		return g[i].Stage() < g[j].Stage()
-	} else {
-		return false
 	}
+	for k := range g[i].PathName {
+		if k >= len(g[j].PathName) {
+			// We reached the end of j and there was stuff
+			// leftover in i, so i > j
+			return true
+		}
+
+		// If a character is not equal, return if it's
+		// less or greater
+		if g[i].PathName[k] < g[j].PathName[k] {
+			return true
+		} else if g[i].PathName[k] > g[j].PathName[k] {
+			return false
+		}
+	}
+	// Everything equal up to the end of i, and there is stuff
+	// left in j, so i < j
+	return false
 }
 
 // Replaces the index of Client with the the tree from the provided Treeish.

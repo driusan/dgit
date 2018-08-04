@@ -4,6 +4,7 @@ import (
 	"io/ioutil"
 	"os"
 	"path/filepath"
+	"sort"
 	"strings"
 )
 
@@ -16,10 +17,10 @@ func findUntrackedFilesFromDir(c *Client, root, parent, dir File, tracked map[In
 	}
 	for _, fi := range files {
 		fname := File(fi.Name())
+		if fi.Name() == ".git" {
+			continue
+		}
 		if fi.IsDir() {
-			if fi.Name() == ".git" {
-				continue
-			}
 			if !recursedir {
 				// This isn't very efficient, but lets us implement git ls-files --directory
 				// without too many changes.
@@ -94,6 +95,9 @@ type LsFilesOptions struct {
 	// If a directory is classified as "other", show only its name, not
 	// its contents
 	Directory bool
+
+	// Do not show empty directories with --others
+	NoEmptyDirectory bool
 
 	// Exclude standard patterns (ie. .gitignore and .git/info/exclude)
 	ExcludeStandard bool
@@ -231,6 +235,15 @@ func LsFiles(c *Client, opt LsFilesOptions, files []File) ([]*IndexEntry, error)
 				}
 			}
 
+			if f.IsDir() && opt.Directory {
+				if opt.NoEmptyDirectory {
+					if files, err := ioutil.ReadDir(f.String()); len(files) == 0 && err == nil {
+						continue
+					}
+				}
+				f += "/"
+			}
+
 			otherFiles = append(otherFiles, f)
 		}
 
@@ -270,5 +283,6 @@ func LsFiles(c *Client, opt LsFilesOptions, files []File) ([]*IndexEntry, error)
 		}
 	}
 
+	sort.Sort(ByPath(fs))
 	return fs, nil
 }
