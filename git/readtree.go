@@ -314,9 +314,6 @@ func ReadTreeFastForward(c *Client, opt ReadTreeOptions, parent, dst Treeish) (*
 	if opt.Update && opt.Prefix == "" && !opt.Merge && !opt.Reset {
 		return nil, fmt.Errorf("-u is meaningless without -m, --reset or --prefix")
 	}
-	if opt.Prefix != "" {
-		return nil, fmt.Errorf("--prefix is not yet implemented")
-	}
 
 	// This is the table of how fast-forward merges work from git-read-tree(1)
 	// I == Index, H == parent, and M == dst in their terminology. (ie. It's a
@@ -501,9 +498,6 @@ func readtreeSaveIndex(c *Client, opt ReadTreeOptions, i *Index) error {
 // Reads a tree into the index. If DryRun is not false, it will also be written
 // to disk.
 func ReadTree(c *Client, opt ReadTreeOptions, tree Treeish) (*Index, error) {
-	if opt.Prefix != "" {
-		return nil, fmt.Errorf("--prefix is not yet implemented")
-	}
 	idx, _ := c.GitDir.ReadIndex()
 	origMap := idx.GetMap()
 
@@ -522,6 +516,13 @@ func ReadTree(c *Client, opt ReadTreeOptions, tree Treeish) (*Index, error) {
 		return nil, err
 	}
 	for _, entry := range newidx.Objects {
+		if opt.Prefix != "" {
+			// Add it to the original index with the prefix
+			entry.PathName = IndexPath(opt.Prefix) + entry.PathName
+			if err := idx.AddStage(c, entry.PathName, entry.Mode, entry.Sha1, Stage0, entry.Fsize, entry.Mtime, UpdateIndexOptions{Add: true}); err != nil {
+				return nil, err
+			}
+		}
 		if opt.Merge {
 			if oldentry, ok := origMap[entry.PathName]; ok {
 				newsha, _, err := HashFile("blob", string(entry.PathName))
@@ -533,10 +534,14 @@ func ReadTree(c *Client, opt ReadTreeOptions, tree Treeish) (*Index, error) {
 		}
 	}
 
-	if err := checkMergeAndUpdate(c, opt, origMap, newidx); err != nil {
+	if opt.Prefix == "" {
+		idx = newidx
+	}
+
+	if err := checkMergeAndUpdate(c, opt, origMap, idx); err != nil {
 		return nil, err
 	}
-	return idx, readtreeSaveIndex(c, opt, newidx)
+	return idx, readtreeSaveIndex(c, opt, idx)
 }
 
 // Check if the merge would overwrite any modified files and return an error if so (unless --reset),
@@ -628,7 +633,7 @@ func checkMergeAndUpdate(c *Client, opt ReadTreeOptions, origidx map[IndexPath]*
 	}
 
 	if !opt.DryRun && (opt.Update || opt.Reset) {
-		if err := CheckoutIndexUncommited(c, newidx, CheckoutIndexOptions{Quiet: true, Force: true}, files); err != nil {
+		if err := CheckoutIndexUncommited(c, newidx, CheckoutIndexOptions{Quiet: true, Force: true, Prefix: opt.Prefix}, files); err != nil {
 			return err
 		}
 
