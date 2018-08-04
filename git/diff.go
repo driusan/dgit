@@ -28,7 +28,7 @@ func Diff(c *Client, opt DiffOptions, paths []File) ([]HashDiff, error) {
 		// Just invoke the system diff command, we can't return a HashDiff
 		// since we're not working things that are tracked by the repo.
 		// we just directly invoke diff if --no-index is specified.
-		diffcmd := exec.Command(posixDiff, "-u", "-U", strconv.Itoa(opt.NumContextLines), paths[0].String(), paths[1].String())
+		diffcmd := exec.Command(posixDiff, "-U", strconv.Itoa(opt.NumContextLines), paths[0].String(), paths[1].String())
 		diffcmd.Stderr = os.Stderr
 		diffcmd.Stdout = os.Stdout
 

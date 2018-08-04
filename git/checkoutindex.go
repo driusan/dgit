@@ -7,6 +7,7 @@ import (
 	"io/ioutil"
 	"os"
 	"path"
+	"path/filepath"
 	"strconv"
 	"strings"
 )
@@ -114,6 +115,26 @@ func checkoutFile(c *Client, entry *IndexEntry, opts CheckoutIndexOptions) error
 	if !opts.NoCreate {
 		fmode := os.FileMode(entry.Mode)
 		if path := path.Dir(f.String()); path != "." {
+			if opts.Force {
+				pathparent := filepath.Clean(path)
+				// Remove any files getting in the way if -force is set
+				for pathparent != "" && pathparent != "." {
+					f := File(pathparent)
+					if f.IsDir() {
+						// We found a directory, so there's nothing
+						// getting in the way
+						break
+					} else if f.Exists() {
+						// It's not a directory but it exists, so
+						// delete it to ensure MkdirAll will succeed.
+						if err := os.Remove(pathparent); err != nil {
+							return err
+						}
+					}
+					pathparent, _ = filepath.Split(filepath.Clean(path))
+				}
+			}
+
 			if err := os.MkdirAll(path, 0755); err != nil {
 				return err
 			}
@@ -278,12 +299,7 @@ func CheckoutIndexUncommited(c *Client, idx *Index, opts CheckoutIndexOptions, f
 		}
 	}
 
-	f, err := c.GitDir.Create(File("index"))
-	if err != nil {
-		return err
-	}
-	defer f.Close()
-	return idx.WriteIndex(f)
+	return nil
 }
 
 // CheckoutIndex implements the "git checkout-index" subcommand of git.
