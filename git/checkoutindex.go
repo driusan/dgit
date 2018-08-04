@@ -131,7 +131,7 @@ func checkoutFile(c *Client, entry *IndexEntry, opts CheckoutIndexOptions) error
 							return err
 						}
 					}
-					pathparent, _ = filepath.Split(filepath.Clean(path))
+					pathparent, _ = filepath.Split(filepath.Clean(pathparent))
 				}
 			}
 
@@ -153,7 +153,7 @@ func checkoutFile(c *Client, entry *IndexEntry, opts CheckoutIndexOptions) error
 	// Don't change the stat info if there's a prefix, because
 	// if we checkout out into a prefix, it means we haven't
 	// touched the index.
-	if opts.Prefix == "" {
+	if opts.Prefix == "" && opts.UpdateStat {
 		if err := entry.RefreshStat(c); err != nil {
 			return err
 		}
@@ -299,6 +299,14 @@ func CheckoutIndexUncommited(c *Client, idx *Index, opts CheckoutIndexOptions, f
 		}
 	}
 
+	if opts.UpdateStat {
+		f, err := c.GitDir.Create(File("index"))
+		if err != nil {
+			return err
+		}
+		defer f.Close()
+		return idx.WriteIndex(f)
+	}
 	return nil
 }
 
