@@ -22,6 +22,7 @@ func parseCommonDiffFlags(c *git.Client, options *git.DiffCommonOptions, default
 	s := flags.Bool("s", false, "Alias of --no-patch")
 	unified := flags.Int("unified", 3, "Generate <n> lines of context")
 	U := flags.Int("U", 3, "Alias of --unified")
+	U0 := flags.Bool("U0", false, "Alias of -U 0. (This is primarily for test compatibility)")
 	flags.BoolVar(&options.Raw, "raw", true, "Generate the diff in raw format")
 	flags.BoolVar(&options.ExitCode, "exit-code", false, "Exit with an exit code of 1 if there are any diffs")
 
@@ -44,6 +45,8 @@ func parseCommonDiffFlags(c *git.Client, options *git.DiffCommonOptions, default
 		options.NumContextLines = *unified
 	} else if *U != 3 {
 		options.NumContextLines = *U
+	} else if *U0 {
+		options.NumContextLines = 0
 	} else {
 		options.NumContextLines = 3
 	}

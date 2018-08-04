@@ -394,7 +394,7 @@ func ReadTreeFastForward(c *Client, opt ReadTreeOptions, parent, dst Treeish) (*
 				continue
 			}
 			// Case 8-9
-			return nil, fmt.Errorf("Could not fast-forward. (Case 8-9.)")
+			return nil, fmt.Errorf("error: Entry '%s' would be overwritten by merge. Cannot merge.", pathname)
 		} else if HExists && !MExists {
 			if pathname.IsClean(c, IEntry.Sha1) && IEntry.Sha1 == HEntry.Sha1 {
 				// Case 10. Remove from the index.
@@ -402,7 +402,10 @@ func ReadTreeFastForward(c *Client, opt ReadTreeOptions, parent, dst Treeish) (*
 				continue
 			}
 			// Case 11 or 13 if it's not clean, case 12 if they don't match
-			return nil, fmt.Errorf("Could not fast-forward (case 11-13)")
+			if IEntry.Sha1 != HEntry.Sha1 {
+				return nil, fmt.Errorf("error: Entry '%s' would be overwritten by merge. Cannot merge.", pathname)
+			}
+			return nil, fmt.Errorf("Entry '%v' not uptodate. Cannot merge.", pathname)
 		} else {
 			if HEntry.Sha1 == MEntry.Sha1 {
 				// Case 14-15
@@ -412,7 +415,7 @@ func ReadTreeFastForward(c *Client, opt ReadTreeOptions, parent, dst Treeish) (*
 			// H != M
 			if IEntry.Sha1 != HEntry.Sha1 && IEntry.Sha1 != MEntry.Sha1 {
 				// Case 16-17
-				return nil, fmt.Errorf("Could not fast-forward (case 16-17.)")
+				return nil, fmt.Errorf("error: Entry '%s' would be overwritten by merge. Cannot merge.", pathname)
 			} else if IEntry.Sha1 != HEntry.Sha1 && IEntry.Sha1 == MEntry.Sha1 {
 				// Case 18-19
 				newidx.Objects = append(newidx.Objects, IEntry)
@@ -423,7 +426,7 @@ func ReadTreeFastForward(c *Client, opt ReadTreeOptions, parent, dst Treeish) (*
 					newidx.Objects = append(newidx.Objects, MEntry)
 					continue
 				} else {
-					return nil, fmt.Errorf("Could not fast-forward (case 21.)")
+					return nil, fmt.Errorf("Entry '%v' not uptodate. Cannot merge.", pathname)
 				}
 			}
 		}
@@ -444,11 +447,23 @@ func ReadTreeFastForward(c *Client, opt ReadTreeOptions, parent, dst Treeish) (*
 		}
 		// Otherwise it's in both H and M but not I. Case 3.
 		if HEntry.Sha1 != MEntry.Sha1 {
-			return nil, fmt.Errorf("Could not fast-forward (case 3.)")
+			if !c.GitDir.File("index").Exists() {
+				// Case 3 from the git-read-tree(1) is weird, but this
+				// is intended to handle it. If there is no index, add
+				// the file from M
+				newidx.Objects = append(newidx.Objects, MEntry)
+			} else {
+				return nil, fmt.Errorf("Could not fast-forward (case 3.)")
+			}
 		} else {
 			// It was unmodified between the two trees, but has been
 			// removed from the index. Keep the "Deleted" state by
 			// not adding it.
+			// If there is no index, however, we add it, since it's
+			// an initial checkout.
+			if !c.GitDir.File("index").Exists() {
+				newidx.Objects = append(newidx.Objects, MEntry)
+			}
 		}
 	}
 
@@ -490,9 +505,10 @@ func ReadTree(c *Client, opt ReadTreeOptions, tree Treeish) (*Index, error) {
 		return nil, fmt.Errorf("--prefix is not yet implemented")
 	}
 	idx, _ := c.GitDir.ReadIndex()
+	origMap := idx.GetMap()
+
 	// Convert to a new map before doing anything, so that checkMergeAndUpdate
 	// can compare the original update after we reset.
-	origMap := idx.GetMap()
 	if opt.Empty {
 		idx.NumberIndexEntries = 0
 		idx.Objects = make([]*IndexEntry, 0)
@@ -501,15 +517,26 @@ func ReadTree(c *Client, opt ReadTreeOptions, tree Treeish) (*Index, error) {
 		}
 		return idx, readtreeSaveIndex(c, opt, idx)
 	}
-	err := idx.ResetIndex(c, tree)
-	if err != nil {
+	newidx := NewIndex()
+	if err := newidx.ResetIndex(c, tree); err != nil {
 		return nil, err
+	}
+	for _, entry := range newidx.Objects {
+		if opt.Merge {
+			if oldentry, ok := origMap[entry.PathName]; ok {
+				newsha, _, err := HashFile("blob", string(entry.PathName))
+				if err != nil && newsha == entry.Sha1 {
+					entry.Ctime, entry.Ctimenano = oldentry.Ctime, oldentry.Ctimenano
+					entry.Mtime = oldentry.Mtime
+				}
+			}
+		}
 	}
 
-	if err := checkMergeAndUpdate(c, opt, origMap, idx); err != nil {
+	if err := checkMergeAndUpdate(c, opt, origMap, newidx); err != nil {
 		return nil, err
 	}
-	return idx, readtreeSaveIndex(c, opt, idx)
+	return idx, readtreeSaveIndex(c, opt, newidx)
 }
 
 // Check if the merge would overwrite any modified files and return an error if so (unless --reset),
@@ -531,6 +558,20 @@ func checkMergeAndUpdate(c *Client, opt ReadTreeOptions, origidx map[IndexPath]*
 	if opt.Merge || opt.Reset {
 		// Verify that merge won't overwrite anything that's been modified locally.
 		for _, entry := range newidx.Objects {
+			f, err := entry.PathName.FilePath(c)
+			if err != nil {
+				return err
+			}
+
+			if f.IsDir() && opt.Update {
+				untracked, err := LsFiles(c, LsFilesOptions{Others: true, Modified: true}, []File{f})
+				if err != nil {
+					return err
+				}
+				if len(untracked) > 0 {
+					return fmt.Errorf("error: Updating '%s%s' would lose untracked files in it", c.SuperPrefix, entry.PathName)
+				}
+			}
 			if entry.Stage() != Stage0 {
 				// Don't check unmerged entries. One will always
 				// conflict, which means that -u won't work
@@ -586,7 +627,7 @@ func checkMergeAndUpdate(c *Client, opt ReadTreeOptions, origidx map[IndexPath]*
 		}
 	}
 
-	if opt.Update || opt.Reset {
+	if !opt.DryRun && (opt.Update || opt.Reset) {
 		if err := CheckoutIndexUncommited(c, newidx, CheckoutIndexOptions{Quiet: true, Force: true}, files); err != nil {
 			return err
 		}

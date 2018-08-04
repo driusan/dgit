@@ -2,6 +2,7 @@ package git
 
 import (
 	"fmt"
+	"log"
 	"os"
 	"regexp"
 	"strings"
@@ -77,7 +78,9 @@ func Commit(c *Client, opts CommitOptions, message CommitMessage, files []File) 
 		if opts.Include {
 			tostage = files
 		}
+
 		if _, err := Add(c, AddOptions{Update: true, DryRun: opts.DryRun}, tostage); err != nil {
+			log.Println("Commit adding files:", err)
 			return CommitID{}, err
 		}
 	}

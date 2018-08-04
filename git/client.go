@@ -91,6 +91,17 @@ type Client struct {
 	GitDir  GitDir
 	WorkDir WorkDir
 
+	// This is used by the git-read-tree test suite. The description from the
+	// git man page is:
+	//
+	//        Currently for internal use only. Set a prefix which gives a path
+	//        from above a repository down to its root. One use is to give
+	//        submodules context about the superproject that invoked it.
+	//
+	// The reality as far as we're concerned is it changes the output error
+	// message of read-tree slightly.
+	SuperPrefix string
+
 	// Cache of where this client has previously found existing objects
 	objectCache map[Sha1]objectLocation
 }
@@ -140,7 +151,7 @@ func NewClient(gitDir, workDir string) (*Client, error) {
 		// from the gitdir if it doesn't exist.
 	}
 	m := make(map[Sha1]objectLocation)
-	return &Client{GitDir(gitdir), WorkDir(workdir), m}, nil
+	return &Client{GitDir(gitdir), WorkDir(workdir), "", m}, nil
 }
 
 // Returns the branchname of the HEAD branch, or the empty string if the

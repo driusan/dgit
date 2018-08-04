@@ -7,6 +7,7 @@ import (
 	"io/ioutil"
 	"os"
 	"path"
+	"path/filepath"
 	"strconv"
 	"strings"
 )
@@ -114,6 +115,26 @@ func checkoutFile(c *Client, entry *IndexEntry, opts CheckoutIndexOptions) error
 	if !opts.NoCreate {
 		fmode := os.FileMode(entry.Mode)
 		if path := path.Dir(f.String()); path != "." {
+			if opts.Force {
+				pathparent := filepath.Clean(path)
+				// Remove any files getting in the way if -force is set
+				for pathparent != "" && pathparent != "." {
+					f := File(pathparent)
+					if f.IsDir() {
+						// We found a directory, so there's nothing
+						// getting in the way
+						break
+					} else if f.Exists() {
+						// It's not a directory but it exists, so
+						// delete it to ensure MkdirAll will succeed.
+						if err := os.Remove(pathparent); err != nil {
+							return err
+						}
+					}
+					pathparent, _ = filepath.Split(filepath.Clean(pathparent))
+				}
+			}
+
 			if err := os.MkdirAll(path, 0755); err != nil {
 				return err
 			}
@@ -132,13 +153,10 @@ func checkoutFile(c *Client, entry *IndexEntry, opts CheckoutIndexOptions) error
 	// Don't change the stat info if there's a prefix, because
 	// if we checkout out into a prefix, it means we haven't
 	// touched the index.
-	if opts.Prefix == "" {
-		mtime, err := f.MTime()
-		if err != nil {
+	if opts.Prefix == "" && opts.UpdateStat {
+		if err := entry.RefreshStat(c); err != nil {
 			return err
 		}
-		entry.Mtime = mtime
-		entry.Ctime, entry.Ctimenano = f.CTime()
 	}
 	return nil
 }
@@ -240,10 +258,6 @@ func CheckoutIndexUncommited(c *Client, idx *Index, opts CheckoutIndexOptions, f
 				// the whole file.
 				continue
 			}
-			mtime, err := fname.MTime()
-			if err == nil {
-				entry.Mtime = mtime
-			}
 
 			switch opts.Stage {
 			case "":
@@ -285,12 +299,15 @@ func CheckoutIndexUncommited(c *Client, idx *Index, opts CheckoutIndexOptions, f
 		}
 	}
 
-	f, err := c.GitDir.Create(File("index"))
-	if err != nil {
-		return err
+	if opts.UpdateStat {
+		f, err := c.GitDir.Create(File("index"))
+		if err != nil {
+			return err
+		}
+		defer f.Close()
+		return idx.WriteIndex(f)
 	}
-	defer f.Close()
-	return idx.WriteIndex(f)
+	return nil
 }
 
 // CheckoutIndex implements the "git checkout-index" subcommand of git.
