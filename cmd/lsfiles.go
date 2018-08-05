@@ -54,6 +54,8 @@ func LsFiles(c *git.Client, args []string) error {
 
 	flags.Var(newMultiStringValue(&excludeperdirectory), "exclude-per-directory", "Read additional exclude patterns for each directory.")
 
+	flags.BoolVar(&options.ErrorUnmatch, "error-unmatch", false, "Exit with an error if any unmatched paths are specified on the command line")
+
 	flags.Parse(args)
 	oargs := flags.Args()
 
