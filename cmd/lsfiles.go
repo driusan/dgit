@@ -43,6 +43,7 @@ func LsFiles(c *git.Client, args []string) error {
 	flags.BoolVar(&options.ExcludeStandard, "exclude-standard", false, "Add the standard Git exclusions.")
 
 	flags.BoolVar(&options.Directory, "directory", false, "Show only directory, not its contents if a directory is untracked")
+	flags.BoolVar(&options.NoEmptyDirectory, "no-empty-directory", false, "Do not show empty untracked directories in output")
 
 	flags.Var(newAliasedStringValue(&options.ExcludePattern, ""), "exclude", "Skip untracked files matching pattern.")
 	flags.Var(newAliasedStringValue(&options.ExcludePattern, ""), "x", "Alias for --exclude")
@@ -105,7 +106,11 @@ func LsFiles(c *git.Client, args []string) error {
 		if options.Stage {
 			fmt.Printf("%o %v %v\t%v\n", file.Mode, file.Sha1, file.Stage(), path)
 		} else {
-			fmt.Println(path)
+			if options.Directory && path.IsDir() {
+				fmt.Println(path + "/")
+			} else {
+				fmt.Println(path)
+			}
 		}
 	}
 	return err
