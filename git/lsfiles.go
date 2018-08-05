@@ -65,6 +65,14 @@ files:
 					}
 				}
 				if !dirHasTracked {
+					if opts.Directory {
+						if opts.NoEmptyDirectory {
+							if files, err := ioutil.ReadDir(fname.String()); len(files) == 0 && err == nil {
+								continue
+							}
+						}
+						indexPath += "/"
+					}
 					untracked = append(untracked, &IndexEntry{PathName: indexPath})
 					continue
 				}
@@ -283,15 +291,6 @@ func LsFiles(c *Client, opt LsFilesOptions, files []File) ([]*IndexEntry, error)
 				if skip {
 					continue
 				}
-			}
-
-			if f.IsDir() && opt.Directory {
-				if opt.NoEmptyDirectory {
-					if files, err := ioutil.ReadDir(f.String()); len(files) == 0 && err == nil {
-						continue
-					}
-				}
-				f += "/"
 			}
 
 			fs = append(fs, file)
