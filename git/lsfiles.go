@@ -1,6 +1,7 @@
 package git
 
 import (
+	"fmt"
 	"io/ioutil"
 	"os"
 	"path/filepath"
@@ -110,6 +111,8 @@ type LsFilesOptions struct {
 
 	// Exclude using additional patterns from each directory
 	ExcludePerDirectory []File
+
+	ErrorUnmatch bool
 }
 
 // LsFiles implements the git ls-files command. It returns an array of files
@@ -124,7 +127,7 @@ func LsFiles(c *Client, opt LsFilesOptions, files []File) ([]*IndexEntry, error)
 	// We need to keep track of what's in the index if --others is passed.
 	// Keep a map instead of doing an O(n) search every time.
 	var filesInIndex map[IndexPath]bool
-	if opt.Others {
+	if opt.Others || opt.ErrorUnmatch {
 		filesInIndex = make(map[IndexPath]bool)
 	}
 
@@ -134,7 +137,7 @@ func LsFiles(c *Client, opt LsFilesOptions, files []File) ([]*IndexEntry, error)
 			return nil, err
 		}
 
-		if opt.Others {
+		if opt.Others || opt.ErrorUnmatch {
 			filesInIndex[entry.PathName] = true
 		}
 
@@ -202,6 +205,19 @@ func LsFiles(c *Client, opt LsFilesOptions, files []File) ([]*IndexEntry, error)
 			}
 			if hash != entry.Sha1 {
 				fs = append(fs, entry)
+			}
+		}
+	}
+
+	if opt.ErrorUnmatch {
+		for _, file := range files {
+			indexPath, err := file.IndexPath(c)
+			if err != nil {
+				return nil, err
+			}
+			if _, ok := filesInIndex[indexPath]; !ok {
+				fmt.Printf("%v", filesInIndex)
+				return nil, fmt.Errorf("error: pathspec '%v' did not match any file(s) known to git", file)
 			}
 		}
 	}
