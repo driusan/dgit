@@ -45,15 +45,24 @@ func LsFiles(c *git.Client, args []string) error {
 	flags.BoolVar(&options.Directory, "directory", false, "Show only directory, not its contents if a directory is untracked")
 	flags.BoolVar(&options.NoEmptyDirectory, "no-empty-directory", false, "Do not show empty untracked directories in output")
 
-	flags.Var(newAliasedStringValue(&options.ExcludePattern, ""), "exclude", "Skip untracked files matching pattern.")
-	flags.Var(newAliasedStringValue(&options.ExcludePattern, ""), "x", "Alias for --exclude")
+	var excludefiles, excludeperdirectory []string
+	flags.Var(newMultiStringValue(&options.ExcludePatterns), "exclude", "Skip untracked files matching pattern.")
+	flags.Var(newMultiStringValue(&options.ExcludePatterns), "x", "Alias for --exclude")
 
-	flags.Var(newAliasedStringValue(&options.ExcludeFile, ""), "exclude-from", "Read exclude patterns from a file.")
-	flags.Var(newAliasedStringValue(&options.ExcludeFile, ""), "X", "Alias for --exclude-from")
+	flags.Var(newMultiStringValue(&excludefiles), "exclude-from", "Read exclude patterns from a file.")
+	flags.Var(newMultiStringValue(&excludefiles), "X", "Alias for --exclude-from")
+
+	flags.Var(newMultiStringValue(&excludeperdirectory), "exclude-per-directory", "Read additional exclude patterns for each directory.")
 
 	flags.Parse(args)
 	oargs := flags.Args()
 
+	for _, f := range excludefiles {
+		options.ExcludeFiles = append(options.ExcludeFiles, git.File(f))
+	}
+	for _, f := range excludeperdirectory {
+		options.ExcludePerDirectory = append(options.ExcludePerDirectory, git.File(f))
+	}
 	options.Cached = *cached || *ca
 
 	rdeleted := *deleted || *d
