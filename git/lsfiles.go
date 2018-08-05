@@ -102,11 +102,14 @@ type LsFilesOptions struct {
 	// Exclude standard patterns (ie. .gitignore and .git/info/exclude)
 	ExcludeStandard bool
 
-	// Exclude using the provided pattern
-	ExcludePattern string
+	// Exclude using the provided patterns
+	ExcludePatterns []string
 
 	// Exclude using the provided file with the patterns
-	ExcludeFile string
+	ExcludeFiles []File
+
+	// Exclude using additional patterns from each directory
+	ExcludePerDirectory []File
 }
 
 // LsFiles implements the git ls-files command. It returns an array of files
@@ -256,11 +259,12 @@ func LsFiles(c *Client, opt LsFilesOptions, files []File) ([]*IndexEntry, error)
 			}
 			ignorePatterns = append(ignorePatterns, standardPatterns...)
 		}
-		if opt.ExcludePattern != "" {
-			ignorePatterns = append(ignorePatterns, IgnorePattern{Pattern: opt.ExcludePattern, Source: "", LineNum: 1, Scope: ""})
+		for _, pattern := range opt.ExcludePatterns {
+			ignorePatterns = append(ignorePatterns, IgnorePattern{Pattern: pattern, Source: "", LineNum: 1, Scope: ""})
 		}
-		if opt.ExcludeFile != "" {
-			patterns, err := ParseIgnorePatterns(c, File(opt.ExcludeFile), File(""))
+
+		for _, file := range opt.ExcludeFiles {
+			patterns, err := ParseIgnorePatterns(c, file, "")
 			if err != nil {
 				return nil, err
 			}
