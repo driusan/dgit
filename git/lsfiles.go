@@ -240,6 +240,11 @@ func LsFiles(c *Client, opt LsFilesOptions, files []File) ([]*IndexEntry, error)
 
 		ignorePatterns := []IgnorePattern{}
 
+		if opt.ExcludeStandard {
+			opt.ExcludeFiles = append(opt.ExcludeFiles, File(filepath.Join(c.GitDir.String(), "info/exclude")))
+			opt.ExcludePerDirectory = append(opt.ExcludePerDirectory, ".gitignore")
+		}
+
 		for _, file := range opt.ExcludeFiles {
 			patterns, err := ParseIgnorePatterns(c, file, "")
 			if err != nil {
@@ -253,8 +258,6 @@ func LsFiles(c *Client, opt LsFilesOptions, files []File) ([]*IndexEntry, error)
 		}
 
 		others := findUntrackedFilesFromDir(c, opt, wd+"/", wd, wd, filesInIndex, !opt.Directory, ignorePatterns)
-		otherFiles := make([]File, 0, len(others))
-
 		for _, file := range others {
 			f, err := file.PathName.FilePath(c)
 			if err != nil {
@@ -291,36 +294,7 @@ func LsFiles(c *Client, opt LsFilesOptions, files []File) ([]*IndexEntry, error)
 				f += "/"
 			}
 
-			otherFiles = append(otherFiles, f)
-		}
-
-		if opt.ExcludeStandard {
-			standardPatterns, err := StandardIgnorePatterns(c, otherFiles)
-			if err != nil {
-				return nil, err
-			}
-			ignorePatterns = append(ignorePatterns, standardPatterns...)
-		}
-
-		matches, err := MatchIgnores(c, ignorePatterns, otherFiles)
-		if err != nil {
-			return nil, err
-		}
-
-		for _, match := range matches {
-			if match.Pattern == "" { // TODO add ignore here
-				indexPath, err := match.PathName.IndexPath(c)
-				if err != nil {
-					return nil, err
-				}
-				// Add a "/" if --directory is set so that it sorts properly in some
-				// edge cases.
-				if match.PathName.IsDir() && opt.Directory {
-					indexPath += "/"
-
-				}
-				fs = append(fs, &IndexEntry{PathName: indexPath})
-			}
+			fs = append(fs, file)
 		}
 	}
 
