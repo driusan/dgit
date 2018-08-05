@@ -3,6 +3,7 @@ package git
 import (
 	"fmt"
 	"io/ioutil"
+	"log"
 	"os"
 	"path/filepath"
 	"sort"
@@ -11,15 +12,43 @@ import (
 
 // Finds things that aren't tracked, and creates fake IndexEntrys for them to be merged into
 // the output if --others is passed.
-func findUntrackedFilesFromDir(c *Client, root, parent, dir File, tracked map[IndexPath]bool, recursedir bool) (untracked []*IndexEntry) {
+func findUntrackedFilesFromDir(c *Client, opts LsFilesOptions, root, parent, dir File, tracked map[IndexPath]bool, recursedir bool, ignorePatterns []IgnorePattern) (untracked []*IndexEntry) {
 	files, err := ioutil.ReadDir(dir.String())
 	if err != nil {
 		return nil
 	}
+	for _, ignorefile := range opts.ExcludePerDirectory {
+		ignoreInDir := ignorefile
+		if dir != "" {
+			ignoreInDir = dir + "/" + ignorefile
+		}
+
+		if ignoreInDir.Exists() {
+			log.Println("Adding excludes from", ignoreInDir)
+
+			patterns, err := ParseIgnorePatterns(c, ignoreInDir, dir)
+			if err != nil {
+				panic(err)
+			}
+			ignorePatterns = append(ignorePatterns, patterns...)
+		}
+	}
+files:
 	for _, fi := range files {
 		fname := File(fi.Name())
 		if fi.Name() == ".git" {
 			continue
+		}
+		for _, pattern := range ignorePatterns {
+			var name File
+			if parent == "" {
+				name = fname
+			} else {
+				name = parent + "/" + fname
+			}
+			if pattern.Matches(name.String(), fi.IsDir()) {
+				continue files
+			}
 		}
 		if fi.IsDir() {
 			if !recursedir {
@@ -53,7 +82,7 @@ func findUntrackedFilesFromDir(c *Client, root, parent, dir File, tracked map[In
 				newdir = dir + "/" + fname
 			}
 
-			recurseFiles := findUntrackedFilesFromDir(c, root, newparent, newdir, tracked, recursedir)
+			recurseFiles := findUntrackedFilesFromDir(c, opts, root, newparent, newdir, tracked, recursedir, ignorePatterns)
 			untracked = append(untracked, recurseFiles...)
 		} else {
 			var filePath File
@@ -224,7 +253,22 @@ func LsFiles(c *Client, opt LsFilesOptions, files []File) ([]*IndexEntry, error)
 
 	if opt.Others {
 		wd := File(c.WorkDir)
-		others := findUntrackedFilesFromDir(c, wd+"/", wd, wd, filesInIndex, !opt.Directory)
+
+		ignorePatterns := []IgnorePattern{}
+
+		for _, file := range opt.ExcludeFiles {
+			patterns, err := ParseIgnorePatterns(c, file, "")
+			if err != nil {
+				return nil, err
+			}
+			ignorePatterns = append(ignorePatterns, patterns...)
+		}
+
+		for _, pattern := range opt.ExcludePatterns {
+			ignorePatterns = append(ignorePatterns, IgnorePattern{Pattern: pattern, Source: "", LineNum: 1, Scope: ""})
+		}
+
+		others := findUntrackedFilesFromDir(c, opt, wd+"/", wd, wd, filesInIndex, !opt.Directory, ignorePatterns)
 		otherFiles := make([]File, 0, len(others))
 
 		for _, file := range others {
@@ -266,25 +310,12 @@ func LsFiles(c *Client, opt LsFilesOptions, files []File) ([]*IndexEntry, error)
 			otherFiles = append(otherFiles, f)
 		}
 
-		ignorePatterns := []IgnorePattern{}
-
 		if opt.ExcludeStandard {
 			standardPatterns, err := StandardIgnorePatterns(c, otherFiles)
 			if err != nil {
 				return nil, err
 			}
 			ignorePatterns = append(ignorePatterns, standardPatterns...)
-		}
-		for _, pattern := range opt.ExcludePatterns {
-			ignorePatterns = append(ignorePatterns, IgnorePattern{Pattern: pattern, Source: "", LineNum: 1, Scope: ""})
-		}
-
-		for _, file := range opt.ExcludeFiles {
-			patterns, err := ParseIgnorePatterns(c, file, "")
-			if err != nil {
-				return nil, err
-			}
-			ignorePatterns = append(ignorePatterns, patterns...)
 		}
 
 		matches, err := MatchIgnores(c, ignorePatterns, otherFiles)
