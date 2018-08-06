@@ -131,6 +131,12 @@ func checkoutFile(c *Client, entry *IndexEntry, opts CheckoutIndexOptions) error
 				}
 			}
 
+			if f := File(path); f.Exists() && !f.IsDir() {
+				if err := os.Remove(path); err != nil {
+					return err
+				}
+
+			}
 			if err := os.MkdirAll(path, 0755); err != nil {
 				return err
 			}

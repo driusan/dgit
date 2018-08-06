@@ -5,6 +5,7 @@ import (
 	"io/ioutil"
 	"log"
 	"os"
+	"path"
 	"path/filepath"
 	"sort"
 	"strings"
@@ -180,7 +181,8 @@ func LsFiles(c *Client, opt LsFilesOptions, files []File) ([]*IndexEntry, error)
 			// We go through each parent to check if it exists on the filesystem
 			// until we find a directory (which means there's no more files getting
 			// in the way of os.MkdirAll from succeeding in CheckoutIndex)
-			pathparent := filepath.Clean(f.String())
+			pathparent := filepath.Clean(path.Dir(f.String()))
+
 			for pathparent != "" && pathparent != "." {
 				f := File(pathparent)
 				if f.IsDir() {
