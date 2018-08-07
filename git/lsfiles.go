@@ -5,6 +5,7 @@ import (
 	"io/ioutil"
 	"log"
 	"os"
+	"path"
 	"path/filepath"
 	"sort"
 	"strings"
@@ -130,6 +131,9 @@ type LsFilesOptions struct {
 	// Show files which are unmerged. Implies Stage.
 	Unmerged bool
 
+	// Show files which need to be removed for checkout-index to succeed
+	Killed bool
+
 	// If a directory is classified as "other", show only its name, not
 	// its contents
 	Directory bool
@@ -172,6 +176,31 @@ func LsFiles(c *Client, opt LsFilesOptions, files []File) ([]*IndexEntry, error)
 		f, err := entry.PathName.FilePath(c)
 		if err != nil {
 			return nil, err
+		}
+		if opt.Killed {
+			// We go through each parent to check if it exists on the filesystem
+			// until we find a directory (which means there's no more files getting
+			// in the way of os.MkdirAll from succeeding in CheckoutIndex)
+			pathparent := filepath.Clean(path.Dir(f.String()))
+
+			for pathparent != "" && pathparent != "." {
+				f := File(pathparent)
+				if f.IsDir() {
+					// We found a directory, so there's nothing
+					// getting in the way
+					break
+				} else if f.Exists() {
+					// It's not a directory but it exists, so we need to
+					// delete it
+					indexPath, err := f.IndexPath(c)
+					if err != nil {
+						return nil, err
+					}
+					fs = append(fs, &IndexEntry{PathName: indexPath})
+				}
+				// check the next level of the directory path
+				pathparent, _ = filepath.Split(filepath.Clean(pathparent))
+			}
 		}
 
 		if opt.Others || opt.ErrorUnmatch {
