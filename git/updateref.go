@@ -23,7 +23,7 @@ type UpdateRefOptions struct {
 func updateReflog(c *Client, create bool, file File, oldvalue, newvalue Commitish, reason string) error {
 	if !file.Exists() {
 		if !create {
-			return fmt.Errorf("Can not create new reflog for %s. --create-reflog not specified.", file)
+			return nil
 		}
 		if err := file.Create(); err != nil {
 			return err

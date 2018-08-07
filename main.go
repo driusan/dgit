@@ -335,6 +335,11 @@ func main() {
 			fmt.Fprintln(os.Stderr, err)
 			os.Exit(4)
 		}
+	case "tag":
+		if err := cmd.Tag(c, args); err != nil {
+			fmt.Fprintln(os.Stderr, err)
+			os.Exit(1)
+		}
 	case "var":
 		subcommandUsage = "[variable]"
 		if err := cmd.Var(c, args); err != nil {
