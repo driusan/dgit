@@ -32,7 +32,6 @@ func CatFile(c *git.Client, args []string) error {
 		flags.Usage()
 		return nil
 	case 1:
-		println("I am here")
 		shas, err := git.RevParse(c, git.RevParseOptions{}, oargs)
 		if err != nil {
 			return err
