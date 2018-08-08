@@ -190,8 +190,8 @@ func LsFiles(c *Client, opt LsFilesOptions, files []File) ([]*IndexEntry, error)
 					// getting in the way
 					break
 				} else if f.Exists() {
-					// It's not a directory but it exists, so we need to
-					// delete it
+					// It's not a directory but it exists,
+					// so we need to delete it
 					indexPath, err := f.IndexPath(c)
 					if err != nil {
 						return nil, err

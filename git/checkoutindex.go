@@ -124,7 +124,16 @@ func checkoutFile(c *Client, entry *IndexEntry, opts CheckoutIndexOptions) error
 			if err := os.MkdirAll(p, 0777); err != nil {
 				return err
 			}
-
+		} else if !f.IsDir() {
+			// FIXME: This shouldn't be required, this
+			// should be handled by being returned by
+			// ls-files -k before we get to this point.
+			if err := os.Remove(f.String()); err != nil {
+				return err
+			}
+			if err := os.MkdirAll(p, 0777); err != nil {
+				return err
+			}
 		}
 		err := ioutil.WriteFile(f.String(), obj.GetContent(), fmode)
 		if err != nil {
