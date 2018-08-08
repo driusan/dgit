@@ -201,6 +201,13 @@ func LsFiles(c *Client, opt LsFilesOptions, files []File) ([]*IndexEntry, error)
 				// check the next level of the directory path
 				pathparent, _ = filepath.Split(filepath.Clean(pathparent))
 			}
+			if f.IsDir() {
+				indexPath, err := f.IndexPath(c)
+				if err != nil {
+					return nil, err
+				}
+				fs = append(fs, &IndexEntry{PathName: indexPath})
+			}
 		}
 
 		if opt.Others || opt.ErrorUnmatch {

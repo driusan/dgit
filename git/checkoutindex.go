@@ -6,7 +6,7 @@ import (
 	"io"
 	"io/ioutil"
 	"os"
-	"path"
+	"path/filepath"
 	"strconv"
 	"strings"
 )
@@ -113,33 +113,18 @@ func checkoutFile(c *Client, entry *IndexEntry, opts CheckoutIndexOptions) error
 	}
 	if !opts.NoCreate {
 		fmode := os.FileMode(entry.Mode)
-		if path := path.Dir(f.String()); path != "." {
-			if opts.Force {
-				killed, err := LsFiles(c, LsFilesOptions{Killed: true}, nil)
-				if err != nil {
-					return err
-				}
-				for _, file := range killed {
-					f, err := file.PathName.FilePath(c)
-					if err != nil {
-						return err
-					}
-
-					if err := os.Remove(f.String()); err != nil {
-						return err
-					}
-				}
-			}
-
-			if f := File(path); f.Exists() && !f.IsDir() {
-				if err := os.Remove(path); err != nil {
-					return err
-				}
-
-			}
-			if err := os.MkdirAll(path, 0755); err != nil {
+		if f.Exists() && f.IsDir() {
+			if err := os.RemoveAll(f.String()); err != nil {
 				return err
 			}
+		}
+
+		p := filepath.Dir(f.String())
+		if f := File(p); !f.Exists() {
+			if err := os.MkdirAll(p, 0777); err != nil {
+				return err
+			}
+
 		}
 		err := ioutil.WriteFile(f.String(), obj.GetContent(), fmode)
 		if err != nil {
@@ -177,6 +162,39 @@ func CheckoutIndexUncommited(c *Client, idx *Index, opts CheckoutIndexOptions, f
 				return err
 			}
 			files = append(files, f)
+		}
+	}
+
+	killed, err := LsFiles(c, LsFilesOptions{Killed: true}, files)
+	if err != nil {
+		return err
+	}
+	if len(killed) > 0 {
+		if !opts.Force {
+			msg := ""
+			for i, path := range killed {
+				if i > 0 {
+					msg += "\n"
+
+				}
+				f, err := path.PathName.FilePath(c)
+				if err != nil {
+					return err
+				}
+				msg += fmt.Sprintf("fatal: cannot create directory at '%v': File exists", f)
+			}
+			return fmt.Errorf("%v", msg)
+		} else {
+			for _, file := range killed {
+				f, err := file.PathName.FilePath(c)
+				if err != nil {
+					return err
+				}
+
+				if err := os.RemoveAll(f.String()); err != nil {
+					return err
+				}
+			}
 		}
 	}
 
