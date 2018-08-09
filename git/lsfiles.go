@@ -190,8 +190,8 @@ func LsFiles(c *Client, opt LsFilesOptions, files []File) ([]*IndexEntry, error)
 					// getting in the way
 					break
 				} else if f.Exists() {
-					// It's not a directory but it exists, so we need to
-					// delete it
+					// It's not a directory but it exists,
+					// so we need to delete it
 					indexPath, err := f.IndexPath(c)
 					if err != nil {
 						return nil, err
@@ -200,6 +200,13 @@ func LsFiles(c *Client, opt LsFilesOptions, files []File) ([]*IndexEntry, error)
 				}
 				// check the next level of the directory path
 				pathparent, _ = filepath.Split(filepath.Clean(pathparent))
+			}
+			if f.IsDir() {
+				indexPath, err := f.IndexPath(c)
+				if err != nil {
+					return nil, err
+				}
+				fs = append(fs, &IndexEntry{PathName: indexPath})
 			}
 		}
 

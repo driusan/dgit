@@ -63,7 +63,7 @@ func (f File) Lstat() (os.FileInfo, error) {
 }
 
 func (f File) IsDir() bool {
-	stat, err := f.Stat()
+	stat, err := f.Lstat()
 	if err != nil {
 		// If we couldn't stat it, it's not a directory..
 		return false
