@@ -90,7 +90,48 @@ func (i *FixedIndexEntry) RefreshStat(f File) error {
 	i.Mtime = fmtime
 	i.Fsize = uint32(stat.Size())
 	i.Ctime, i.Ctimenano = f.CTime()
+	i.Ino = f.INode()
+	return nil
+}
 
+// Refreshes the stat information for this entry in the index against
+// the stat info on the filesystem for things that we know about.
+func (i *FixedIndexEntry) CompareStat(f File) error {
+	log.Printf("Comparing stat info for %v\n", f)
+	// FIXME: Add other stat info here too, but these are the
+	// most important ones and the onlye ones that the os package
+	// exposes in a cross-platform way.
+	stat, err := f.Lstat()
+	if err != nil {
+		return err
+	}
+	fmtime, err := f.MTime()
+	if err != nil {
+		return err
+	}
+	if i.Mtime != fmtime {
+		return fmt.Errorf("MTime does not match for %v", f)
+	}
+	if f.IsSymlink() {
+		dst, err := os.Readlink(string(f))
+		if err != nil {
+			return err
+		}
+		if int(i.Fsize) != len(dst) {
+			return fmt.Errorf("Size does not match for symlink %v", f)
+		}
+	} else {
+		if i.Fsize != uint32(stat.Size()) {
+			return fmt.Errorf("Size does not match for %v", f)
+		}
+	}
+	ctime, ctimenano := f.CTime()
+	if i.Ctime != ctime || i.Ctimenano != ctimenano {
+		return fmt.Errorf("CTime does not match for %v", f)
+	}
+	if i.Ino != f.INode() {
+		return fmt.Errorf("INode does not match for %v", f)
+	}
 	return nil
 }
 
@@ -228,6 +269,9 @@ func (g *Index) AddStage(c *Client, path IndexPath, mode EntryMode, s Sha1, stag
 	}
 
 	replaceEntriesCheck := func() error {
+		if stage != Stage0 {
+			return nil
+		}
 		// If replace is true then we search for any entries that
 		//  should be replaced with this one.
 		newObjects := make([]*IndexEntry, 0, len(g.Objects))
@@ -259,17 +303,20 @@ func (g *Index) AddStage(c *Client, path IndexPath, mode EntryMode, s Sha1, stag
 				return err
 			}
 
+			file, _ := path.FilePath(c)
+			if file.Exists() && stage == Stage0 {
+				// FIXME: mtime/fsize/etc and ctime should either all be
+				// from the filesystem, or all come from the caller
+				// For now we just refresh the stat, and then overwrite with
+				// the stuff from the caller.
+				log.Println("Refreshing stat for", path)
+				if err := entry.RefreshStat(c); err != nil {
+					return err
+				}
+			}
 			entry.Sha1 = s
 			entry.Mtime = mtime
 			entry.Fsize = size
-
-			file, _ := path.FilePath(c)
-			if file.Exists() {
-				// FIXME: mtime/fsize/etc and ctime should either all be
-				// from the filesystem, or all come from the caller
-				entry.Ctime, entry.Ctimenano = file.CTime()
-			}
-
 			return nil
 		}
 	}
@@ -304,8 +351,7 @@ func (g *Index) AddStage(c *Client, path IndexPath, mode EntryMode, s Sha1, stag
 	if err := replaceEntriesCheck(); err != nil {
 		return err
 	}
-
-	g.Objects = append(g.Objects, &IndexEntry{
+	newentry := &IndexEntry{
 		FixedIndexEntry{
 			0, //uint32(csec),
 			0, //uint32(cnano),
@@ -320,7 +366,10 @@ func (g *Index) AddStage(c *Client, path IndexPath, mode EntryMode, s Sha1, stag
 			flags,
 		},
 		path,
-	})
+	}
+	newentry.RefreshStat(c)
+
+	g.Objects = append(g.Objects, newentry)
 	g.NumberIndexEntries += 1
 	sort.Sort(ByPath(g.Objects))
 	return nil
@@ -455,13 +504,6 @@ func (i *Index) GetUnmerged() map[IndexPath]*UnmergedPath {
 	}
 	return r
 }
-func (i *Index) GetMap() map[IndexPath]*IndexEntry {
-	r := make(map[IndexPath]*IndexEntry)
-	for _, entry := range i.Objects {
-		r[entry.PathName] = entry
-	}
-	return r
-}
 
 // Remove the first instance of file from the index. (This will usually
 // be stage 0.)
@@ -516,13 +558,29 @@ type ByPath []*IndexEntry
 func (g ByPath) Len() int      { return len(g) }
 func (g ByPath) Swap(i, j int) { g[i], g[j] = g[j], g[i] }
 func (g ByPath) Less(i, j int) bool {
-	if g[i].PathName < g[j].PathName {
-		return true
-	} else if g[i].PathName == g[j].PathName {
+	if g[i].PathName == g[j].PathName {
 		return g[i].Stage() < g[j].Stage()
-	} else {
-		return false
 	}
+	ibytes := []byte(g[i].PathName)
+	jbytes := []byte(g[j].PathName)
+	for k := range ibytes {
+		if k >= len(jbytes) {
+			// We reached the end of j and there was stuff
+			// leftover in i, so i > j
+			return false
+		}
+
+		// If a character is not equal, return if it's
+		// less or greater
+		if ibytes[k] < jbytes[k] {
+			return true
+		} else if ibytes[k] > jbytes[k] {
+			return false
+		}
+	}
+	// Everything equal up to the end of i, and there is stuff
+	// left in j, so i < j
+	return true
 }
 
 // Replaces the index of Client with the the tree from the provided Treeish.
@@ -545,4 +603,32 @@ func (g Index) String() string {
 		ret += fmt.Sprintf("%v %v %v\n", i.Mode, i.Sha1, i.PathName)
 	}
 	return ret
+}
+
+type IndexMap map[IndexPath]*IndexEntry
+
+func (i *Index) GetMap() IndexMap {
+	r := make(IndexMap)
+	for _, entry := range i.Objects {
+		r[entry.PathName] = entry
+	}
+	return r
+}
+
+func (im IndexMap) Contains(path IndexPath) bool {
+	if _, ok := im[path]; ok {
+		return true
+	}
+
+	// Check of there is a directory named path in the IndexMap
+	return im.HasDir(path)
+}
+
+func (im IndexMap) HasDir(path IndexPath) bool {
+	for _, im := range im {
+		if strings.HasPrefix(string(im.PathName), string(path+"/")) {
+			return true
+		}
+	}
+	return false
 }

@@ -16,6 +16,9 @@ type DiffCommonOptions struct {
 
 	// Generate the diff in raw format, not a unified diff
 	Raw bool
+
+	// Exit with a exit code of 1 if there are any diffs
+	ExitCode bool
 }
 
 // Describes the options that may be specified on the command line for
@@ -74,27 +77,19 @@ func DiffFiles(c *Client, opt DiffFilesOptions, paths []File) ([]HashDiff, error
 		default:
 			fs.FileMode = ModeBlob
 		}
-		mtime, err := f.MTime()
-		if err != nil {
-			return nil, err
-		}
 		size := stat.Size()
-		ctm, ctmn := f.CTime()
-		log.Printf("%v: Mtime %v idxmtime %v Size: %v idxsize: %v ctime: %v ctimenano:%v\n", f, mtime, idx.Mtime, size, idx.Fsize, idx.Ctime, idx.Ctimenano)
-		if mtime != idx.Mtime || size != int64(idx.Fsize) || ctm != idx.Ctime || ctmn != idx.Ctimenano {
+		if err := idx.CompareStat(f); err != nil {
+			log.Printf("Stat information does not match for %v: %v\n", f, err)
 			val = append(val, HashDiff{idx.PathName, idxtree, fs, uint(idx.Fsize), uint(size)})
 			continue
 		}
 
-		// The real git client appears to only compare lstat information and not hash the file. In fact,
-		// if we hash the file then the official git test suite fails on the basic tests. Go, unfortunately,
-		// only exposes mtime in an easy, cross-platform way, not ctime without going through the sys package
-		if idx.Ctime == 0 {
-			hash, _, err := HashFile("blob", f.String())
+		// We couldn't short-circuit by checking the stat info, so fall back on hashing
+		// the file.
+		hash, _, err := HashFile("blob", f.String())
 
-			if err != nil || hash != idx.Sha1 {
-				val = append(val, HashDiff{idx.PathName, idxtree, fs, uint(idx.Fsize), uint(size)})
-			}
+		if err != nil || hash != idx.Sha1 {
+			val = append(val, HashDiff{idx.PathName, idxtree, fs, uint(idx.Fsize), uint(size)})
 		}
 	}
 

@@ -71,7 +71,15 @@ func ReadTree(c *git.Client, args []string) error {
 		if err != nil {
 			return err
 		}
-	case 3:
+	default:
+		// The last test in the t1000-read-tree-m-3way.sh test suite calls
+		// "git read-tree -m $tree0 $tree1 $tree1 $tree0" and expects it to
+		// succeed.
+		//
+		// git-read-tree(1) doesn't really have any guidance on how to interpret
+		// a command that looks like that, so we just treat everything that
+		// has >= 3 trees as a 3-way merge, discarding trees after the first
+		// three and hope for the best.
 		stage1, err := git.RevParseTreeish(c, &git.RevParseOptions{}, args[0])
 		if err != nil {
 			return err
@@ -84,13 +92,10 @@ func ReadTree(c *git.Client, args []string) error {
 		if err != nil {
 			return err
 		}
-		_, err = git.ReadTreeMerge(c, options, stage1, stage2, stage3)
+		_, err = git.ReadTreeThreeWay(c, options, stage1, stage2, stage3)
 		if err != nil {
 			return err
 		}
-	default:
-		flags.Usage()
-		return fmt.Errorf("Invalid usage")
 	}
 	return nil
 }

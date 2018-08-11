@@ -22,14 +22,11 @@ func Init(c *git.Client, args []string) error {
 
 	flags.BoolVar(&opts.Bare, "bare", false, "Create bare repository")
 	flags.BoolVar(&opts.Quiet, "quiet", false, "Only print errors or warnings")
+	flags.BoolVar(&opts.Quiet, "q", false, "Alias of --quiet")
 	var template string
 	flags.StringVar(&template, "template", "", "Specify the template directory that will be used")
-	q := flags.Bool("q", false, "Alias of --quiet")
 
 	flags.Parse(args)
-	if *q {
-		opts.Quiet = true
-	}
 	args = flags.Args()
 	var dir string
 	switch len(args) {

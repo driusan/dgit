@@ -26,6 +26,17 @@ func parseDate(str string) (time.Time, error) {
 	if t, err := time.Parse("2006-01-02T15:04:05", str); err == nil {
 		return t, nil
 	}
+	// YYYY-MM-DD HH:MM with a separate TZ environment variable
+	if t, err := time.Parse("2006-01-02 15:04", str); err == nil {
+		// FIXME: Investigate whether git and Go have the same interpretation
+		// of locations. This is probably not accurate.
+		loc, err := time.LoadLocation(os.Getenv("TZ"))
+		if err != nil {
+			return time.Time{}, err
+		}
+		return t.In(loc), nil
+	}
+
 	// Git Internal format doesn't parse with time.Parse, so we manually parse it..
 	re, err := regexp.Compile("([0-9]+) ([+-])([0-9]{4})")
 	if err != nil {

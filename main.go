@@ -63,6 +63,7 @@ func main() {
 	workdir := flag.String("work-tree", "", "specify the working directory of git")
 	gitdir := flag.String("git-dir", "", "specify the repository of git")
 	dir := flag.String("C", "", "chdir before starting git")
+	superprefix := flag.String("super-prefix", "", "useless option used internally by git test suite")
 
 	flag.Usage = func() {
 		if subcommand == "" {
@@ -97,6 +98,9 @@ func main() {
 	if c != nil && c.GitDir == "" && requiresGitDir(subcommand) {
 		fmt.Fprint(os.Stderr, "Could not find .git directory\n")
 		os.Exit(4)
+	}
+	if *superprefix != "" {
+		c.SuperPrefix = *superprefix
 	}
 
 	switch subcommand {
@@ -185,7 +189,11 @@ func main() {
 			os.Exit(2)
 		}
 	case "fetch":
-		cmd.Fetch(c, args)
+		subcommandUsage = "[<repository>]"
+		if err := cmd.Fetch(c, args); err != nil {
+			fmt.Fprintf(os.Stderr, "%v\n", err)
+			os.Exit(2)
+		}
 	case "reset":
 		if err := cmd.Reset(c, args); err != nil {
 			fmt.Fprintf(os.Stderr, "%v\n", err)
@@ -327,6 +335,11 @@ func main() {
 			fmt.Fprintln(os.Stderr, err)
 			os.Exit(4)
 		}
+	case "tag":
+		if err := cmd.Tag(c, args); err != nil {
+			fmt.Fprintln(os.Stderr, err)
+			os.Exit(1)
+		}
 	case "var":
 		subcommandUsage = "[variable]"
 		if err := cmd.Var(c, args); err != nil {
@@ -357,9 +370,9 @@ func main() {
    update-ref
    log              
    symbolic-ref
-   clone          
+   clone          Clone a repository into a new directory   
    config
-   fetch          
+   fetch          Download objects and refs from another repository
    reset
    merge-file
    merge
