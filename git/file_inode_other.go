@@ -4,6 +4,6 @@
 
 package git
 
-func (f File) Inode() uint32 {
+func (f File) INode() uint32 {
 	return 0
 }
