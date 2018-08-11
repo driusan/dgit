@@ -7,6 +7,9 @@ go:
 go_import_path: github.com/driusan/dgit
 
 script:
+    - GOOS=darwin go build
+    - GOOS=plan9 go build
+    - GOOS=windows go build
     - pwd
     - diff -u <(echo -n) <(gofmt -d ./)
     - go test -v ./...
