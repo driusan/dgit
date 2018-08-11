@@ -10,5 +10,5 @@ func (f File) INode() uint32 {
 		return 0, 0
 	}
 	rawstat := stat.Sys().(*syscall.Stat_t)
-	return int32(rawstat.Ino)
+	return uint32(rawstat.Ino)
 }
