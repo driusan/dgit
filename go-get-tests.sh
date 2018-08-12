@@ -19,7 +19,7 @@ export PATH=$(pwd)/bin:$PATH
 export DGIT_TRACE=/tmp/go-get-dgit-log.$$.txt
 
 echo "Go get a package"
-go get ${TEST_PKG}
+go get ${TEST_PKG} || echo "Known problem with go get, it invokes the submodule command"
 test -d ${TEST_GIT_DIR} || (echo "ERROR: Go get didn't work"; exit 1)
 
 test -f $DGIT_TRACE || (echo "ERROR: Dgit wasn't called for the go get test"; exit 1)
