@@ -13,18 +13,8 @@ script:
     - pwd
     - diff -u <(echo -n) <(gofmt -d ./)
     - go test -v ./...
-    # Perform go get tests
-    - export ORIG_PATH=$PATH
-    - export ORIG_GIT=$(which git)
-    - go build
-    - mkdir bin
-    - cp dgit bin/git
-    - export PATH=$(pwd/bin):$PATH
-    - go get github.com/golang/protobuf/proto
-    - $ORIG_GIT -C ../../golang/protobuf reset HEAD^1
-    - $ORIG_GIT -C ../../golang/protobuf checkout .
-    - go get -u github.com/golang/protobuf/proto
-    - $ORIG_GIT -C ../../golang/protobuf status
+    - chmod u+x ./go-get-tests.sh
+    - ./go-get-tests.sh
     - chmod u+x ./official-git/run-tests.sh
     # t0008 tests that are skipped require ! to negate a pattern. (GitHub issue #72)
     # t3000.7 requires git pack-refs
