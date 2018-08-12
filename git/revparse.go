@@ -127,6 +127,9 @@ func RevParseTreeish(c *Client, opt *RevParseOptions, arg string) (Treeish, erro
 		}
 	}
 
+	if rs := c.GitDir.File("refs/tags/" + File(arg)); rs.Exists() {
+		return RefSpec("refs/tags/" + arg), nil
+	}
 	// arg was not a Sha or a symbolic ref, it might still be a branch.
 	// (This will return an error if arg is an invalid branch.)
 	if b, err := GetBranch(c, arg); err == nil {
@@ -151,6 +154,10 @@ func RevParseCommitish(c *Client, opt *RevParseOptions, arg string) (Commitish, 
 			return b, nil
 		}
 	}
+	if rs := c.GitDir.File("refs/tags/" + File(arg)); rs.Exists() {
+		return RefSpec("refs/tags/" + arg), nil
+	}
+
 	// arg was not a Sha or a valid symbolic ref, it might still be a branch
 	return GetBranch(c, arg)
 }
