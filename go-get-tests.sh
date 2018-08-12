@@ -13,10 +13,15 @@ echo "Adding dgit to the path"
 go build
 mkdir bin
 cp dgit bin/git
-export PATH=$(pwd/bin):$PATH
+export PATH=$(pwd)/bin:$PATH
+
+export DGIT_TRACE=/tmp/go-get-dgit-log.$$.txt
 
 echo "Go get a package"
 go get ${TEST_PKG}
+
+test -f $DGIT_TRACE || echo "ERROR: Dgit wasn't called for the go get test"
+unset DGIT_TRACE
 
 echo "Reset the package back one commit from master"
 $ORIG_GIT -C ${TEST_GIT_DIR} reset HEAD^1
