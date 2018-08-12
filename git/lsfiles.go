@@ -29,7 +29,7 @@ func findUntrackedFilesFromDir(c *Client, opts LsFilesOptions, root, parent, dir
 
 			patterns, err := ParseIgnorePatterns(c, ignoreInDir, dir)
 			if err != nil {
-				panic(err)
+				continue
 			}
 			ignorePatterns = append(ignorePatterns, patterns...)
 		}
@@ -289,7 +289,6 @@ func LsFiles(c *Client, opt LsFilesOptions, files []File) ([]*IndexEntry, error)
 				return nil, err
 			}
 			if _, ok := filesInIndex[indexPath]; !ok {
-				fmt.Printf("%v", filesInIndex)
 				return nil, fmt.Errorf("error: pathspec '%v' did not match any file(s) known to git", file)
 			}
 		}

@@ -564,7 +564,7 @@ func checkMergeAndUpdate(c *Client, opt ReadTreeOptions, origidx map[IndexPath]*
 	filemap := make(map[File]*IndexEntry)
 	files := make([]File, 0, len(newidx.Objects))
 
-	if opt.Merge || opt.Reset {
+	if opt.Merge || opt.Reset || opt.Update {
 		// Verify that merge won't overwrite anything that's been modified locally.
 		for _, entry := range newidx.Objects {
 			f, err := entry.PathName.FilePath(c)
@@ -572,7 +572,7 @@ func checkMergeAndUpdate(c *Client, opt ReadTreeOptions, origidx map[IndexPath]*
 				return err
 			}
 
-			if f.IsDir() && opt.Update {
+			if opt.Update && f.IsDir() {
 				untracked, err := LsFiles(c, LsFilesOptions{Others: true, Modified: true}, []File{f})
 				if err != nil {
 					return err
@@ -592,7 +592,23 @@ func checkMergeAndUpdate(c *Client, opt ReadTreeOptions, origidx map[IndexPath]*
 			orig, ok := origidx[entry.PathName]
 			if !ok {
 				// If it wasn't in the original index, make sure
-				// we check it out.
+				// we check it out after verifying there's not
+				// already something there.
+				if opt.Update && f.Exists() {
+					lsopts := LsFilesOptions{Others: true}
+					if opt.ExcludePerDirectory != "" {
+						lsopts.ExcludePerDirectory = []File{File(opt.ExcludePerDirectory)}
+					}
+					untracked, err := LsFiles(c, lsopts, []File{f})
+					if err != nil {
+						return err
+					}
+					if len(untracked) > 0 {
+						if !entry.PathName.IsClean(c, entry.Sha1) {
+							return fmt.Errorf("Untracked working tree file '%v' would be overwritten by merge", f)
+						}
+					}
+				}
 				file, err := entry.PathName.FilePath(c)
 				if err != nil {
 					return err

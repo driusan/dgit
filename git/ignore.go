@@ -182,6 +182,8 @@ func ParseIgnorePatterns(c *Client, patternFile File, scope File) ([]IgnorePatte
 
 			if err == io.EOF {
 				isEof = true
+			} else if err != nil {
+				return nil, err
 			}
 			break
 		}
