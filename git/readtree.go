@@ -555,10 +555,14 @@ func checkMergeAndUpdate(c *Client, opt ReadTreeOptions, origidx map[IndexPath]*
 		(opt.Reset && (opt.Prefix != "" || opt.Merge)) {
 		return fmt.Errorf("Can only specify one of -u, --reset, or --prefix")
 	}
+	if opt.ExcludePerDirectory != "" && !opt.Update {
+		return fmt.Errorf("--exclude-per-directory is meaningless without -u")
+	}
 
 	// Keep a list of index entries to be updated by CheckoutIndex.
-	files := make([]File, 0, len(newidx.Objects))
+	//files := make([]File, 0, len(newidx.Objects))
 	filemap := make(map[File]*IndexEntry)
+	files := make([]File, 0, len(newidx.Objects))
 
 	if opt.Merge || opt.Reset {
 		// Verify that merge won't overwrite anything that's been modified locally.

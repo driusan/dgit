@@ -29,7 +29,12 @@ func ReadTree(c *git.Client, args []string) error {
 	flags.BoolVar(&options.AggressiveMerge, "aggressive", false, "Perform more aggressive trivial merges.")
 
 	flags.StringVar(&options.Prefix, "prefix", "", "Use the index from prefix/. Must end in slash.")
-	flags.StringVar(&options.ExcludePerDirectory, "exclude-per-directory", "", "Allow overwriting .gitignored files")
+
+	// You can only set --exclude-per-directory once for read-tree (the git test suite enforces
+	// this), but we need to treat it as a multi-string var in order to return the correct error
+	var epd []string
+	flags.Var(newMultiStringValue(&epd), "exclude-per-directory", "Allow overwriting .gitignored files")
+	////flags.StringVar(&options.ExcludePerDirectory, "exclude-per-directory", "", "Allow overwriting .gitignored files")
 
 	flags.StringVar(&options.IndexOutput, "index-output", "index", "Name of the file to read the tree into")
 	flags.BoolVar(&options.NoSparseCheckout, "no-sparse-checkout", false, "Disable sparse checkout")
@@ -39,6 +44,17 @@ func ReadTree(c *git.Client, args []string) error {
 
 	flags.Parse(args)
 	args = flags.Args()
+
+	// Handle --exclude-per-directory and convert it to the options
+	switch len(epd) {
+	case 0:
+		// Nothing
+	case 1:
+		options.ExcludePerDirectory = epd[0]
+	default:
+		return fmt.Errorf("Can only specify --exclude-per-directory once")
+	}
+
 	switch len(args) {
 	case 0:
 		if !options.Empty {
