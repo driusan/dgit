@@ -42,6 +42,14 @@ func (r RefSpec) CommitID(c *Client) (CommitID, error) {
 	return CommitIDFromString(v)
 }
 
+func (r RefSpec) TreeID(c *Client) (TreeID, error) {
+	cmt, err := r.CommitID(c)
+	if err != nil {
+		return TreeID{}, err
+	}
+	return cmt.TreeID(c)
+}
+
 // A Branch is a type of RefSpec that lives under refs/heads/ or refs/remotes/heads
 // Use GetBranch to get a valid branch from a branchname, don't cast from string
 type Branch RefSpec
