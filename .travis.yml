@@ -24,6 +24,7 @@ script:
     - $ORIG_GIT -C ../../golang/protobuf reset HEAD^1
     - $ORIG_GIT -C ../../golang/protobuf checkout .
     - go get -u github.com/golang/protobuf/proto
+    - $ORIG_GIT -C ../../golang/protobuf status
     - chmod u+x ./official-git/run-tests.sh
     # t0008 tests that are skipped require ! to negate a pattern. (GitHub issue #72)
     # t3000.7 requires git pack-refs
