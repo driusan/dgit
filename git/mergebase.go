@@ -9,6 +9,23 @@ type MergeBaseOptions struct {
 }
 
 func MergeBase(c *Client, options MergeBaseOptions, commits []Commitish) (CommitID, error) {
+	if len(commits) == 2 {
+		// If there's only two commits specified, and one is
+		// an ancestor of the other, than that one is the merge-base
+		cmt0, err := commits[0].CommitID(c)
+		if err != nil {
+			return CommitID{}, err
+		}
+		cmt1, err := commits[1].CommitID(c)
+		if err != nil {
+			return CommitID{}, err
+		}
+		if cmt0.IsAncestor(c, cmt1) {
+			return cmt0, nil
+		} else if cmt1.IsAncestor(c, cmt0) {
+			return cmt1, nil
+		}
+	}
 	if options.Octopus {
 		return MergeBaseOctopus(c, options, commits)
 	}
