@@ -30,6 +30,8 @@ $ORIG_GIT -C ${TEST_GIT_DIR} reset HEAD^1
 $ORIG_GIT -C ${TEST_GIT_DIR} checkout .
 
 # UNCOMMENT THE FOLLOWING ONCE PULL IS IMPLEMENTED
+git -C ${TEST_GIT_DIR} fetch origin
+git -C ${TEST_GIT_DIR} merge origin/master
 #echo "Run go get -u on the package"
 #go get -u github.com/golang/protobuf/proto
 
