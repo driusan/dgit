@@ -173,6 +173,13 @@ func CheckoutCommit(c *Client, opts CheckoutOptions, commit Commitish) error {
 		}
 	}
 
+	if opts.Branch != "" {
+		if err := c.CreateBranch(opts.Branch, cid); err != nil {
+			return err
+		}
+		refmsg := fmt.Sprintf("checkout: moving from %s to %s (dgit)", origB, opts.Branch)
+		return SymbolicRefUpdate(c, SymbolicRefOptions{}, "HEAD", RefSpec("refs/heads/"+opts.Branch), refmsg)
+	}
 	if b, ok := commit.(Branch); ok && !opts.Detach {
 		// We're checking out a branch, first read the new tree, and
 		// then update the SymbolicRef for HEAD, if that succeeds.
@@ -182,13 +189,6 @@ func CheckoutCommit(c *Client, opts CheckoutOptions, commit Commitish) error {
 	refmsg := fmt.Sprintf("checkout: moving from %s to %s (dgit)", origB, cid)
 	if err := UpdateRef(c, UpdateRefOptions{NoDeref: true, OldValue: head}, "HEAD", cid, refmsg); err != nil {
 		return err
-	}
-	if opts.Branch != "" {
-		if err := c.CreateBranch(opts.Branch, cid); err != nil {
-			return err
-		}
-		refmsg := fmt.Sprintf("checkout: moving from %s to %s (dgit)", origB, opts.Branch)
-		return SymbolicRefUpdate(c, SymbolicRefOptions{}, "HEAD", RefSpec("refs/heads/"+opts.Branch), refmsg)
 	}
 	return nil
 }
