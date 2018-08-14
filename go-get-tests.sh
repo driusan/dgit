@@ -7,8 +7,8 @@ echo "Running go get tests"
 export ORIG_PATH=$PATH
 export ORIG_GIT=$(which git)
 
-export TEST_PKG=github.com/golang/protobuf/proto
-export TEST_GIT_DIR=../../golang/protobuf
+export TEST_PKG=github.com/sirnewton01/gdblib
+export TEST_GIT_DIR=../../sirnewton01/gdblib:wq
 
 echo "Adding dgit to the path"
 go build
