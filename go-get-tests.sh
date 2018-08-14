@@ -8,7 +8,7 @@ export ORIG_PATH=$PATH
 export ORIG_GIT=$(which git)
 
 export TEST_PKG=github.com/sirnewton01/gdblib
-export TEST_GIT_DIR=../../sirnewton01/gdblib:wq
+export TEST_GIT_DIR=../../sirnewton01/gdblib
 
 echo "Adding dgit to the path"
 go build
