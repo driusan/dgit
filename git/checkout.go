@@ -22,8 +22,8 @@ type CheckoutOptions struct {
 	// Not implemented
 	Stage Stage
 
-	// Not implemented
 	Branch string // -b
+
 	// Not implemented
 	ForceBranch bool // use branch as -B
 	// Not implemented
@@ -135,8 +135,16 @@ func CheckoutCommit(c *Client, opts CheckoutOptions, commit Commitish) error {
 		}
 	}
 	// Get the original HEAD for the reflog
+	var head Commitish
 	head, err := SymbolicRefGet(c, SymbolicRefOptions{}, "HEAD")
-	if err != nil && err != DetachedHead {
+	switch err {
+	case DetachedHead:
+		head, err = c.GetHeadCommit()
+		if err != nil {
+			return err
+		}
+	case nil:
+	default:
 		return err
 	}
 
@@ -157,15 +165,23 @@ func CheckoutCommit(c *Client, opts CheckoutOptions, commit Commitish) error {
 
 	var origB string
 	// Get the original HEAD branchname for the reflog
-	origB = Branch(head).BranchName()
-	if branch := Branch(head).BranchName(); branch != "" {
-		origB = branch
-	} else {
+	//origB = Branch(head).BranchName()
+	switch h := head.(type) {
+	case RefSpec:
+		origB = Branch(h).BranchName()
+	default:
 		if h, err := head.CommitID(c); err == nil {
 			origB = h.String()
 		}
 	}
 
+	if opts.Branch != "" {
+		if err := c.CreateBranch(opts.Branch, cid); err != nil {
+			return err
+		}
+		refmsg := fmt.Sprintf("checkout: moving from %s to %s (dgit)", origB, opts.Branch)
+		return SymbolicRefUpdate(c, SymbolicRefOptions{}, "HEAD", RefSpec("refs/heads/"+opts.Branch), refmsg)
+	}
 	if b, ok := commit.(Branch); ok && !opts.Detach {
 		// We're checking out a branch, first read the new tree, and
 		// then update the SymbolicRef for HEAD, if that succeeds.
