@@ -22,8 +22,10 @@ type CheckoutOptions struct {
 	// Not implemented
 	Stage Stage
 
-	Branch      string // -b
-	ForceBranch bool   // use branch as -B
+	Branch string // -b
+
+	// Not implemented
+	ForceBranch bool // use branch as -B
 	// Not implemented
 	OrphanBranch bool // use branch as --orphan
 
