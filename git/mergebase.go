@@ -9,6 +9,25 @@ type MergeBaseOptions struct {
 }
 
 func MergeBase(c *Client, options MergeBaseOptions, commits []Commitish) (CommitID, error) {
+	if len(commits) == 2 {
+		// If there's only two commits specified, and one is
+		// an ancestor of the other, than that one is the merge-base
+		// (ie it's a fast-forward, so the earlier ancestor is always
+		// the merge-base)
+		cmt0, err := commits[0].CommitID(c)
+		if err != nil {
+			return CommitID{}, err
+		}
+		cmt1, err := commits[1].CommitID(c)
+		if err != nil {
+			return CommitID{}, err
+		}
+		if cmt0.IsAncestor(c, cmt1) {
+			return cmt0, nil
+		} else if cmt1.IsAncestor(c, cmt0) {
+			return cmt1, nil
+		}
+	}
 	if options.Octopus {
 		return MergeBaseOctopus(c, options, commits)
 	}
@@ -36,13 +55,19 @@ func MergeBase(c *Client, options MergeBaseOptions, commits []Commitish) (Commit
 		// of another commit that was passed. If so, this is
 		// the common ancestor of the "hypothetical merge commit"
 		// that git-merge-base(1) talks about.
-		for _, parent := range commits[1:] {
-			cmt2, err := parent.CommitID(c)
+		for _, level := range nextlevel {
+			check, err := level.CommitID(c)
 			if err != nil {
 				return CommitID{}, err
 			}
-			if cmt2.IsAncestor(c, cmt) {
-				return cmt2, nil
+			for _, otherhead := range commits[1:] {
+				othercmt, err := otherhead.CommitID(c)
+				if err != nil {
+					return CommitID{}, err
+				}
+				if check.IsAncestor(c, othercmt) {
+					return check, nil
+				}
 			}
 		}
 
