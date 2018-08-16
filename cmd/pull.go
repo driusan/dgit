@@ -27,47 +27,47 @@ func Pull(c *git.Client, args []string) error {
 		flags.Var(newNotimplStringValue(), sf, "Not implemented")
 	}
 
-        mergeopts := git.MergeOptions{}
+	mergeopts := git.MergeOptions{}
 
-        flags.BoolVar(&mergeopts.FastForwardOnly, "ff-only", false, "Only allow fast-forward merges")
-        flags.BoolVar(&mergeopts.NoFastForward, "no-ff", false, "Create a merge commit even when it's a fast-forward merge.")
+	flags.BoolVar(&mergeopts.FastForwardOnly, "ff-only", false, "Only allow fast-forward merges")
+	flags.BoolVar(&mergeopts.NoFastForward, "no-ff", false, "Create a merge commit even when it's a fast-forward merge.")
 
 	flags.Parse(args)
 
 	var repository string
-        var refspec []string
+	var refspec []string
 	if flags.NArg() < 1 {
 		repository = "origin" // FIXME origin is the default unless the current branch unless there is an upstream branch configured for the current branch
-                refspec = []string{"origin/master"}
+		refspec = []string{"origin/master"}
 	} else if flags.NArg() == 1 {
 		repository = flags.Arg(0)
-                refspec = []string{repository + "/master"}
-        } else if flags.NArg() >= 2 {
-                repository = flag.Arg(0)
-                refspec = flag.Args()[1:]
+		refspec = []string{repository + "/master"}
+	} else if flags.NArg() >= 2 {
+		repository = flag.Arg(0)
+		refspec = flag.Args()[1:]
 	} else {
 		flags.Usage()
 		os.Exit(1)
 	}
 
 	err := git.Fetch(c, fetchopts, repository)
-        if err != nil {
-                return err
-        }
+	if err != nil {
+		return err
+	}
 
-        others := make([]git.Commitish, 0, len(refspec))
-        for _, name := range refspec {
-                c, err := git.RevParseCommitish(c, &git.RevParseOptions{}, name)
-                if err != nil {
-                        return err
-                }
-                others = append(others, c)
-        }
+	others := make([]git.Commitish, 0, len(refspec))
+	for _, name := range refspec {
+		c, err := git.RevParseCommitish(c, &git.RevParseOptions{}, name)
+		if err != nil {
+			return err
+		}
+		others = append(others, c)
+	}
 
-        err = git.Merge(c, mergeopts, others)
-        if err != nil {
-                return err
-        }
+	err = git.Merge(c, mergeopts, others)
+	if err != nil {
+		return err
+	}
 
-        return nil
+	return nil
 }
