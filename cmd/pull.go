@@ -36,13 +36,22 @@ func Pull(c *git.Client, args []string) error {
 
 	var repository string
 	var refspec []string
+	config, err := git.LoadLocalConfig(c)
+	if err != nil {
+		return err
+	}
+
 	if flags.NArg() < 1 {
-		repository = "origin" // FIXME origin is the default unless the current branch unless there is an upstream branch configured for the current branch
-		refspec = []string{"origin/master"}
+		// TODO simplistic, probably won't work in all cases
+		head := c.GetHeadBranch().BranchName()
+		branchremote, _ := config.GetConfig("branch." + head + ".remote")
+		repository = branchremote
+		refspec = []string{repository + "/" + head}
 	} else if flags.NArg() == 1 {
 		repository = flags.Arg(0)
-		refspec = []string{repository + "/master"}
-	} else if flags.NArg() >= 2 {
+		head := c.GetHeadBranch().BranchName()
+		refspec = []string{repository + "/" + head}
+	} else if flags.NArg() == 2 {
 		repository = flag.Arg(0)
 		refspec = flag.Args()[1:]
 	} else {
@@ -50,7 +59,7 @@ func Pull(c *git.Client, args []string) error {
 		os.Exit(1)
 	}
 
-	err := git.Fetch(c, fetchopts, repository)
+	err = git.Fetch(c, fetchopts, repository)
 	if err != nil {
 		return err
 	}

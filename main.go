@@ -195,7 +195,7 @@ func main() {
 			os.Exit(2)
 		}
 	case "pull":
-		subcommandUsage = "[<repository [<refspec>...]]"
+		subcommandUsage = "[<repository [<refspec>]]"
 		if err := cmd.Pull(c, args); err != nil {
 			fmt.Fprintf(os.Stderr, "%v\n", err)
 			os.Exit(2)
