@@ -23,19 +23,25 @@ go get ${TEST_PKG} || echo "Known problem with go get, it invokes the submodule 
 test -d ${TEST_GIT_DIR} || (echo "ERROR: Go get didn't work"; exit 1)
 
 test -f $DGIT_TRACE || (echo "ERROR: Dgit wasn't called for the go get test"; exit 1)
-unset DGIT_TRACE
+rm -f $DGIT_TRACE
 
 echo "Reset the package back one commit from master"
-$ORIG_GIT -C ${TEST_GIT_DIR} reset HEAD^1
-$ORIG_GIT -C ${TEST_GIT_DIR} checkout .
+$ORIG_GIT -C ${TEST_GIT_DIR} reset HEAD^1 > /dev/null
+$ORIG_GIT -C ${TEST_GIT_DIR} checkout . > /dev/null
+commitid=$($ORIG_GIT -C ${TEST_GIT_DIR} log --pretty=format:"%h" HEAD^..HEAD)
 
-# UNCOMMENT THE FOLLOWING ONCE PULL IS IMPLEMENTED
-git -C ${TEST_GIT_DIR} fetch origin
-git -C ${TEST_GIT_DIR} merge origin/master
-#echo "Run go get -u on the package"
-#go get -u github.com/golang/protobuf/proto
+echo "Run go get -u on the package"
+go get -u github.com/golang/protobuf/proto || echo "Known problem with go get, it invokes the submodule command"
+test -f $DGIT_TRACE || (echo "ERROR: Dgit wasn't called for the go get -u test"; exit 1)
 
-#echo "Verify that the branch is now up to date with master"
-#$ORIG_GIT -C ${TEST_GIT_DIR} status | grep "Your branch is up to date with 'origin/master'." || (echo "ERROR: Update didn't work"; exit 1)
+echo "Verify that the branch is now up to date with master"
+commitid2=$($ORIG_GIT -C ${TEST_GIT_DIR} log --pretty=format:"%h" HEAD^..HEAD)
+
+echo COMMITS: "$commitid" "$commitid2"
+if [ "$commitid" == "$commitid2" ]
+then
+        echo "ERROR: Pull did not pull in the latest changes"
+        exit 1
+fi
 
 export PATH=$ORIG_PATH
