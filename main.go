@@ -194,6 +194,12 @@ func main() {
 			fmt.Fprintf(os.Stderr, "%v\n", err)
 			os.Exit(2)
 		}
+	case "pull":
+		subcommandUsage = "[<repository [<refspec>...]]"
+		if err := cmd.Pull(c, args); err != nil {
+			fmt.Fprintf(os.Stderr, "%v\n", err)
+			os.Exit(2)
+		}
 	case "reset":
 		if err := cmd.Reset(c, args); err != nil {
 			fmt.Fprintf(os.Stderr, "%v\n", err)
@@ -382,6 +388,7 @@ func main() {
    hash-object
    status
    ls-tree
+   pull           Fetch from and integrate with another repository or a local branch
    push
    pack-objects
    send-pack
