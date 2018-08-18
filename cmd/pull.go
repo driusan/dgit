@@ -31,14 +31,14 @@ func Pull(c *git.Client, args []string) error {
 
 	if flags.NArg() < 1 {
 		// TODO simplistic, probably won't work in all cases
-                // Instead the branch information should be retrieved from the merge config
+		// Instead the branch information should be retrieved from the merge config
 		headbranch := c.GetHeadBranch().BranchName()
 		repository, _ = config.GetConfig("branch." + headbranch + ".remote")
 		//mergeremote, _ := config.GetConfig("branch." + head + ".merge")
 		remotebranches = []string{fmt.Sprintf("%s/%s", repository, headbranch)}
 	} else if flags.NArg() == 1 {
 		repository = flags.Arg(0)
-                // Instead the branch information should be retrieved from the merge config
+		// Instead the branch information should be retrieved from the merge config
 		headbranch := c.GetHeadBranch().BranchName()
 		//mergeremote, _ := config.GetConfig("branch." + headbranch + ".merge")
 		remotebranches = []string{fmt.Sprintf("%s/%s", repository, headbranch)}
