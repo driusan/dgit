@@ -148,6 +148,7 @@ func RevParseCommitish(c *Client, opt *RevParseOptions, arg string) (Commitish, 
 	// Check if it's a symbolic ref
 	var b Branch
 	r, err := SymbolicRefGet(c, SymbolicRefOptions{}, SymbolicRef(arg))
+	fmt.Printf("ARGGGH %v\n", r)
 	if err == nil {
 		// It was a symbolic ref, convert the refspec to a branch.
 		if b = Branch(r); b.Exists(c) {
