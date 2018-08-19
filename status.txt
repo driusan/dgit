@@ -112,7 +112,7 @@ hash-object    Almost        git 2.9.2              (2) --literally and --no-fil
 index-pack     Almost        git 2.9.2              (7) -v, -o, and --stdin are implemented. Most of the other options are for internal use by git (but --fix-thin is probably a good idea to add.) 
 merge-file     None                                 (11)
 merge-index    None                                 (3) It's not clear how this is useful
-mktag          None                                 (1)
+mktag          Done          git 2.17.2
 mktree         None                                 (1)
 pack-objects   HappyPath     git 2.9.2              (18) No options are implemented
 prune-packed   None                                 (3)
@@ -133,7 +133,7 @@ diff-tree      HappyPath     git 2.9.2              (~53) Only -r option is impl
 for-each-ref   None
 ls-files       HappyPath     git 2.9.2              (11) Missing -z, --with-tree, -t, -v, -f, --full-name, --recurse-submodules, --abbrev, --debug, --eol
 ls-remote      None
-ls-tree        Done          git 2.9.2
+ls-tree        HappyPath     git 2.9.2              failing official test suite (t3100-t3103)
 merge-base     HappyPath     git 2.9.2              only --octopus and --is-ancestor options
 name-rev       None
 pack-redundant None
@@ -141,7 +141,7 @@ rev-list       HappyPath     git 2.9.2
 show-index     None
 show-ref       None
 unpack-file    None
-var            None
+var            Done          git 2.17.2
 verify-pack    None
 
 Syncing Repo Plumbing Commands (the work for fetch-pack and send-pack --stateless-rpc is done, but not implemented as a standalone command. The rest are low priority)

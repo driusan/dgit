@@ -183,6 +183,10 @@ func RevParse(c *Client, opt RevParseOptions, args []string) (commits []ParsedRe
 			} else {
 				fmt.Printf("%s\n", c.GitDir)
 			}
+		case "--verify":
+			// FIXME: Implement this properly. This is just to prevent default
+			// from outputing the string '--verify'
+			continue
 		default:
 			if len(arg) > 0 && arg[0] == '-' {
 				fmt.Printf("%s\n", arg)

@@ -341,6 +341,13 @@ func main() {
 			fmt.Fprintln(os.Stderr, err)
 			os.Exit(4)
 		}
+	case "mktag":
+		tagid, err := cmd.Mktag(c, args)
+		if err != nil {
+			fmt.Fprintln(os.Stderr, err)
+			os.Exit(1)
+		}
+		fmt.Println(tagid)
 	case "tag":
 		if err := cmd.Tag(c, args); err != nil {
 			fmt.Fprintln(os.Stderr, err)

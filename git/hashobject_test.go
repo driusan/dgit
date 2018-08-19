@@ -85,7 +85,7 @@ Fixed bug where git push wasn't working since refactoring Sha1 to own type
 			t.Fatal(err)
 		}
 		if string(data) != tc.Data {
-			t.Fatalf("Returnd data does not match passed data for test %d.", i)
+			t.Fatalf("Returned data does not match passed data for test %d.", i)
 		}
 		if sha1.String() != tc.Hash {
 			t.Errorf("Unexpected hash for %d: got %v want %v", i, sha1.String(), tc.Hash)
