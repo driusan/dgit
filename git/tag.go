@@ -3,6 +3,7 @@ package git
 import (
 	"fmt"
 	"io/ioutil"
+	"path/filepath"
 )
 
 // TagOptions is a stub for when more of Tag is implemented
@@ -20,7 +21,7 @@ func TagList(c *Client, patterns []string) ([]string, error) {
 		return nil, fmt.Errorf("Tag list with patterns not implemented")
 	}
 
-	files, err := ioutil.ReadDir(c.GitDir.String() + "/refs/tags")
+	files, err := ioutil.ReadDir(filepath.Join(c.GitDir.String(), "refs", "tags"))
 	if err != nil {
 		return nil, err
 	}
