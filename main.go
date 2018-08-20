@@ -360,11 +360,12 @@ func main() {
 		}
 	case "submodule":
 		subcommandUsage = "update"
-		if err := cmd.SubModule(c, args); err != nil {
+		if err := cmd.Submodule(c, args); err != nil {
 			fmt.Fprintln(os.Stderr, err)
 			os.Exit(4)
 		}
 	case "show-ref":
+		subcommandUsage = "[<pattern>...]"
 		if err := cmd.ShowRef(c, args); err != nil {
 			fmt.Fprintln(os.Stderr, err)
 			os.Exit(4)

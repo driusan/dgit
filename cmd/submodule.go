@@ -9,7 +9,7 @@ import (
 	"github.com/driusan/dgit/git"
 )
 
-func SubModule(c *git.Client, args []string) error {
+func Submodule(c *git.Client, args []string) error {
 	flags := flag.NewFlagSet("submodule", flag.ExitOnError)
 	flags.SetOutput(flag.CommandLine.Output())
 	flags.Usage = func() {

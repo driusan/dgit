@@ -16,6 +16,14 @@ func ShowRef(c *git.Client, args []string) error {
 		flags.PrintDefaults()
 	}
 
-	//flags.Parse(args)
+	// These flags can be moved out of these lists and below as proper flags as they are implemented
+	for _, bf := range []string{"q", "quiet", "verify", "head", "d", "dereference", "tags", "heads"} {
+		flags.Var(newNotimplBoolValue(), bf, "Not implemented")
+	}
+	for _, sf := range []string{"s", "hash", "abbrev"} {
+		flags.Var(newNotimplStringValue(), sf, "Not implemented")
+	}
+
+	flags.Parse(args)
 	return nil
 }
