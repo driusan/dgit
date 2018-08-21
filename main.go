@@ -365,6 +365,18 @@ func main() {
 			fmt.Fprintln(os.Stderr, err)
 			os.Exit(128)
 		}
+	case "submodule":
+		subcommandUsage = "update"
+		if err := cmd.Submodule(c, args); err != nil {
+			fmt.Fprintln(os.Stderr, err)
+			os.Exit(4)
+		}
+	case "show-ref":
+		subcommandUsage = "[<pattern>...]"
+		if err := cmd.ShowRef(c, args); err != nil {
+			fmt.Fprintln(os.Stderr, err)
+			os.Exit(4)
+		}
 	case "help":
 		flag.CommandLine.SetOutput(os.Stdout)
 		flag.Usage()
@@ -414,6 +426,8 @@ func main() {
    help
    show             Show various types of objects
    var              Show a Git logical variable
+   submodule        Initialize, update or inspect submodules
+   showref          List references in a local repository
 `)
 
 		os.Exit(0)
