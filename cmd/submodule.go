@@ -6,7 +6,7 @@ import (
 	"os"
 	"path/filepath"
 
-	"github.com/driusan/dgit/git"
+	"../git"
 )
 
 func Submodule(c *git.Client, args []string) error {

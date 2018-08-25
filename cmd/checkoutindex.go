@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/driusan/dgit/git"
+	"../git"
 )
 
 // Parses the command arguments from args (usually from os.Args) into a

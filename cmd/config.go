@@ -6,7 +6,7 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/driusan/dgit/git"
+	"../git"
 )
 
 func Config(c *git.Client, args []string) error {

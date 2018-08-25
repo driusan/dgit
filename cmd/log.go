@@ -7,7 +7,7 @@ import (
 	"os"
 	"strings"
 
-	"github.com/driusan/dgit/git"
+	"../git"
 )
 
 // Since libgit is somewhat out of our control and we can't implement

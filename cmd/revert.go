@@ -7,7 +7,7 @@ import (
 	"log"
 	"os"
 
-	"github.com/driusan/dgit/git"
+	"../git"
 )
 
 func Revert(c *git.Client, args []string) error {

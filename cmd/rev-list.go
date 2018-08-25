@@ -4,7 +4,7 @@ import (
 	"flag"
 	"fmt"
 
-	"github.com/driusan/dgit/git"
+	"../git"
 )
 
 func RevList(c *git.Client, args []string) ([]git.Sha1, error) {

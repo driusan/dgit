@@ -3,9 +3,10 @@ package cmd
 import (
 	"flag"
 	"fmt"
-	"github.com/driusan/dgit/git"
 	"io"
 	"os"
+
+	"../git"
 )
 
 func MergeFile(c *git.Client, args []string) error {

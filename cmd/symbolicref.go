@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/driusan/dgit/git"
+	"../git"
 )
 
 func SymbolicRef(c *git.Client, args []string) (git.RefSpec, error) {

@@ -8,7 +8,7 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/driusan/dgit/git"
+	"../git"
 )
 
 // Parses the arguments from git-unpack-objects as they were passed on the commandline

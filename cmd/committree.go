@@ -7,7 +7,7 @@ import (
 	"os"
 	"strings"
 
-	"github.com/driusan/dgit/git"
+	"../git"
 )
 
 func CommitTree(c *git.Client, args []string) (git.CommitID, error) {
