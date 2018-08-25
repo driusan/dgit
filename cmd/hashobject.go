@@ -6,7 +6,7 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/driusan/dgit/git"
+	"../git"
 )
 
 func HashObject(c *git.Client, args []string) {

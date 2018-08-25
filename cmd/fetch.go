@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/driusan/dgit/git"
+	"../git"
 )
 
 // These options can be shared with other subcommands that fetch, such as pull

@@ -4,7 +4,7 @@ import (
 	"flag"
 	"fmt"
 
-	"github.com/driusan/dgit/git"
+	"../git"
 )
 
 func ShowRef(c *git.Client, args []string) error {

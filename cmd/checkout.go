@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/driusan/dgit/git"
+	"../git"
 )
 
 // Implements the git checkout command line parsing.

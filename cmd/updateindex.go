@@ -6,7 +6,7 @@ import (
 	"os"
 	"strings"
 
-	"github.com/driusan/dgit/git"
+	"../git"
 )
 
 func parseCacheInfo(input string) (git.CacheInfo, error) {

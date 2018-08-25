@@ -4,7 +4,7 @@ import (
 	"flag"
 	"fmt"
 
-	"github.com/driusan/dgit/git"
+	"../git"
 )
 
 func printTags(tags []string) {

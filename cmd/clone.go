@@ -6,7 +6,7 @@ import (
 	"os"
 	"strings"
 
-	"github.com/driusan/dgit/git"
+	"../git"
 )
 
 func Clone(c *git.Client, args []string) error {

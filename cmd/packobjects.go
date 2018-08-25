@@ -8,7 +8,7 @@ import (
 	"io"
 	"os"
 
-	"github.com/driusan/dgit/git"
+	"../git"
 )
 
 func PackObjects(c *git.Client, input io.Reader, args []string) {

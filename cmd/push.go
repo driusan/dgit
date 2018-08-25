@@ -7,7 +7,7 @@ import (
 	"os"
 	"strings"
 
-	"github.com/driusan/dgit/git"
+	"../git"
 )
 
 func Push(c *git.Client, args []string) {

@@ -6,7 +6,7 @@ import (
 	"os"
 	"os/exec"
 
-	"github.com/driusan/dgit/git"
+	"../git"
 )
 
 func Diff(c *git.Client, args []string) error {

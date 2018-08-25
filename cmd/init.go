@@ -6,7 +6,7 @@ import (
 	"os"
 	"path/filepath"
 
-	"github.com/driusan/dgit/git"
+	"../git"
 )
 
 func Init(c *git.Client, args []string) error {

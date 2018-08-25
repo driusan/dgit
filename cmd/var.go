@@ -7,7 +7,7 @@ import (
 	"os"
 	"time"
 
-	"github.com/driusan/dgit/git"
+	"../git"
 )
 
 func getLogVar(c *git.Client, config *git.GitConfig, key string, envVar string) string {

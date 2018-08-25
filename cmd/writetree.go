@@ -4,7 +4,7 @@ import (
 	"flag"
 	"fmt"
 
-	"github.com/driusan/dgit/git"
+	"../git"
 )
 
 // WriteTree implements the git write-tree command on the Git repository

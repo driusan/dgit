@@ -8,7 +8,7 @@ import (
 	"os"
 	"strings"
 
-	"github.com/driusan/dgit/git"
+	"../git"
 )
 
 func CheckIgnore(c *git.Client, args []string) error {

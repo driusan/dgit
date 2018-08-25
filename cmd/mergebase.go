@@ -6,7 +6,7 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/driusan/dgit/git"
+	"../git"
 )
 
 var Ancestor error = errors.New("Commit is an ancestor")

@@ -4,7 +4,7 @@ import (
 	"flag"
 	"os"
 
-	"github.com/driusan/dgit/git"
+	"../git"
 )
 
 func RevParse(c *git.Client, args []string) (commits []git.ParsedRevision, err2 error) {

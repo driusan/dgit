@@ -4,12 +4,13 @@ import (
 	"errors"
 	"flag"
 	"fmt"
-	"github.com/driusan/dgit/cmd"
-	"github.com/driusan/dgit/git"
 	"io/ioutil"
 	"log"
 	"os"
 	"strings"
+
+	"./cmd"
+	"./git"
 )
 
 var InvalidArgument error = errors.New("Invalid argument to function")

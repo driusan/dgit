@@ -3,8 +3,9 @@ package cmd
 import (
 	"flag"
 	"fmt"
-	"github.com/driusan/dgit/git"
 	"os"
+
+	"../git"
 )
 
 func Branch(c *git.Client, args []string) {
