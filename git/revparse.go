@@ -101,6 +101,67 @@ type RevParseOptions struct {
 	After, Before time.Time
 }
 
+// RevParsePath parses a path spec such as `HEAD:README.md` into the value that
+// it represents. The Sha1 returned may be either a tree or a blob, depending on
+// the pathspec.
+func RevParsePath(c *Client, opt *RevParseOptions, arg string) (Sha1, error) {
+	var tree Treeish
+	var err error
+	var treepart string
+	pathcomponent := strings.Index(arg, ":")
+	if pathcomponent < 0 {
+		treepart = arg
+	} else if pathcomponent == 0 {
+		treepart = "HEAD"
+	} else {
+		treepart = arg[0:pathcomponent]
+	}
+	if len(arg) == 40 {
+		comm, err := Sha1FromString(arg)
+		if err != nil {
+			goto notsha1
+		}
+		switch comm.Type(c) {
+		case "blob":
+			if pathcomponent >= 0 {
+				// There was a path part, but there's no way for a path
+				// to be in a blob.
+				return Sha1{}, fmt.Errorf("Could not parse %v", arg)
+			}
+			return comm, nil
+		case "tree":
+			tree = TreeID(comm)
+			goto extractpath
+		case "commit":
+			tree = CommitID(comm)
+			goto extractpath
+		default:
+			return Sha1{}, fmt.Errorf("%s is not a valid sha1", arg)
+		}
+	}
+notsha1:
+	tree, err = RevParseTreeish(c, opt, treepart)
+	if err != nil {
+		return Sha1{}, err
+	}
+extractpath:
+	if pathcomponent < 0 {
+		treeid, err := tree.TreeID(c)
+		if err != nil {
+			return Sha1{}, err
+		}
+		return Sha1(treeid), nil
+	}
+	path := arg[pathcomponent+1:]
+	indexes, err := expandGitTreeIntoIndexes(c, tree, true, true, false)
+	for _, entry := range indexes {
+		if entry.PathName == IndexPath(path) {
+			return entry.Sha1, nil
+		}
+	}
+	return Sha1{}, fmt.Errorf("%v not found", arg)
+}
+
 // RevParseTreeish will parse a single revision into a Treeish structure.
 func RevParseTreeish(c *Client, opt *RevParseOptions, arg string) (Treeish, error) {
 	if len(arg) == 40 {
@@ -116,6 +177,9 @@ func RevParseTreeish(c *Client, opt *RevParseOptions, arg string) (Treeish, erro
 		default:
 			return nil, fmt.Errorf("%s is not a tree-ish", arg)
 		}
+	}
+	if arg == "HEAD" {
+		return c.GetHeadCommit()
 	}
 
 	// Check if it's a symbolic ref
@@ -193,7 +257,6 @@ func RevParse(c *Client, opt RevParseOptions, args []string) (commits []ParsedRe
 			} else {
 				var sha string
 				var exclude bool
-				var err error
 				if arg[0] == '^' {
 					sha = arg[1:]
 					exclude = true
@@ -201,11 +264,20 @@ func RevParse(c *Client, opt RevParseOptions, args []string) (commits []ParsedRe
 					sha = arg
 					exclude = false
 				}
-				cmt, err := RevParseCommit(c, &opt, sha)
-				if err != nil {
-					err2 = err
+				if path := strings.Index(arg, ":"); path >= 0 {
+					sha, err := RevParsePath(c, &opt, arg)
+					if err != nil {
+						err2 = err
+					} else {
+						commits = append(commits, ParsedRevision{sha, exclude})
+					}
 				} else {
-					commits = append(commits, ParsedRevision{Sha1(cmt), exclude})
+					cmt, err := RevParseCommit(c, &opt, sha)
+					if err != nil {
+						err2 = err
+					} else {
+						commits = append(commits, ParsedRevision{Sha1(cmt), exclude})
+					}
 				}
 			}
 		}
