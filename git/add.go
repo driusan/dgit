@@ -109,6 +109,7 @@ func Add(c *Client, opts AddOptions, files []File) (*Index, error) {
 	updateIndexOpts := UpdateIndexOptions{
 		Add:     true,
 		Remove:  true,
+		Replace: true,
 		Verbose: opts.Verbose,
 		Refresh: opts.Refresh,
 		Chmod:   opts.Chmod,
