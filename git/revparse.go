@@ -264,7 +264,7 @@ func RevParse(c *Client, opt RevParseOptions, args []string) (commits []ParsedRe
 					sha = arg
 					exclude = false
 				}
-				if path := strings.Index(arg, ":"); path >= 0 {
+				if strings.Contains(arg, ":") {
 					sha, err := RevParsePath(c, &opt, arg)
 					if err != nil {
 						err2 = err
