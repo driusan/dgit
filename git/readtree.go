@@ -84,6 +84,12 @@ func ReadTreeThreeWay(c *Client, opt ReadTreeOptions, stage1, stage2, stage3 Tre
 	if err != nil {
 		return nil, err
 	}
+
+	resetremovals, err := checkReadtreePrereqs(c, opt, idx)
+	if err != nil {
+		return nil, err
+	}
+
 	origMap := idx.GetMap()
 
 	base, err := GetIndexMap(c, stage1)
@@ -299,7 +305,7 @@ paths:
 		}
 	}
 
-	if err := checkMergeAndUpdate(c, opt, origMap, idx); err != nil {
+	if err := checkMergeAndUpdate(c, opt, origMap, idx, resetremovals); err != nil {
 		return nil, err
 	}
 
@@ -310,11 +316,6 @@ paths:
 // from parent to dst. Local modifications to the work tree will be preserved.
 // If options.DryRun is not false, it will also be written to the Client's index file.
 func ReadTreeFastForward(c *Client, opt ReadTreeOptions, parent, dst Treeish) (*Index, error) {
-	// First do some sanity checks
-	if opt.Update && opt.Prefix == "" && !opt.Merge && !opt.Reset {
-		return nil, fmt.Errorf("-u is meaningless without -m, --reset or --prefix")
-	}
-
 	// This is the table of how fast-forward merges work from git-read-tree(1)
 	// I == Index, H == parent, and M == dst in their terminology. (ie. It's a
 	// fast-forward from H to M while the index is in state I.)
@@ -361,6 +362,12 @@ func ReadTreeFastForward(c *Client, opt ReadTreeOptions, parent, dst Treeish) (*
 	if err != nil {
 		return nil, err
 	}
+
+	resetremovals, err := checkReadtreePrereqs(c, opt, idx)
+	if err != nil {
+		return nil, err
+	}
+
 	I := idx.GetMap()
 
 	H, err := GetIndexMap(c, parent)
@@ -471,7 +478,7 @@ func ReadTreeFastForward(c *Client, opt ReadTreeOptions, parent, dst Treeish) (*
 	// We need to make sure the number of index entries stays is correct,
 	// it's going to be an invalid index..
 	newidx.NumberIndexEntries = uint32(len(newidx.Objects))
-	if err := checkMergeAndUpdate(c, opt, I, newidx); err != nil {
+	if err := checkMergeAndUpdate(c, opt, I, newidx, resetremovals); err != nil {
 		return nil, err
 	}
 
@@ -495,18 +502,63 @@ func readtreeSaveIndex(c *Client, opt ReadTreeOptions, i *Index) error {
 	return nil
 }
 
+// Check if the read-tree can be performed. Returns a list of files that need to be
+// removed if --reset is specified.
+func checkReadtreePrereqs(c *Client, opt ReadTreeOptions, idx *Index) ([]File, error) {
+	if opt.Update && opt.Prefix == "" && !opt.Merge && !opt.Reset {
+		return nil, fmt.Errorf("-u is meaningless without -m, --reset or --prefix")
+	}
+	if (opt.Prefix != "" && (opt.Merge || opt.Reset)) ||
+		(opt.Merge && (opt.Prefix != "" || opt.Reset)) ||
+		(opt.Reset && (opt.Prefix != "" || opt.Merge)) {
+		return nil, fmt.Errorf("Can only specify one of -u, --reset, or --prefix")
+	}
+	if opt.ExcludePerDirectory != "" && !opt.Update {
+		return nil, fmt.Errorf("--exclude-per-directory is meaningless without -u")
+	}
+	if idx == nil {
+		return nil, nil
+	}
+
+	toremove := make([]File, 0)
+	for _, entry := range idx.Objects {
+		if entry.Stage() != Stage0 {
+			if opt.Merge {
+				return nil, fmt.Errorf("You need to resolve your current index first")
+			}
+			if opt.Reset {
+				f, err := entry.PathName.FilePath(c)
+				if err != nil {
+				}
+				// Indexes are sorted, so only check if the last file is the
+				// same
+				if len(toremove) >= 1 && toremove[len(toremove)-1] == f {
+					continue
+				}
+				toremove = append(toremove, f)
+			}
+		}
+	}
+	return toremove, nil
+
+}
+
 // Reads a tree into the index. If DryRun is not false, it will also be written
 // to disk.
 func ReadTree(c *Client, opt ReadTreeOptions, tree Treeish) (*Index, error) {
 	idx, _ := c.GitDir.ReadIndex()
 	origMap := idx.GetMap()
 
+	resetremovals, err := checkReadtreePrereqs(c, opt, idx)
+	if err != nil {
+		return nil, err
+	}
 	// Convert to a new map before doing anything, so that checkMergeAndUpdate
 	// can compare the original update after we reset.
 	if opt.Empty {
 		idx.NumberIndexEntries = 0
 		idx.Objects = make([]*IndexEntry, 0)
-		if err := checkMergeAndUpdate(c, opt, origMap, idx); err != nil {
+		if err := checkMergeAndUpdate(c, opt, origMap, idx, resetremovals); err != nil {
 			return nil, err
 		}
 		return idx, readtreeSaveIndex(c, opt, idx)
@@ -538,7 +590,7 @@ func ReadTree(c *Client, opt ReadTreeOptions, tree Treeish) (*Index, error) {
 		idx = newidx
 	}
 
-	if err := checkMergeAndUpdate(c, opt, origMap, idx); err != nil {
+	if err := checkMergeAndUpdate(c, opt, origMap, idx, resetremovals); err != nil {
 		return nil, err
 	}
 	return idx, readtreeSaveIndex(c, opt, idx)
@@ -546,25 +598,9 @@ func ReadTree(c *Client, opt ReadTreeOptions, tree Treeish) (*Index, error) {
 
 // Check if the merge would overwrite any modified files and return an error if so (unless --reset),
 // then update the file system.
-func checkMergeAndUpdate(c *Client, opt ReadTreeOptions, origidx map[IndexPath]*IndexEntry, newidx *Index) error {
-	if opt.Update && opt.Prefix == "" && !opt.Merge && !opt.Reset {
-		return fmt.Errorf("-u is meaningless without -m, --reset or --prefix")
-	}
-	if (opt.Prefix != "" && (opt.Merge || opt.Reset)) ||
-		(opt.Merge && (opt.Prefix != "" || opt.Reset)) ||
-		(opt.Reset && (opt.Prefix != "" || opt.Merge)) {
-		return fmt.Errorf("Can only specify one of -u, --reset, or --prefix")
-	}
-	if opt.ExcludePerDirectory != "" && !opt.Update {
-		return fmt.Errorf("--exclude-per-directory is meaningless without -u")
-	}
-
+func checkMergeAndUpdate(c *Client, opt ReadTreeOptions, origidx map[IndexPath]*IndexEntry, newidx *Index, resetremovals []File) error {
 	// Keep a list of index entries to be updated by CheckoutIndex.
 	files := make([]File, 0, len(newidx.Objects))
-
-	// Keep a list of unmerged files to be cleaned up after verifying
-	// everything if --reset was passed.
-	unmergedfiles := make(map[File]bool)
 
 	if opt.Merge || opt.Reset || opt.Update {
 		// Verify that merge won't overwrite anything that's been modified locally.
@@ -589,13 +625,6 @@ func checkMergeAndUpdate(c *Client, opt ReadTreeOptions, origidx map[IndexPath]*
 				// if we check them.
 				// (We also don't add them to files, so they won't
 				// make it to checkoutindex
-				if opt.Reset {
-					f, err := entry.PathName.FilePath(c)
-					if err != nil {
-						return err
-					}
-					unmergedfiles[f] = true
-				}
 				continue
 			}
 			orig, ok := origidx[entry.PathName]
@@ -702,9 +731,12 @@ func checkMergeAndUpdate(c *Client, opt ReadTreeOptions, origidx map[IndexPath]*
 		}
 
 		if opt.Reset {
-			for file := range unmergedfiles {
-				if err := file.Remove(); err != nil {
-					return err
+			for _, file := range resetremovals {
+				// It may have been removed by the removal loop above
+				if file.Exists() {
+					if err := file.Remove(); err != nil {
+						return err
+					}
 				}
 			}
 		}

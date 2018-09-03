@@ -20,7 +20,6 @@ func (f File) Exists() bool {
 	return false
 }
 
-
 func (f File) String() string {
 	return string(f)
 }
