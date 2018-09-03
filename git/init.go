@@ -33,8 +33,11 @@ func Init(c *Client, opts InitOptions, dir string) (*Client, error) {
 		return nil, err
 	}
 
+	reinit := false
 	if !opts.Bare {
-		if err := os.Mkdir(dir+"/.git", 0755); err != nil {
+		if File(dir + "/.git").Exists() {
+			reinit = true
+		} else if err := os.Mkdir(dir+"/.git", 0755); err != nil {
 			return nil, err
 		}
 		if c != nil {
@@ -84,13 +87,21 @@ func Init(c *Client, opts InitOptions, dir string) (*Client, error) {
 	if err := os.MkdirAll(c.GitDir.String()+"/refs/tags", 0755); err != nil {
 		return nil, err
 	}
-	if err := c.GitDir.WriteFile("HEAD", []byte("ref: refs/heads/master\n"), 0644); err != nil {
+
+	if c.GitDir.File("HEAD").Exists() {
+		reinit = true
+	} else if err := c.GitDir.WriteFile("HEAD", []byte("ref: refs/heads/master\n"), 0644); err != nil {
 		return nil, err
 	}
-	if err := c.GitDir.WriteFile("config", []byte("[core]\n\trepositoryformatversion = 0\n\tbare = false\n"), 0644); err != nil {
+
+	if c.GitDir.File("config").Exists() {
+		reinit = true
+	} else if err := c.GitDir.WriteFile("config", []byte("[core]\n\trepositoryformatversion = 0\n\tbare = false\n"), 0644); err != nil {
 		return nil, err
 	}
-	if err := c.GitDir.WriteFile("description", []byte("Unnamed repository; edit this file 'description' to name the repository.\n"), 0644); err != nil {
+	if c.GitDir.File("description").Exists() {
+		reinit = true
+	} else if err := c.GitDir.WriteFile("description", []byte("Unnamed repository; edit this file 'description' to name the repository.\n"), 0644); err != nil {
 		return nil, err
 	}
 	if !opts.Quiet {
@@ -98,7 +109,11 @@ func Init(c *Client, opts InitOptions, dir string) (*Client, error) {
 		if err != nil {
 			return c, err
 		}
-		fmt.Printf("Initialized empty Git repository in %v/\n", dir)
+		if reinit {
+			fmt.Printf("Reinitialized existing Git repository in %v/\n", dir)
+		} else {
+			fmt.Printf("Initialized empty Git repository in %v/\n", dir)
+		}
 	}
 
 	// Now go into the directory and adjust workdir and gitdir so that
@@ -126,6 +141,9 @@ func Init(c *Client, opts InitOptions, dir string) (*Client, error) {
 			if info.IsDir() {
 				os.MkdirAll(filepath.Join(c.GitDir.String(), path), 0777)
 			} else {
+				if c.GitDir.File(File(path)).Exists() {
+					return nil
+				}
 				newFile, err := c.GitDir.Create(File(path))
 				if err != nil {
 					return err
