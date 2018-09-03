@@ -182,48 +182,75 @@ func RevParseTreeish(c *Client, opt *RevParseOptions, arg string) (Treeish, erro
 		return c.GetHeadCommit()
 	}
 
-	// Check if it's a symbolic ref
-	if r, err := SymbolicRefGet(c, SymbolicRefOptions{}, SymbolicRef(arg)); err == nil {
-		// It was a symbolic ref, convert it to a branch so that it's
-		// a treeish.
-		if b := Branch(r); b.Exists(c) {
-			return b, nil
-		}
+	cid, err := RevParseCommitish(c, opt, arg)
+	if err != nil {
+		return nil, err
 	}
-
-	if rs := c.GitDir.File("refs/tags/" + File(arg)); rs.Exists() {
-		return RefSpec("refs/tags/" + arg), nil
-	}
-	// arg was not a Sha or a symbolic ref, it might still be a branch.
-	// (This will return an error if arg is an invalid branch.)
-	if b, err := GetBranch(c, arg); err == nil {
-		return b, nil
-	}
-	return nil, fmt.Errorf("Invalid or unhandled treeish format.")
+	// A CommitID implements Treeish, so we just resolve the commitish to a real commit
+	return cid.CommitID(c)
 }
 
 // RevParse will parse a single revision into a Commitish object.
-func RevParseCommitish(c *Client, opt *RevParseOptions, arg string) (Commitish, error) {
-	if len(arg) == 40 {
-		sha1, err := Sha1FromString(arg)
+func RevParseCommitish(c *Client, opt *RevParseOptions, arg string) (cmt Commitish, err error) {
+	var cmtbase string
+	if pos := strings.IndexAny(arg, "@^"); pos >= 0 {
+		cmtbase = arg[:pos]
+		defer func(mod string) {
+			if err != nil {
+				// If there was already an error, then just let it be.
+				return
+			}
+			// FIXME: This should actually implement various ^ and @{} modifiers
+			if mod == "^" {
+				basecmt, newerr := cmt.CommitID(c)
+				if newerr != nil {
+					err = newerr
+					return
+				}
+				parents, newerr := basecmt.Parents(c)
+				if newerr != nil {
+					err = newerr
+					return
+				}
+				if len(parents) != 1 {
+					err = fmt.Errorf("Can not use ^ modifier on merge commit.")
+					return
+				}
+				cmt = parents[0]
+				return
+			}
+			err = fmt.Errorf("Unhandled commit modifier: %v", mod)
+		}(arg[pos:])
+	} else {
+		cmtbase = arg
+	}
+	if len(cmtbase) == 40 {
+		sha1, err := Sha1FromString(cmtbase)
 		return CommitID(sha1), err
+	}
+	if cmtbase == "HEAD" {
+		return c.GetHeadCommit()
 	}
 
 	// Check if it's a symbolic ref
 	var b Branch
-	r, err := SymbolicRefGet(c, SymbolicRefOptions{}, SymbolicRef(arg))
+	r, err := SymbolicRefGet(c, SymbolicRefOptions{}, SymbolicRef(cmtbase))
 	if err == nil {
 		// It was a symbolic ref, convert the refspec to a branch.
 		if b = Branch(r); b.Exists(c) {
 			return b, nil
 		}
 	}
-	if rs := c.GitDir.File("refs/tags/" + File(arg)); rs.Exists() {
-		return RefSpec("refs/tags/" + arg), nil
+	if rs := c.GitDir.File("refs/tags/" + File(cmtbase)); rs.Exists() {
+		return RefSpec("refs/tags/" + cmtbase), nil
 	}
 
-	// arg was not a Sha or a valid symbolic ref, it might still be a branch
-	return GetBranch(c, arg)
+	// arg was not a Sha or a symbolic ref, it might still be a branch.
+	// (This will return an error if arg is an invalid branch.)
+	if b, err := GetBranch(c, cmtbase); err == nil {
+		return b, nil
+	}
+	return nil, fmt.Errorf("Could not parse %v", arg)
 }
 
 // RevParse will parse a single revision into a Commit object.

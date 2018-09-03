@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"io/ioutil"
 	"log"
-	"os"
 	"path"
 	"path/filepath"
 	"sort"
@@ -260,13 +259,15 @@ func LsFiles(c *Client, opt LsFilesOptions, files []File) ([]*IndexEntry, error)
 				fs = append(fs, entry)
 				continue
 			}
-			_, err := f.Stat()
-			// The file being deleted means it was modified
-			if os.IsNotExist(err) {
+			// If we couldn't stat it, we assume it was deleted and
+			// is therefore modified. (It could be because the file
+			// was deleted, or it could be bcause a parent directory
+			// was deleted and we couldn't stat it. The latter means
+			// that os.IsNotExist(err) can't be used to check if it
+			// really was deleted, so for now we just assume.)
+			if _, err := f.Stat(); err != nil {
 				fs = append(fs, entry)
 				continue
-			} else if err != nil {
-				return nil, err
 			}
 
 			// We've done everything we can to avoid hashing the file, but now
