@@ -562,6 +562,10 @@ func checkMergeAndUpdate(c *Client, opt ReadTreeOptions, origidx map[IndexPath]*
 	// Keep a list of index entries to be updated by CheckoutIndex.
 	files := make([]File, 0, len(newidx.Objects))
 
+	// Keep a list of unmerged files to be cleaned up after verifying
+	// everything if --reset was passed.
+	unmergedfiles := make(map[File]bool)
+
 	if opt.Merge || opt.Reset || opt.Update {
 		// Verify that merge won't overwrite anything that's been modified locally.
 		for _, entry := range newidx.Objects {
@@ -585,6 +589,13 @@ func checkMergeAndUpdate(c *Client, opt ReadTreeOptions, origidx map[IndexPath]*
 				// if we check them.
 				// (We also don't add them to files, so they won't
 				// make it to checkoutindex
+				if opt.Reset {
+					f, err := entry.PathName.FilePath(c)
+					if err != nil {
+						return err
+					}
+					unmergedfiles[f] = true
+				}
 				continue
 			}
 			orig, ok := origidx[entry.PathName]
@@ -687,6 +698,14 @@ func checkMergeAndUpdate(c *Client, opt ReadTreeOptions, origidx map[IndexPath]*
 				// The error is likely just "no such file or directory", but
 				// trace it just in case.
 				log.Println(err)
+			}
+		}
+
+		if opt.Reset {
+			for file := range unmergedfiles {
+				if err := file.Remove(); err != nil {
+					return err
+				}
 			}
 		}
 	}

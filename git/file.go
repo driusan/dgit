@@ -14,11 +14,12 @@ type File string
 
 // Determines if the file exists on the filesystem.
 func (f File) Exists() bool {
-	if _, err := os.Lstat(string(f)); os.IsNotExist(err) {
-		return false
+	if _, err := os.Lstat(string(f)); err == nil {
+		return true
 	}
-	return true
+	return false
 }
+
 
 func (f File) String() string {
 	return string(f)
