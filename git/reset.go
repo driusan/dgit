@@ -96,7 +96,7 @@ unstage:
 // ResetMode implements "git reset [--soft | --mixed | --hard | --merge | --keep]" <commit>
 func ResetMode(c *Client, opts ResetOptions, cmt Commitish) error {
 	if !opts.Soft && !opts.Mixed && !opts.Hard && !opts.Merge && !opts.Keep {
-		// The default mode is mixed is none were specified.
+		// The default mode is mixed if none were specified.
 		opts.Mixed = true
 	}
 
