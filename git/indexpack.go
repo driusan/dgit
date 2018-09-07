@@ -191,6 +191,12 @@ func (idx PackfileIndexV2) GetObject(r io.ReadSeeker, s Sha1) (GitObject, error)
 	// Find the object in the table.
 	foundIdx := -1
 	startIdx := idx.Fanout[s[0]]
+	if startIdx <= 0 {
+		// The fanout table holds the number of entries less than x, so we
+		// subtract 1 to make sure we don't miss the hash we're looking for,
+		// but we need a special case for s[0] == 0 to prevent underflow
+		startIdx = 1
+	}
 
 	// Packfiles are designed so that we could do a binary search here, but
 	// we don't need that optimization yet, so just do a linear search through
@@ -301,6 +307,12 @@ func (idx PackfileIndexV2) writeIndex(w io.Writer, withTrailer bool) error {
 }
 func (idx PackfileIndexV2) HasObject(s Sha1) bool {
 	startIdx := idx.Fanout[s[0]]
+	if startIdx <= 0 {
+		// The fanout table holds the number of entries less than x, so we
+		// subtract 1 to make sure we don't miss the hash we're looking for,
+		// but we need a special case for s[0] == 0 to prevent underflow
+		startIdx = 1
+	}
 
 	// Packfiles are designed so that we could do a binary search here, but
 	// we don't need that optimization yet, so just do a linear search through
