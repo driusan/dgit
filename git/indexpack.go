@@ -101,7 +101,7 @@ func (idx PackfileIndexV2) getObjectAtOffset(r io.ReadSeeker, offset int64, meta
 
 	t, _, ref, refoffset, _ := p.ReadHeaderSize(r)
 	var rawdata []byte
-	if !metaOnly {
+	if !metaOnly || t == OBJ_OFS_DELTA || t == OBJ_REF_DELTA {
 		rawdata, _ = p.ReadEntryDataStream(r)
 	}
 	// The way we calculate the hash changes based on if it's a delta
