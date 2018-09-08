@@ -213,7 +213,6 @@ func (c *Client) getObject(sha1 Sha1, metaOnly bool) (GitObject, error) {
 		// same things multiple times and fix the source.
 		return gobj, nil
 	}
-
 	found, packfile, err := c.HaveObject(sha1)
 	if err != nil {
 		return nil, err

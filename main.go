@@ -250,7 +250,10 @@ func main() {
 
 	case "rev-list":
 		subcommandUsage = "<commit>..."
-		cmd.RevList(c, args)
+		if _, err := cmd.RevList(c, args); err != nil {
+			fmt.Fprintf(os.Stderr, "%v\n", err)
+			os.Exit(1)
+		}
 	case "hash-object":
 		subcommandUsage = "[<file>...]"
 		cmd.HashObject(c, args)
