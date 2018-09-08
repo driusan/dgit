@@ -65,7 +65,9 @@ func (p PackfileHeader) ReadHeaderSize(r io.Reader) (PackEntryType, PackEntrySiz
 	// headers should be less than 32 bytes.
 	dataread := make([]byte, 0, 32)
 	for {
-		r.Read(b)
+		if _, err := r.Read(b); err != nil {
+			panic(err)
+		}
 		dataread = append(dataread, b...)
 		if i == 0 {
 			// Extract bits 2-4, which contain the type

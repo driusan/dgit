@@ -18,7 +18,6 @@ func BenchmarkRevListHead(b *testing.B) {
 	}
 }
 
-/*
 func BenchmarkRevListHeadExclude(b *testing.B) {
 	c, err := git.NewClient("../.git", ".")
 	if err != nil {
@@ -30,4 +29,15 @@ func BenchmarkRevListHeadExclude(b *testing.B) {
 		}
 	}
 }
-*/
+
+func BenchmarkRevListHeadExcludeObjects(b *testing.B) {
+	c, err := git.NewClient("../.git", ".")
+	if err != nil {
+		panic(err)
+	}
+	for n := 0; n < b.N; n++ {
+		if _, err := RevList(c, []string{"--quiet", "--objects", "HEAD", "^HEAD^"}); err != nil {
+			panic(err)
+		}
+	}
+}
