@@ -81,11 +81,11 @@ func (s Sha1) CompressedWriter(c *Client, w io.Writer) error {
 }
 
 func (s Sha1) UncompressedSize(c *Client) uint64 {
-	obj, err := c.GetObject(s)
+	_, sz, err := c.GetObjectMetadata(s)
 	if err != nil {
 		return 0
 	}
-	return uint64(obj.GetSize())
+	return sz
 }
 
 func (id Sha1) PackEntryType(c *Client) PackEntryType {
@@ -105,11 +105,12 @@ func (id Sha1) PackEntryType(c *Client) PackEntryType {
 
 // Returns the git type of the object this Sha1 represents
 func (id Sha1) Type(c *Client) string {
-	obj, err := c.GetObject(id)
+	t, _, err := c.GetObjectMetadata(id)
 	if err != nil {
+		panic(err)
 		return ""
 	}
-	return obj.GetType()
+	return t
 }
 
 // Returns all direct parents of commit c.
@@ -376,7 +377,6 @@ func (s CommitID) ancestors(c *Client) (commits []CommitID, err error) {
 	}
 
 	ancestorCache[s] = commits
-
 	return
 }
 
@@ -512,7 +512,7 @@ func (c CommitID) TreeID(cl *Client) (TreeID, error) {
 func (t TreeID) TreeID(cl *Client) (TreeID, error) {
 	// Validate that it's a tree
 	if Sha1(t).Type(cl) != "tree" {
-		return TreeID{}, fmt.Errorf("Invalid tree")
+		return TreeID{}, fmt.Errorf("Invalid tree: %v", t)
 	}
 	return t, nil
 }
