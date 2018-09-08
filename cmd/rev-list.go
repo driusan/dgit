@@ -37,29 +37,6 @@ func RevList(c *git.Client, args []string) ([]git.Sha1, error) {
 				if err := revListExcludeList(c, git.CommitID(commit.Id), excludeList, *includeObjects); err != nil {
 					return nil, err
 				}
-				/*
-					ancestors, err := commit.Ancestors(c)
-					if err != nil {
-						return nil, fmt.Errorf("%s:%v", rev, err)
-					}
-					for _, allC := range ancestors {
-						sha := git.Sha1(allC)
-						if _, ok := excludeList[sha]; ok {
-							continue
-						}
-						excludeList[sha] = (struct{}{})
-						if *includeObjects {
-							objs, err := allC.GetAllObjects(c)
-							if err != nil {
-								panic(err)
-							}
-							for _, o := range objs {
-								excludeList[o] = struct{}{}
-							}
-						}
-
-					}
-				*/
 			}
 		}
 	}
@@ -87,35 +64,6 @@ func RevList(c *git.Client, args []string) ([]git.Sha1, error) {
 			return nil, err
 		}
 		objs = append(objs, newobjs...)
-		/*
-			ancestors, err := com.Ancestors(c)
-			if err != nil {
-				return nil, err
-			}
-			for _, allC := range ancestors {
-				if _, ok := excludeList[git.Sha1(allC)]; !ok {
-					if !*quiet {
-						fmt.Printf("%v\n", git.Sha1(allC))
-					}
-					objs = append(objs, git.Sha1(allC))
-					if *includeObjects {
-						objs2, err := allC.GetAllObjects(c)
-						if err != nil {
-							panic(err)
-						}
-						for _, o := range objs2 {
-							if _, okie := excludeList[o]; !okie {
-								if !*quiet {
-									fmt.Printf("%v\n", o.String())
-								}
-								objs = append(objs, git.Sha1(o))
-							}
-							excludeList[o] = true
-						}
-					}
-				}
-			}
-		*/
 	}
 	return objs, nil
 }
@@ -128,22 +76,23 @@ func revList(c *git.Client, cmt git.CommitID, excludeList map[git.Sha1]struct{},
 	shas := make([]git.Sha1, 0)
 	if !quiet {
 		fmt.Printf("%v\n", cmt)
-		if includeobjs {
-			objs, err := cmt.GetAllObjects(c)
-			if err != nil {
-				return nil, err
-			}
-			for _, o := range objs {
-				if _, ok := excludeList[o]; !ok {
-					if !quiet {
-						fmt.Printf("%v\n", o)
-					}
-					shas = append(shas, git.Sha1(o))
+	}
+	if includeobjs {
+		objs, err := cmt.GetAllObjectsExcept(c, excludeList)
+		if err != nil {
+			return nil, err
+		}
+		for _, o := range objs {
+			if _, ok := excludeList[o]; !ok {
+				if !quiet {
+					fmt.Printf("%v\n", o)
 				}
-				excludeList[o] = struct{}{}
+				shas = append(shas, git.Sha1(o))
 			}
+			excludeList[o] = struct{}{}
 		}
 	}
+
 	parents, err := cmt.Parents(c)
 	if err != nil {
 		return nil, err
@@ -170,12 +119,9 @@ func revListExcludeList(c *git.Client, cmt git.CommitID, excludeList map[git.Sha
 	excludeList[git.Sha1(cmt)] = struct{}{}
 
 	if includeobjs {
-		objs, err := cmt.GetAllObjects(c)
+		_, err := cmt.GetAllObjectsExcept(c, excludeList)
 		if err != nil {
 			return err
-		}
-		for _, o := range objs {
-			excludeList[o] = struct{}{}
 		}
 	}
 	parents, err := cmt.Parents(c)
