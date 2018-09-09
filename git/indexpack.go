@@ -99,24 +99,25 @@ func (idx PackfileIndexV2) getObjectAtOffset(r io.ReadSeeker, offset int64, meta
 		return nil, err
 	}
 
-	t, _, ref, refoffset, _ := p.ReadHeaderSize(r)
+	t, sz, ref, refoffset, _ := p.ReadHeaderSize(r)
 	var rawdata []byte
 	if !metaOnly || t == OBJ_OFS_DELTA || t == OBJ_REF_DELTA {
 		rawdata, _ = p.ReadEntryDataStream(r)
 	}
+
 	// The way we calculate the hash changes based on if it's a delta
 	// or not.
 	switch t {
 	case OBJ_COMMIT:
-		return GitCommitObject{len(rawdata), rawdata}, nil
+		return GitCommitObject{int(sz), rawdata}, nil
 	case OBJ_TREE:
-		return GitTreeObject{len(rawdata), rawdata}, nil
+		return GitTreeObject{int(sz), rawdata}, nil
 	case OBJ_BLOB:
-		return GitBlobObject{len(rawdata), rawdata}, nil
+		return GitBlobObject{int(sz), rawdata}, nil
 	case OBJ_OFS_DELTA:
 		// Things aren't very consistent with if types are strings, types,
 		// or interfaces, making this far more difficult than it needs to be.
-		base, err := idx.getObjectAtOffset(r, offset-int64(refoffset), metaOnly)
+		base, err := idx.getObjectAtOffset(r, offset-int64(refoffset), false)
 		if err != nil {
 			return nil, err
 		}
