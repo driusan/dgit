@@ -288,8 +288,7 @@ func LoadLocalConfig(c *Client) (GitConfig, error) {
 		return GitConfig{}, err
 	}
 	config := ParseConfig(file)
-	err = file.Close()
-	if err != nil {
+	if err := file.Close(); err != nil {
 		return GitConfig{}, err
 	}
 
