@@ -81,11 +81,11 @@ func (s Sha1) CompressedWriter(c *Client, w io.Writer) error {
 }
 
 func (s Sha1) UncompressedSize(c *Client) uint64 {
-	obj, err := c.GetObject(s)
+	_, sz, err := c.GetObjectMetadata(s)
 	if err != nil {
 		return 0
 	}
-	return uint64(obj.GetSize())
+	return sz
 }
 
 func (id Sha1) PackEntryType(c *Client) PackEntryType {
@@ -105,11 +105,12 @@ func (id Sha1) PackEntryType(c *Client) PackEntryType {
 
 // Returns the git type of the object this Sha1 represents
 func (id Sha1) Type(c *Client) string {
-	obj, err := c.GetObject(id)
+	t, _, err := c.GetObjectMetadata(id)
 	if err != nil {
+		panic(err)
 		return ""
 	}
-	return obj.GetType()
+	return t
 }
 
 // Returns all direct parents of commit c.
@@ -376,7 +377,6 @@ func (s CommitID) ancestors(c *Client) (commits []CommitID, err error) {
 	}
 
 	ancestorCache[s] = commits
-
 	return
 }
 
@@ -401,20 +401,28 @@ func NearestCommonParent(c *Client, com, other Commitish) (CommitID, error) {
 }
 
 func (c CommitID) GetAllObjects(cl *Client) ([]Sha1, error) {
+	return c.GetAllObjectsExcept(cl, nil)
+}
+
+// returns a list of all objects in c excluding those in excludeList. It also populates excludeList
+// with any objects encountered.
+func (c CommitID) GetAllObjectsExcept(cl *Client, excludeList map[Sha1]struct{}) ([]Sha1, error) {
 	var objects []Sha1
 	tree, err := c.TreeID(cl)
 	if err != nil {
 		return nil, err
 	}
 	objects = append(objects, Sha1(tree))
-	children, err := tree.GetAllObjects(cl, "", true, false)
+	children, err := tree.GetAllObjectsExcept(cl, excludeList, "", true, false)
 	if err != nil {
 		return nil, err
 	}
 	for _, s := range children {
 		objects = append(objects, s.Sha1)
 	}
+	excludeList[Sha1(c)] = struct{}{}
 	return objects, nil
+
 }
 
 // A TreeEntry represents an entry inside of a Treeish.
@@ -427,6 +435,18 @@ type TreeEntry struct {
 // into subtrees. If excludeself is true, it will *not* include it's own Sha1.
 // (Only really meaningful with recurse)
 func (t TreeID) GetAllObjects(cl *Client, prefix IndexPath, recurse, excludeself bool) (map[IndexPath]TreeEntry, error) {
+	return t.GetAllObjectsExcept(cl, nil, prefix, recurse, excludeself)
+}
+
+// GetAllObjectsExcept is like GetAllObjects, except that it excludes those objects in excludeList. It also
+// populates excludeList with any objects encountered.
+func (t TreeID) GetAllObjectsExcept(cl *Client, excludeList map[Sha1]struct{}, prefix IndexPath, recurse, excludeself bool) (map[IndexPath]TreeEntry, error) {
+	if excludeList == nil {
+		excludeList = make(map[Sha1]struct{})
+	}
+	if _, ok := excludeList[Sha1(t)]; ok {
+		return nil, nil
+	}
 	o, err := cl.GetObject(Sha1(t))
 	if err != nil {
 		return nil, err
@@ -435,6 +455,8 @@ func (t TreeID) GetAllObjects(cl *Client, prefix IndexPath, recurse, excludeself
 	if o.GetType() != "tree" {
 		return nil, fmt.Errorf("%s is not a tree object", t)
 	}
+
+	excludeList[Sha1(t)] = struct{}{}
 
 	treecontent := o.GetContent()
 	entryStart := 0
@@ -454,6 +476,7 @@ func (t TreeID) GetAllObjects(cl *Client, prefix IndexPath, recurse, excludeself
 			if err != nil {
 				return nil, err
 			}
+			excludeList[sha] = struct{}{}
 
 			// Split up the perm from the name based on the whitespace
 			split := bytes.SplitN(treecontent[entryStart:i], []byte{' '}, 2)
@@ -466,13 +489,13 @@ func (t TreeID) GetAllObjects(cl *Client, prefix IndexPath, recurse, excludeself
 				mode = ModeTree
 				if recurse {
 					childTree := TreeID(sha)
-					children, err := childTree.GetAllObjects(cl, "", recurse, excludeself)
+					children, err := childTree.GetAllObjectsExcept(cl, excludeList, "", recurse, excludeself)
 					if err != nil {
 						return nil, err
 					}
+					excludeList[sha] = struct{}{}
 					for child, childval := range children {
 						val[IndexPath(name)+"/"+child] = childval
-
 					}
 				}
 			case "100644":
@@ -493,7 +516,6 @@ func (t TreeID) GetAllObjects(cl *Client, prefix IndexPath, recurse, excludeself
 			i += 20
 			entryStart = i + 1
 		}
-
 	}
 	return val, nil
 }
@@ -512,7 +534,7 @@ func (c CommitID) TreeID(cl *Client) (TreeID, error) {
 func (t TreeID) TreeID(cl *Client) (TreeID, error) {
 	// Validate that it's a tree
 	if Sha1(t).Type(cl) != "tree" {
-		return TreeID{}, fmt.Errorf("Invalid tree")
+		return TreeID{}, fmt.Errorf("Invalid tree: %v", t)
 	}
 	return t, nil
 }
