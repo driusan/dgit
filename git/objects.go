@@ -208,7 +208,7 @@ func (c *Client) GetObject(sha1 Sha1) (GitObject, error) {
 }
 
 func (c *Client) getObject(sha1 Sha1, metaOnly bool) (GitObject, error) {
-	if gobj, ok := c.objcache[sha1]; ok {
+	if gobj, ok := c.objcache[shaRef{sha1, metaOnly}]; ok {
 		// FIXME: We should determine why this is attempting to retrieve the
 		// same things multiple times and fix the source.
 		return gobj, nil
@@ -229,7 +229,7 @@ func (c *Client) getObject(sha1 Sha1, metaOnly bool) (GitObject, error) {
 		if err != nil {
 			return nil, err
 		}
-		c.objcache[sha1] = gobj
+		c.objcache[shaRef{sha1, metaOnly}] = gobj
 		return gobj, nil
 	} else {
 		objectname := fmt.Sprintf("%s/objects/%x/%x", c.GitDir, sha1[0:1], sha1[1:])
@@ -285,7 +285,7 @@ func (c *Client) getObject(sha1 Sha1, metaOnly bool) (GitObject, error) {
 			}
 		}
 		gobj := GitBlobObject{size, content}
-		c.objcache[sha1] = gobj
+		c.objcache[shaRef{sha1, metaOnly}] = gobj
 		return gobj, nil
 	} else if strings.HasPrefix(string(b), "commit ") {
 		var size int
@@ -300,7 +300,7 @@ func (c *Client) getObject(sha1 Sha1, metaOnly bool) (GitObject, error) {
 			}
 		}
 		gobj := GitCommitObject{size, content}
-		c.objcache[sha1] = gobj
+		c.objcache[shaRef{sha1, metaOnly}] = gobj
 		return gobj, nil
 	} else if strings.HasPrefix(string(b), "tree ") {
 		var size int
@@ -315,7 +315,7 @@ func (c *Client) getObject(sha1 Sha1, metaOnly bool) (GitObject, error) {
 			}
 		}
 		gobj := GitTreeObject{size, content}
-		c.objcache[sha1] = gobj
+		c.objcache[shaRef{sha1, metaOnly}] = gobj
 		return gobj, nil
 	} else {
 		fmt.Printf("Content: %s\n", string(b))
