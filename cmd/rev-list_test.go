@@ -12,7 +12,7 @@ func BenchmarkRevListHead(b *testing.B) {
 		panic(err)
 	}
 	for n := 0; n < b.N; n++ {
-		if _, err := RevList(c, []string{"--quiet", "HEAD"}); err != nil {
+		if err := RevList(c, []string{"--quiet", "HEAD"}); err != nil {
 			panic(err)
 		}
 	}
@@ -24,7 +24,7 @@ func BenchmarkRevListHeadExclude(b *testing.B) {
 		panic(err)
 	}
 	for n := 0; n < b.N; n++ {
-		if _, err := RevList(c, []string{"--quiet", "HEAD", "^HEAD^"}); err != nil {
+		if err := RevList(c, []string{"--quiet", "HEAD", "^HEAD^"}); err != nil {
 			panic(err)
 		}
 	}
@@ -36,7 +36,7 @@ func BenchmarkRevListHeadExcludeObjects(b *testing.B) {
 		panic(err)
 	}
 	for n := 0; n < b.N; n++ {
-		if _, err := RevList(c, []string{"--quiet", "--objects", "HEAD", "^HEAD^"}); err != nil {
+		if err := RevList(c, []string{"--quiet", "--objects", "HEAD", "^HEAD^"}); err != nil {
 			panic(err)
 		}
 	}
