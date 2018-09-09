@@ -16,7 +16,7 @@ type ParsedRevision struct {
 
 func (pr ParsedRevision) CommitID(c *Client) (CommitID, error) {
 	if pr.Id.Type(c) != "commit" {
-		return CommitID{}, fmt.Errorf("Invalid revision commit")
+		return CommitID{}, fmt.Errorf("Invalid revision commit: %v", pr.Id)
 	}
 	return CommitID(pr.Id), nil
 }

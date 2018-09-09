@@ -4,6 +4,7 @@ import (
 	"bufio"
 	"crypto/sha1"
 	"fmt"
+	"io"
 	"io/ioutil"
 	"log"
 	"os"
@@ -85,6 +86,17 @@ type objectLocation struct {
 	packfile File
 }
 
+type fileish interface {
+	io.Reader
+	io.Seeker
+	io.Closer
+}
+
+type shaRef struct {
+	Sha1
+	bool
+}
+
 // A Client represents a user of the git command inside of a git repo. It's
 // usually something that is trying to manipulate the repo.
 type Client struct {
@@ -104,6 +116,21 @@ type Client struct {
 
 	// Cache of where this client has previously found existing objects
 	objectCache map[Sha1]objectLocation
+
+	// Things where the closing is deferred until the client is closed.
+	fileclosers map[File]fileish
+
+	objcache map[shaRef]GitObject
+}
+
+func (c *Client) Close() error {
+	var e error
+	for _, f := range c.fileclosers {
+		if err := f.Close(); err != nil {
+			e = err
+		}
+	}
+	return e
 }
 
 // Walks from the current directory to find a .git directory
@@ -151,7 +178,7 @@ func NewClient(gitDir, workDir string) (*Client, error) {
 		// from the gitdir if it doesn't exist.
 	}
 	m := make(map[Sha1]objectLocation)
-	return &Client{GitDir(gitdir), WorkDir(workdir), "", m}, nil
+	return &Client{GitDir(gitdir), WorkDir(workdir), "", m, make(map[File]fileish), make(map[shaRef]GitObject)}, nil
 }
 
 // Returns the branchname of the HEAD branch, or the empty string if the
