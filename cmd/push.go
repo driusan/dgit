@@ -10,7 +10,7 @@ import (
 	"github.com/driusan/dgit/git"
 )
 
-func Push(c *git.Client, args []string) {
+func Push(c *git.Client, args []string) error {
 	flags := flag.NewFlagSet("branch", flag.ExitOnError)
 	flags.SetOutput(flag.CommandLine.Output())
 	flags.Usage = func() {
@@ -46,6 +46,9 @@ func Push(c *git.Client, args []string) {
 	defer file.Close()
 	config := git.ParseConfig(file)
 	remote, _ := config.GetConfig("branch." + flags.Arg(0) + ".remote")
+	if remote == "" {
+		return fmt.Errorf("No remote configured")
+	}
 	mergebranch, _ := config.GetConfig("branch." + flags.Arg(0) + ".merge")
 	mergebranch = strings.TrimSpace(mergebranch)
 	repoid, _ := config.GetConfig("remote." + remote + ".url")
@@ -56,55 +59,59 @@ func Push(c *git.Client, args []string) {
 			C: c,
 		}
 	} else {
-		fmt.Fprintln(os.Stderr, "Unknown protocol.")
-		return
+		return fmt.Errorf("Unknown protocol.")
 	}
 
 	refs, err := ups.NegotiateSendPack()
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "%v", err)
-		return
+		return err
 	}
+
+	localSha, err := RevParse(c, []string{flags.Arg(0)})
+	if err != nil {
+		return err
+	}
+	var remoteCommits []git.Commitish
+	var remoteHead git.CommitID
 	for _, ref := range refs {
 		trimmed := ref.Refname.String()
+		refsha, err := git.Sha1FromString(ref.Sha1)
+		if err != nil {
+			return err
+		}
 		if trimmed == mergebranch {
-			localSha, err := RevParse(c, []string{flags.Arg(0)})
-			if err != nil {
-				panic(err)
-			}
-			fmt.Printf("Refname: %s Remote Sha1: %s Local Sha1: %s\n", ref.Refname, ref.Sha1, localSha[0].Id)
-			objects, err := RevList(c, []string{"--objects", "--quiet", localSha[0].Id.String(), "^" + ref.Sha1})
-			if err != nil {
-				panic(err)
-			}
-			var lines string
-			for _, o := range objects {
-				lines = fmt.Sprintf("%s%s\n", lines, o.String())
-			}
-
-			f, err := ioutil.TempFile("", "sendpack")
-			if err != nil {
-				panic(err)
-			}
-			defer os.Remove(f.Name())
-
-			PackObjects(c, strings.NewReader(lines), []string{f.Name()})
-			f, err = os.Open(f.Name() + ".pack")
-			if err != nil {
-				panic(err)
-			}
-			defer os.Remove(f.Name())
-
-			stat, err := f.Stat()
-			if err != nil {
-				panic(err)
-			}
-			ups.SendPack(git.UpdateReference{
-				LocalSha1:  localSha[0].Id.String(),
-				RemoteSha1: ref.Sha1,
-				Refname:    ref.Refname,
-			}, f, stat.Size())
+			remoteHead = git.CommitID(refsha)
+		}
+		if have, _, err := c.HaveObject(refsha); have && err == nil {
+			remoteCommits = append(remoteCommits, git.CommitID(refsha))
 		}
 	}
+	var objects strings.Builder
+	if _, err := git.RevList(c, git.RevListOptions{Objects: true}, &objects, []git.Commitish{localSha[0]}, remoteCommits); err != nil {
+		return err
+	}
 
+	f, err := ioutil.TempFile("", "sendpack")
+	if err != nil {
+		panic(err)
+	}
+	os.Remove(f.Name())
+	fmt.Fprintf(f, objects.String())
+
+	PackObjects(c, strings.NewReader(objects.String()), []string{f.Name()})
+	f, err = os.Open(f.Name() + ".pack")
+	if err != nil {
+		return err
+	}
+	defer os.Remove(f.Name())
+	stat, err := f.Stat()
+	if err != nil {
+		return err
+	}
+	ups.SendPack(git.UpdateReference{
+		LocalSha1:  localSha[0].Id.String(),
+		RemoteSha1: remoteHead.String(),
+		Refname:    git.RefSpec(mergebranch),
+	}, f, stat.Size())
+	return nil
 }

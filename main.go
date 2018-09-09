@@ -250,7 +250,7 @@ func main() {
 
 	case "rev-list":
 		subcommandUsage = "<commit>..."
-		if _, err := cmd.RevList(c, args); err != nil {
+		if err := cmd.RevList(c, args); err != nil {
 			fmt.Fprintf(os.Stderr, "%v\n", err)
 			os.Exit(1)
 		}
@@ -270,7 +270,10 @@ func main() {
 		}
 	case "push":
 		subcommandUsage = "<repository>"
-		cmd.Push(c, args)
+		if err := cmd.Push(c, args); err != nil {
+			fmt.Fprintf(os.Stderr, "%v\n", err)
+			os.Exit(4)
+		}
 	case "pack-objects":
 		subcommandUsage = "<basename>"
 		cmd.PackObjects(c, os.Stdin, args)

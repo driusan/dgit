@@ -31,7 +31,6 @@ func RevListCallback(c *Client, opt RevListOptions, includes, excludes []Commiti
 		if _, ok := excludeList[s]; ok {
 			return nil
 		}
-		excludeList[s] = struct{}{}
 		if opt.Objects {
 			cmt := CommitID(s)
 			_, err := cmt.GetAllObjectsExcept(c, excludeList)
@@ -39,6 +38,7 @@ func RevListCallback(c *Client, opt RevListOptions, includes, excludes []Commiti
 				return err
 			}
 		}
+		excludeList[s] = struct{}{}
 		return nil
 	}
 
@@ -72,9 +72,11 @@ func revListCallback(c *Client, opt RevListOptions, commits []CommitID, excludeL
 		if _, ok := excludeList[Sha1(cmt)]; ok {
 			continue
 		}
+
 		if err := callback(Sha1(cmt)); err != nil {
 			return err
 		}
+		excludeList[Sha1(cmt)] = struct{}{}
 
 		if opt.Objects {
 			objs, err := cmt.GetAllObjectsExcept(c, excludeList)
@@ -85,7 +87,7 @@ func revListCallback(c *Client, opt RevListOptions, commits []CommitID, excludeL
 				if err := callback(o); err != nil {
 					return err
 				}
-				excludeList[o] = struct{}{}
+				//excludeList[o] = struct{}{}
 			}
 		}
 		parents, err := cmt.Parents(c)
