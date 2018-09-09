@@ -99,6 +99,9 @@ func main() {
 		fmt.Fprint(os.Stderr, "Could not find .git directory\n")
 		os.Exit(4)
 	}
+	if c != nil {
+		defer c.Close()
+	}
 	if *superprefix != "" {
 		c.SuperPrefix = *superprefix
 	}

@@ -6,6 +6,7 @@ import (
 	"compress/zlib"
 	"errors"
 	"fmt"
+	"io"
 	"io/ioutil"
 	"os"
 	"strconv"
@@ -151,19 +152,35 @@ func (t GitTreeObject) String() string {
 // resolving any deltas. (packfile should be the base name with no
 // extension.)
 func (c *Client) getPackedObject(packfile File, sha1 Sha1, metaOnly bool) (GitObject, error) {
-	idx, err := (packfile + ".idx").Open()
-	if err != nil {
-		return nil, err
+	idxfile := packfile + ".idx"
+	packfilefile := packfile + ".pack"
+	var idxf, packfilef fileish
+	if idx, ok := c.fileclosers[idxfile]; ok {
+		idxf = idx
+		if _, err := idxf.Seek(0, io.SeekStart); err != nil {
+			return nil, err
+		}
+	} else {
+		idxo, err := (idxfile).Open()
+		if err != nil {
+			return nil, err
+		}
+		idxf = idxo
+		c.fileclosers[idxfile] = idxo
 	}
-	defer idx.Close()
 
-	data, err := (packfile + ".pack").Open()
-	if err != nil {
-		return nil, err
+	if pack, ok := c.fileclosers[packfilefile]; ok {
+		packfilef = pack
+	} else {
+		pf, err := (packfilefile).Open()
+		if err != nil {
+			return nil, err
+		}
+		packfilef = pf
+		c.fileclosers[packfilefile] = pf
 	}
-	defer data.Close()
 
-	po, err := getPackFileObject(idx, data, sha1, metaOnly)
+	po, err := getPackFileObject(idxf, packfilef, sha1, metaOnly)
 	if err != nil {
 		return nil, err
 	}
@@ -191,6 +208,12 @@ func (c *Client) GetObject(sha1 Sha1) (GitObject, error) {
 }
 
 func (c *Client) getObject(sha1 Sha1, metaOnly bool) (GitObject, error) {
+	if gobj, ok := c.objcache[sha1]; ok {
+		// FIXME: We should determine why this is attempting to retrieve the
+		// same things multiple times and fix the source.
+		return gobj, nil
+	}
+
 	found, packfile, err := c.HaveObject(sha1)
 	if err != nil {
 		return nil, err
@@ -202,7 +225,12 @@ func (c *Client) getObject(sha1 Sha1, metaOnly bool) (GitObject, error) {
 
 	var b []byte
 	if packfile != "" {
-		return c.getPackedObject(packfile, sha1, metaOnly)
+		gobj, err := c.getPackedObject(packfile, sha1, metaOnly)
+		if err != nil {
+			return nil, err
+		}
+		c.objcache[sha1] = gobj
+		return gobj, nil
 	} else {
 		objectname := fmt.Sprintf("%s/objects/%x/%x", c.GitDir, sha1[0:1], sha1[1:])
 		f, err := os.Open(objectname)
@@ -256,7 +284,9 @@ func (c *Client) getObject(sha1 Sha1, metaOnly bool) (GitObject, error) {
 				break
 			}
 		}
-		return GitBlobObject{size, content}, nil
+		gobj := GitBlobObject{size, content}
+		c.objcache[sha1] = gobj
+		return gobj, nil
 	} else if strings.HasPrefix(string(b), "commit ") {
 		var size int
 		var content []byte
@@ -269,7 +299,9 @@ func (c *Client) getObject(sha1 Sha1, metaOnly bool) (GitObject, error) {
 				break
 			}
 		}
-		return GitCommitObject{size, content}, nil
+		gobj := GitCommitObject{size, content}
+		c.objcache[sha1] = gobj
+		return gobj, nil
 	} else if strings.HasPrefix(string(b), "tree ") {
 		var size int
 		var content []byte
@@ -282,7 +314,9 @@ func (c *Client) getObject(sha1 Sha1, metaOnly bool) (GitObject, error) {
 				break
 			}
 		}
-		return GitTreeObject{size, content}, nil
+		gobj := GitTreeObject{size, content}
+		c.objcache[sha1] = gobj
+		return gobj, nil
 	} else {
 		fmt.Printf("Content: %s\n", string(b))
 	}
