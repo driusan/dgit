@@ -20,36 +20,50 @@ func Push(c *git.Client, args []string) error {
 	}
 
 	// These flags can be moved out of these lists and below as proper flags as they are implemented
-	for _, bf := range []string{"all", "mirror", "tags", "follow-tags", "atomic", "n", "dry-run", "f", "force", "delete", "prune", "v", "verbose", "u", "set-upstream", "no-signed", "no-verify"} {
+	for _, bf := range []string{"all", "mirror", "tags", "follow-tags", "atomic", "n", "dry-run", "f", "force", "delete", "prune", "v", "verbose", "u", "no-signed", "no-verify"} {
 		flags.Var(newNotimplBoolValue(), bf, "Not implemented")
 	}
 	for _, sf := range []string{"receive-pack", "repo", "o", "push-option", "signed", "force-with-lease"} {
 		flags.Var(newNotimplStringValue(), sf, "Not implemented")
 	}
 
+	setupstream := flags.String("set-upstream", "", "Sets the upstream remote for the branch")
+
 	flags.Parse(args)
 
 	if flags.NArg() < 1 {
-		fmt.Fprintf(flag.CommandLine.Output(), "Missing repository to fetch")
+		fmt.Fprintf(flag.CommandLine.Output(), "Missing repository to push")
 		flag.Usage()
 		os.Exit(2)
 	} else if flags.NArg() > 1 {
-		fmt.Fprintf(flag.CommandLine.Output(), "Providing a refspect is not currently implemented")
+		fmt.Fprintf(flag.CommandLine.Output(), "Providing a refspec is not currently implemented")
 		flag.Usage()
 		os.Exit(2)
 	}
 
-	file, err := c.GitDir.Open("config")
+	bname := flags.Arg(0)
+	config, err := git.LoadLocalConfig(c)
 	if err != nil {
-		panic("Couldn't open config\n")
+		return err
 	}
-	defer file.Close()
-	config := git.ParseConfig(file)
-	remote, _ := config.GetConfig("branch." + flags.Arg(0) + ".remote")
+	if *setupstream != "" {
+		config.SetConfig(fmt.Sprintf("branch.%v.remote", bname), *setupstream)
+		config.SetConfig(fmt.Sprintf("branch.%v.merge", bname), fmt.Sprintf("refs/heads/%v", bname))
+		if err := config.WriteConfig(); err != nil {
+			return err
+		}
+	}
+	remote, _ := config.GetConfig("branch." + bname + ".remote")
 	if remote == "" {
-		return fmt.Errorf("No remote configured")
+		return fmt.Errorf(`The branch %v has no upstream set.
+To push and set the upstream to the remote named "origin" use:
+
+	%v push --set-upstream origin %v
+
+`, bname, os.Args[0], bname)
+
 	}
-	mergebranch, _ := config.GetConfig("branch." + flags.Arg(0) + ".merge")
+	mergebranch, _ := config.GetConfig("branch." + bname + ".merge")
 	mergebranch = strings.TrimSpace(mergebranch)
 	repoid, _ := config.GetConfig("remote." + remote + ".url")
 	println(remote, " on ", repoid)
