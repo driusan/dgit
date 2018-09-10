@@ -6,7 +6,6 @@ import (
 	"compress/zlib"
 	"errors"
 	"fmt"
-	"io"
 	"io/ioutil"
 	"os"
 	"strconv"
@@ -152,39 +151,17 @@ func (t GitTreeObject) String() string {
 // resolving any deltas. (packfile should be the base name with no
 // extension.)
 func (c *Client) getPackedObject(packfile File, sha1 Sha1, metaOnly bool) (GitObject, error) {
-	idxfile := packfile + ".idx"
-	packfilefile := packfile + ".pack"
-	var idxf, packfilef fileish
-	if idx, ok := c.fileclosers[idxfile]; ok {
-		idxf = idx
-		if _, err := idxf.Seek(0, io.SeekStart); err != nil {
-			return nil, err
-		}
-	} else {
-		idxo, err := (idxfile).Open()
-		if err != nil {
-			return nil, err
-		}
-		idxf = idxo
-		c.fileclosers[idxfile] = idxo
+	cacheloc, cached := c.objectCache[sha1]
+	if !cached {
+		panic("Attempt to use pack file before parsing index.")
 	}
 
-	if pack, ok := c.fileclosers[packfilefile]; ok {
-		packfilef = pack
-	} else {
-		pf, err := (packfilefile).Open()
-		if err != nil {
-			return nil, err
-		}
-		packfilef = pf
-		c.fileclosers[packfilefile] = pf
-	}
-
-	po, err := getPackFileObject(idxf, packfilef, sha1, metaOnly)
+	f, err := os.Open((cacheloc.packfile + ".pack").String())
 	if err != nil {
 		return nil, err
 	}
-	return po, err
+	defer f.Close()
+	return cacheloc.index.getObjectAtOffset(f, cacheloc.offset, metaOnly)
 }
 
 func (c *Client) GetCommitObject(commit CommitID) (GitCommitObject, error) {

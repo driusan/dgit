@@ -87,7 +87,6 @@ func revListCallback(c *Client, opt RevListOptions, commits []CommitID, excludeL
 				if err := callback(o); err != nil {
 					return err
 				}
-				//excludeList[o] = struct{}{}
 			}
 		}
 		parents, err := cmt.Parents(c)
