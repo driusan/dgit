@@ -70,19 +70,47 @@ type PackfileIndexV2 struct {
 }
 
 // reads a v2 pack file from r and tells if it has object inside it.
-// This avoids reading the entire pack file, since it only needs to
-// read up to the Sha1 table.
 func v2PackIndexHasSha1(c *Client, pfile File, r io.Reader, obj Sha1) bool {
 	var pack PackfileIndexV2
 	binary.Read(r, binary.BigEndian, &pack.magic)
 	binary.Read(r, binary.BigEndian, &pack.Version)
 	binary.Read(r, binary.BigEndian, &pack.Fanout)
 	pack.Sha1Table = make([]Sha1, pack.Fanout[255])
-	for i := 0; i < len(pack.Sha1Table); i++ {
-		binary.Read(r, binary.BigEndian, &pack.Sha1Table[i])
-		c.objectCache[pack.Sha1Table[i]] = objectLocation{false, pfile}
-	}
+	pack.CRC32 = make([]uint32, pack.Fanout[255])
+	pack.FourByteOffsets = make([]uint32, pack.Fanout[255])
+	// Load the tables. The first three are based on the number of
+	// objects in the packfile (stored in Fanout[255]), the last
+	// table is dynamicly sized.
 
+	for i := 0; i < len(pack.Sha1Table); i++ {
+		if err := binary.Read(r, binary.BigEndian, &pack.Sha1Table[i]); err != nil {
+			panic(err)
+		}
+	}
+	for i := 0; i < len(pack.CRC32); i++ {
+		if err := binary.Read(r, binary.BigEndian, &pack.CRC32[i]); err != nil {
+			panic(err)
+		}
+	}
+	for i := 0; i < len(pack.FourByteOffsets); i++ {
+		if err := binary.Read(r, binary.BigEndian, &pack.FourByteOffsets[i]); err != nil {
+			panic(err)
+		}
+		var offset int64
+		if pack.FourByteOffsets[i]&(1<<31) != 0 {
+			// clear out the MSB to get the offset
+			eightbyteOffset := pack.FourByteOffsets[i] ^ (1 << 31)
+			if eightbyteOffset&(1<<31) != 0 {
+				var val uint64
+				binary.Read(r, binary.BigEndian, &val)
+				pack.EightByteOffsets = append(pack.EightByteOffsets, val)
+				offset = int64(val)
+			}
+		} else {
+			offset = int64(pack.FourByteOffsets[i])
+		}
+		c.objectCache[pack.Sha1Table[i]] = objectLocation{false, pfile, &pack, offset}
+	}
 	return pack.HasObject(obj)
 }
 
@@ -90,7 +118,8 @@ func (idx PackfileIndexV2) WriteIndex(w io.Writer) error {
 	return idx.writeIndex(w, true)
 }
 
-// Using the index, retrieve an object from the packfile represented by r.
+// Using the index, retrieve an object from the packfile represented by r at offset
+// offset.
 func (idx PackfileIndexV2) getObjectAtOffset(r io.ReadSeeker, offset int64, metaOnly bool) (GitObject, error) {
 	var p PackfileHeader
 

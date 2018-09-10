@@ -84,6 +84,8 @@ func (f WorkDir) String() string {
 type objectLocation struct {
 	loose    bool
 	packfile File
+	index    *PackfileIndexV2
+	offset   int64
 }
 
 type fileish interface {
@@ -117,20 +119,11 @@ type Client struct {
 	// Cache of where this client has previously found existing objects
 	objectCache map[Sha1]objectLocation
 
-	// Things where the closing is deferred until the client is closed.
-	fileclosers map[File]fileish
-
 	objcache map[shaRef]GitObject
 }
 
 func (c *Client) Close() error {
-	var e error
-	for _, f := range c.fileclosers {
-		if err := f.Close(); err != nil {
-			e = err
-		}
-	}
-	return e
+	return nil
 }
 
 // Walks from the current directory to find a .git directory
@@ -178,7 +171,7 @@ func NewClient(gitDir, workDir string) (*Client, error) {
 		// from the gitdir if it doesn't exist.
 	}
 	m := make(map[Sha1]objectLocation)
-	return &Client{GitDir(gitdir), WorkDir(workdir), "", m, make(map[File]fileish), make(map[shaRef]GitObject)}, nil
+	return &Client{GitDir(gitdir), WorkDir(workdir), "", m, make(map[shaRef]GitObject)}, nil
 }
 
 // Returns the branchname of the HEAD branch, or the empty string if the
@@ -467,7 +460,7 @@ func (c *Client) HaveObject(id Sha1) (found bool, packedfile File, err error) {
 
 	// First the easy case
 	if f := c.GitDir.File(File(fmt.Sprintf("objects/%02x/%018x", id[0], id[1:]))); f.Exists() {
-		c.objectCache[id] = objectLocation{true, ""}
+		c.objectCache[id] = objectLocation{true, "", nil, 0}
 		return true, "", nil
 	}
 
