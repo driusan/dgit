@@ -254,6 +254,12 @@ func main() {
 			fmt.Fprintf(os.Stderr, "%v\n", err)
 			os.Exit(1)
 		}
+	case "rm":
+		subcommandUsage = "-- <file>..."
+		if err := cmd.Rm(c, args); err != nil {
+			fmt.Fprintf(os.Stderr, "%v\n", err)
+			os.Exit(1)
+		}
 	case "hash-object":
 		subcommandUsage = "[<file>...]"
 		cmd.HashObject(c, args)
