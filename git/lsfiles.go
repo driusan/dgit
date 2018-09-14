@@ -153,6 +153,9 @@ type LsFilesOptions struct {
 	ExcludePerDirectory []File
 
 	ErrorUnmatch bool
+
+	// Equivalent to the -t option to git ls-files
+	Status bool
 }
 
 // LsFiles implements the git ls-files command. It returns an array of files
@@ -195,7 +198,11 @@ func LsFiles(c *Client, opt LsFilesOptions, files []File) ([]*IndexEntry, error)
 					if err != nil {
 						return nil, err
 					}
-					fs = append(fs, &IndexEntry{PathName: indexPath})
+					if opt.Status {
+						fs = append(fs, &IndexEntry{PathName: "K " + indexPath})
+					} else {
+						fs = append(fs, &IndexEntry{PathName: indexPath})
+					}
 				}
 				// check the next level of the directory path
 				pathparent, _ = filepath.Split(filepath.Clean(pathparent))
@@ -205,7 +212,11 @@ func LsFiles(c *Client, opt LsFilesOptions, files []File) ([]*IndexEntry, error)
 				if err != nil {
 					return nil, err
 				}
-				fs = append(fs, &IndexEntry{PathName: indexPath})
+				if opt.Status {
+					fs = append(fs, &IndexEntry{PathName: "K " + indexPath})
+				} else {
+					fs = append(fs, &IndexEntry{PathName: indexPath})
+				}
 			}
 		}
 
@@ -239,23 +250,35 @@ func LsFiles(c *Client, opt LsFilesOptions, files []File) ([]*IndexEntry, error)
 		}
 
 		if opt.Cached {
+			if opt.Status {
+				entry.PathName = "H " + entry.PathName
+			}
 			fs = append(fs, entry)
 			continue
 		}
 		if opt.Deleted {
 			if !f.Exists() {
+				if opt.Status {
+					entry.PathName = "R " + entry.PathName
+				}
 				fs = append(fs, entry)
 				continue
 			}
 		}
 
 		if opt.Unmerged && entry.Stage() != Stage0 {
+			if opt.Status {
+				entry.PathName = "M " + entry.PathName
+			}
 			fs = append(fs, entry)
 			continue
 		}
 
 		if opt.Modified {
 			if f.IsDir() {
+				if opt.Status {
+					entry.PathName = "C " + entry.PathName
+				}
 				fs = append(fs, entry)
 				continue
 			}
@@ -266,6 +289,9 @@ func LsFiles(c *Client, opt LsFilesOptions, files []File) ([]*IndexEntry, error)
 			// that os.IsNotExist(err) can't be used to check if it
 			// really was deleted, so for now we just assume.)
 			if _, err := f.Stat(); err != nil {
+				if opt.Status {
+					entry.PathName = "C " + entry.PathName
+				}
 				fs = append(fs, entry)
 				continue
 			}
@@ -278,6 +304,9 @@ func LsFiles(c *Client, opt LsFilesOptions, files []File) ([]*IndexEntry, error)
 				return nil, err
 			}
 			if hash != entry.Sha1 {
+				if opt.Status {
+					entry.PathName = "C " + entry.PathName
+				}
 				fs = append(fs, entry)
 			}
 		}
@@ -345,6 +374,9 @@ func LsFiles(c *Client, opt LsFilesOptions, files []File) ([]*IndexEntry, error)
 				}
 			}
 
+			if opt.Status {
+				file.PathName = "? " + file.PathName
+			}
 			fs = append(fs, file)
 		}
 	}
