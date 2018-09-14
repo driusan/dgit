@@ -201,6 +201,11 @@ paths:
 	for _, path := range allObjects {
 		// Handle directory/file conflicts.
 		if base.HasDir(path) || ours.HasDir(path) || theirs.HasDir(path) {
+			if !opt.Merge && !opt.Reset {
+				// If not merging, the file wins.
+				// see http://www.stackoverflow.com/questions/52175720/how-does-git-read-tree-work-without-m-or-reset-option
+				continue
+			}
 			// Keep track of what was a directory so that other
 			// other paths know if they had a conflict higher
 			// up in the tree.
