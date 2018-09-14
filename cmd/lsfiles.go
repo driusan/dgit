@@ -43,6 +43,8 @@ func LsFiles(c *git.Client, args []string) error {
 	flags.BoolVar(&options.Killed, "killed", false, "Show files that need to be removed for checkout-index to succeed")
 	flags.BoolVar(&options.Killed, "k", false, "Alias of --killed")
 
+	flags.BoolVar(&options.Status, "t", false, "Show status of files")
+
 	flags.BoolVar(&options.ExcludeStandard, "exclude-standard", false, "Add the standard Git exclusions.")
 
 	flags.BoolVar(&options.Directory, "directory", false, "Show only directory, not its contents if a directory is untracked")
