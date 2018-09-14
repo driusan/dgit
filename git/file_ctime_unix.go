@@ -1,4 +1,4 @@
-// +build dragonfly linux
+// +build dragonfly linux openbsd
 
 package git
 

@@ -1,6 +1,7 @@
 // +build !dragonfly
 // +build !darwin
 // +build !linux
+// +build !openbsd
 
 package git
 
