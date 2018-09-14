@@ -71,10 +71,11 @@ func Rm(c *Client, opts RmOptions, files []File) error {
 		}
 	}
 
-	deleted, err := LsFiles(c, LsFilesOptions{Deleted: true}, files)
+	deleted, err := LsFiles(c, LsFilesOptions{Cached: true}, files)
 	if err != nil {
 		return err
 	}
+
 	for _, ip := range deleted {
 		f, err := ip.PathName.FilePath(c)
 		if err != nil {
@@ -92,6 +93,14 @@ func Rm(c *Client, opts RmOptions, files []File) error {
 		}
 		if err := f.Remove(); err != nil {
 			return err
+		}
+		if !opts.DryRun {
+			f, err := c.GitDir.Create(File("index"))
+			if err != nil {
+				return err
+			}
+			defer f.Close()
+			return idx.WriteIndex(f)
 		}
 	}
 	return nil
