@@ -229,7 +229,6 @@ func (s *SmartHTTPServerRetriever) getRefs(service, expectedmime string) (io.Rea
 	}
 
 	if s.username != "" || s.password != "" {
-		println("Setting password ", s.username, s.password)
 		req.SetBasicAuth(s.username, s.password)
 	}
 	resp, err := http.DefaultClient.Do(req)
@@ -260,7 +259,11 @@ func (s *SmartHTTPServerRetriever) NegotiateSendPack() ([]*Reference, error) {
 	var err error
 
 	s.username = readLine("Username: ")
-	s.password = readLine("Password: ")
+	pw, err := getPassword(s.Location)
+	if err != nil {
+		return nil, err
+	}
+	s.password = pw
 	r, err := s.getRefs("git-receive-pack", "application/x-git-receive-pack-request")
 	if err != nil {
 		return nil, err
