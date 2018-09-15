@@ -16,6 +16,7 @@ func ReadTree(c *git.Client, args []string) error {
 		fmt.Fprintf(flag.CommandLine.Output(), "\nOptions:\n\n")
 		flags.PrintDefaults()
 	}
+
 	options := git.ReadTreeOptions{}
 	flags.BoolVar(&options.Merge, "m", false, "Perform a merge. Will not run if you have unmerged entries")
 	flags.BoolVar(&options.Reset, "reset", false, "Perform a merge. Will discard unmerged entries")
@@ -43,6 +44,20 @@ func ReadTree(c *git.Client, args []string) error {
 	flags.BoolVar(&options.Empty, "empty", false, "Instead of reading the treeish into the index, empty it")
 
 	flags.Parse(args)
+
+	// If core.sparsecheckout isn't true, "no-sparse-checkout" is always
+	// true
+	config, err := git.LoadLocalConfig(c)
+	if err != nil {
+		fmt.Printf("DISABLING SPARSE CHEKCOUT")
+		options.NoSparseCheckout = true
+		return err
+	}
+	sparseenabled, _ := config.GetConfig("core.sparsecheckout")
+	if sparseenabled != "true" {
+		fmt.Printf("DISABLING SPARSE CHEKCOUG")
+		options.NoSparseCheckout = true
+	}
 	args = flags.Args()
 
 	// Handle --exclude-per-directory and convert it to the options

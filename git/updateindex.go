@@ -29,7 +29,6 @@ type UpdateIndexOptions struct {
 	Refresh, ReallyRefresh bool
 	Quiet                  bool
 	IgnoreSubmodules       bool
-	SkipworkTree           bool
 
 	IndexVersion int
 
@@ -118,6 +117,9 @@ func UpdateIndex(c *Client, idx *Index, opts UpdateIndexOptions, files []File) (
 		}
 		if opts.Verbose {
 			fmt.Printf("add '%v'\n", file)
+		}
+		if opts.SkipWorktree.Modify {
+			idx.SetSkipWorktree(c, ipath, opts.SkipWorktree.Value)
 		}
 	}
 	return idx, nil
