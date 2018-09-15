@@ -37,8 +37,8 @@ type CheckoutOptions struct {
 	// Not implemented
 	Detach bool
 
-	// Not implemented
 	IgnoreSkipWorktreeBits bool
+
 	// Not implemented
 	Merge bool
 
@@ -148,16 +148,46 @@ func CheckoutCommit(c *Client, opts CheckoutOptions, commit Commitish) error {
 		return err
 	}
 
-	// Convert from Commitish to Treeish for ReadTree
+	// Convert from Commitish to Treeish for ReadTree and LsTree
 	cid, err := commit.CommitID(c)
 	if err != nil {
 		return err
 	}
 
+	// Check that nothing would be lost
+	lstree, err := LsTree(c, LsTreeOptions{Recurse: true}, cid, nil)
+	if err != nil {
+		return err
+	}
+	newfiles := make([]File, 0, len(lstree))
+	for _, entry := range lstree {
+		f, err := entry.PathName.FilePath(c)
+		if err != nil {
+			return err
+		}
+		newfiles = append(newfiles, f)
+	}
+	untracked, err := LsFiles(c, LsFilesOptions{Others: true}, newfiles)
+	if err != nil {
+		return err
+	}
+	if len(untracked) > 0 {
+		err := "error: The following untracked working tree files would be overwritten by checkout:\n"
+		for _, f := range untracked {
+			err += "\t" + f.IndexEntry.PathName.String() + "\n"
+		}
+		err += "Please move or remove them before you switch branches.\nAborting"
+		return fmt.Errorf("%v", err)
+	}
+
+	// Now actually read the tree into the index
 	readtreeopts := ReadTreeOptions{Update: true, Merge: true}
 	if opts.Force {
 		readtreeopts.Merge = false
 		readtreeopts.Reset = true
+	}
+	if opts.IgnoreSkipWorktreeBits {
+		readtreeopts.NoSparseCheckout = true
 	}
 	if _, err := ReadTree(c, readtreeopts, cid); err != nil {
 		return err
@@ -205,7 +235,7 @@ func CheckoutFiles(c *Client, opts CheckoutOptions, tree Treeish, files []File) 
 	// If they weren't, we want to checkout a treeish, so let ReadTree update
 	// the workdir so that we don't lose any changes.
 	updateAll := (len(files) == 0)
-	i, err := ReadTree(c, ReadTreeOptions{Update: updateAll, Merge: updateAll}, tree)
+	i, err := ReadTree(c, ReadTreeOptions{Update: updateAll, Merge: updateAll, NoSparseCheckout: opts.IgnoreSkipWorktreeBits}, tree)
 	if err != nil {
 		return err
 	}
