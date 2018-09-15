@@ -42,7 +42,7 @@ func Checkout(c *git.Client, args []string) error {
 	flags.BoolVar(&options.Detach, "detach", false, "Checkout in detached head state.")
 	orphan := flags.String("orphan", "", "Create a new branch with no parents")
 
-	flags.BoolVar(&options.IgnoreSkipWorktreeBits, "ignore-skip-worktree-bits", false, "Unused (spare checkout not supported)")
+	flags.BoolVar(&options.IgnoreSkipWorktreeBits, "ignore-skip-worktree-bits", false, "Check out regardless of skip worktree bit")
 
 	flags.BoolVar(&options.Merge, "merge", false, "Perform three-way merge with local modifications if switching branches")
 	flags.BoolVar(&options.Merge, "m", false, "Alias of --merge")

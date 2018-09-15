@@ -50,7 +50,7 @@ func (ie IndexEntry) SkipWorktree() bool {
 	if ie.ExtendedFlag() == false || ie.V3IndexExtensions == nil {
 		return false
 	}
-	return	(ie.V3IndexExtensions.Flags >> 14) & 0x1 == 1
+	return (ie.V3IndexExtensions.Flags>>14)&0x1 == 1
 }
 func (ie *IndexEntry) SetSkipWorktree(value bool) {
 	if value {

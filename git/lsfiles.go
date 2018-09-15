@@ -158,10 +158,15 @@ type LsFilesOptions struct {
 	Status bool
 }
 
+type LsFilesResult struct {
+	*IndexEntry
+	StatusCode rune
+}
+
 // LsFiles implements the git ls-files command. It returns an array of files
 // that match the options passed.
-func LsFiles(c *Client, opt LsFilesOptions, files []File) ([]*IndexEntry, error) {
-	var fs []*IndexEntry
+func LsFiles(c *Client, opt LsFilesOptions, files []File) ([]LsFilesResult, error) {
+	var fs []LsFilesResult
 	index, err := c.GitDir.ReadIndex()
 	if err != nil {
 		return nil, err
@@ -198,11 +203,10 @@ func LsFiles(c *Client, opt LsFilesOptions, files []File) ([]*IndexEntry, error)
 					if err != nil {
 						return nil, err
 					}
-					if opt.Status {
-						fs = append(fs, &IndexEntry{PathName: "K " + indexPath})
-					} else {
-						fs = append(fs, &IndexEntry{PathName: indexPath})
-					}
+					fs = append(fs, LsFilesResult{
+						&IndexEntry{PathName: indexPath},
+						'K',
+					})
 				}
 				// check the next level of the directory path
 				pathparent, _ = filepath.Split(filepath.Clean(pathparent))
@@ -212,11 +216,10 @@ func LsFiles(c *Client, opt LsFilesOptions, files []File) ([]*IndexEntry, error)
 				if err != nil {
 					return nil, err
 				}
-				if opt.Status {
-					fs = append(fs, &IndexEntry{PathName: "K " + indexPath})
-				} else {
-					fs = append(fs, &IndexEntry{PathName: indexPath})
-				}
+				fs = append(fs, LsFilesResult{
+					&IndexEntry{PathName: indexPath},
+					'K',
+				})
 			}
 		}
 
@@ -250,40 +253,28 @@ func LsFiles(c *Client, opt LsFilesOptions, files []File) ([]*IndexEntry, error)
 		}
 
 		if opt.Cached {
-			if opt.Status {
-				if entry.SkipWorktree() {
-					entry.PathName = "S " + entry.PathName
-				} else {
-					entry.PathName = "H " + entry.PathName
-				}
+			if entry.SkipWorktree() {
+				fs = append(fs, LsFilesResult{entry, 'S'})
+			} else {
+				fs = append(fs, LsFilesResult{entry, 'H'})
 			}
-			fs = append(fs, entry)
 			continue
 		}
 		if opt.Deleted {
 			if !f.Exists() {
-				if opt.Status {
-					entry.PathName = "R " + entry.PathName
-				}
-				fs = append(fs, entry)
+				fs = append(fs, LsFilesResult{entry, 'R'})
 				continue
 			}
 		}
 
 		if opt.Unmerged && entry.Stage() != Stage0 {
-			if opt.Status {
-				entry.PathName = "M " + entry.PathName
-			}
-			fs = append(fs, entry)
+			fs = append(fs, LsFilesResult{entry, 'M'})
 			continue
 		}
 
 		if opt.Modified {
 			if f.IsDir() {
-				if opt.Status {
-					entry.PathName = "C " + entry.PathName
-				}
-				fs = append(fs, entry)
+				fs = append(fs, LsFilesResult{entry, 'C'})
 				continue
 			}
 			// If we couldn't stat it, we assume it was deleted and
@@ -293,10 +284,7 @@ func LsFiles(c *Client, opt LsFilesOptions, files []File) ([]*IndexEntry, error)
 			// that os.IsNotExist(err) can't be used to check if it
 			// really was deleted, so for now we just assume.)
 			if _, err := f.Stat(); err != nil {
-				if opt.Status {
-					entry.PathName = "C " + entry.PathName
-				}
-				fs = append(fs, entry)
+				fs = append(fs, LsFilesResult{entry, 'C'})
 				continue
 			}
 
@@ -308,10 +296,7 @@ func LsFiles(c *Client, opt LsFilesOptions, files []File) ([]*IndexEntry, error)
 				return nil, err
 			}
 			if hash != entry.Sha1 {
-				if opt.Status {
-					entry.PathName = "C " + entry.PathName
-				}
-				fs = append(fs, entry)
+				fs = append(fs, LsFilesResult{entry, 'C'})
 			}
 		}
 	}
@@ -377,14 +362,42 @@ func LsFiles(c *Client, opt LsFilesOptions, files []File) ([]*IndexEntry, error)
 					continue
 				}
 			}
-
-			if opt.Status {
-				file.PathName = "? " + file.PathName
-			}
-			fs = append(fs, file)
+			fs = append(fs, LsFilesResult{file, '?'})
 		}
 	}
 
-	sort.Sort(ByPath(fs))
+	sort.Sort(lsByPath(fs))
 	return fs, nil
+}
+
+// Implement the sort interface on *GitIndexEntry, so that
+// it's easy to sort by name.
+type lsByPath []LsFilesResult
+
+func (g lsByPath) Len() int      { return len(g) }
+func (g lsByPath) Swap(i, j int) { g[i], g[j] = g[j], g[i] }
+func (g lsByPath) Less(i, j int) bool {
+	if g[i].PathName == g[j].PathName {
+		return g[i].Stage() < g[j].Stage()
+	}
+	ibytes := []byte(g[i].PathName)
+	jbytes := []byte(g[j].PathName)
+	for k := range ibytes {
+		if k >= len(jbytes) {
+			// We reached the end of j and there was stuff
+			// leftover in i, so i > j
+			return false
+		}
+
+		// If a character is not equal, return if it's
+		// less or greater
+		if ibytes[k] < jbytes[k] {
+			return true
+		} else if ibytes[k] > jbytes[k] {
+			return false
+		}
+	}
+	// Everything equal up to the end of i, and there is stuff
+	// left in j, so i < j
+	return true
 }

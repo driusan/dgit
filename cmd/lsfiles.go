@@ -119,6 +119,9 @@ func LsFiles(c *git.Client, args []string) error {
 		if err != nil {
 			return err
 		}
+		if options.Status {
+			fmt.Printf("%c ", file.StatusCode)
+		}
 		if options.Stage {
 			fmt.Printf("%o %v %v\t%v\n", file.Mode, file.Sha1, file.Stage(), path)
 		} else {

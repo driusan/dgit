@@ -51,7 +51,15 @@ func (ip IgnorePattern) Matches(ignorePath string, isDir bool) bool {
 		return false
 	}
 
-	return matchesGlob("/"+rel, isDir, ip.Pattern)
+	pattern := ip.Pattern
+	if pattern[0] == '!' {
+		pattern = pattern[1:]
+	}
+	return matchesGlob("/"+rel, isDir, pattern)
+}
+
+func (ip IgnorePattern) Negates() bool {
+	return len(ip.Pattern) > 1 && ip.Pattern[0] == '!'
 }
 
 // Returns the standard ignores (.gitignore files and various global sources) that
