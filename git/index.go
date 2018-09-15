@@ -31,14 +31,19 @@ type Index struct {
 	fixedGitIndex // 12
 	Objects       []*IndexEntry
 }
+
+type V3IndexExtensions struct {
+	Flags uint16
+}
+
 type IndexEntry struct {
 	FixedIndexEntry
-
+	*V3IndexExtensions
 	PathName IndexPath
 }
 
 func (ie IndexEntry) Stage() Stage {
-	return Stage((ie.Flags >> 12) & 0x3)
+	return Stage((ie.FixedIndexEntry.Flags >> 12) & 0x3)
 }
 func NewIndex() *Index {
 	return &Index{
@@ -70,6 +75,10 @@ type FixedIndexEntry struct {
 	Sha1 Sha1 // 72
 
 	Flags uint16 // 74
+}
+
+func (i FixedIndexEntry) ExtendedFlag() bool {
+	return ((i.Flags >> 14) & 0x1) == 1
 }
 
 // Refreshes the stat information for this entry using the file
@@ -174,22 +183,39 @@ func (d GitDir) ReadIndex() (*Index, error) {
 	if i.Version < 2 || i.Version > 4 {
 		return nil, InvalidIndex
 	}
+	log.Println("Index version", i.Version)
 
 	var idx uint32
 	indexes := make([]*IndexEntry, i.NumberIndexEntries, i.NumberIndexEntries)
 	for idx = 0; idx < i.NumberIndexEntries; idx += 1 {
-		if index, err := ReadIndexEntry(file); err == nil {
+		if index, err := ReadIndexEntry(file, i.Version); err == nil {
 			indexes[idx] = index
 		}
 	}
 	return &Index{i, indexes}, nil
 }
 
-func ReadIndexEntry(file *os.File) (*IndexEntry, error) {
-	log.Println("Reading from index entry from", file.Name())
+func ReadIndexEntry(file *os.File, indexVersion uint32) (*IndexEntry, error) {
+	log.Printf("Reading index entry from %v assuming index version %d\n", file.Name(), indexVersion)
+	if indexVersion < 2 || indexVersion > 3 {
+		return nil, fmt.Errorf("Unsupported index version.")
+	}
 	var f FixedIndexEntry
 	var name []byte
-	binary.Read(file, binary.BigEndian, &f)
+	if err := binary.Read(file, binary.BigEndian, &f); err != nil {
+		return nil, err
+	}
+
+	var v3e *V3IndexExtensions
+	if f.ExtendedFlag() {
+		if indexVersion < 3 {
+			return nil, InvalidIndex
+		}
+		v3e = &V3IndexExtensions{}
+		if err := binary.Read(file, binary.BigEndian, v3e); err != nil {
+			return nil, err
+		}
+	}
 
 	var nameLength uint16
 	nameLength = f.Flags & 0x0FFF
@@ -201,7 +227,7 @@ func ReadIndexEntry(file *os.File) (*IndexEntry, error) {
 			panic("I don't know what to do")
 		}
 		if n != int(nameLength) {
-			panic("Error reading the name")
+			panic(fmt.Sprintf("Error reading the name read %d (got :%v)", n, string(name[:n])))
 		}
 
 		// I don't understand where this +4 comes from, but it seems to work
@@ -217,7 +243,12 @@ func ReadIndexEntry(file *os.File) (*IndexEntry, error) {
 		// this *should* be 8 - ((82 + nameLength) % 8) bytes of padding.
 		// But reading existant index files, there seems to be an extra 4 bytes
 		// incorporated into the index size calculation.
-		expectedOffset := 8 - ((82 + nameLength + 4) % 8)
+		sz := uint16(82)
+		if f.ExtendedFlag() {
+			// Add 2 bytes if the extended flag is set for the V3 extensions
+			sz += 2
+		}
+		expectedOffset := 8 - ((sz + nameLength + 4) % 8)
 		file.Seek(int64(expectedOffset), 1)
 	} else {
 
@@ -243,7 +274,7 @@ func ReadIndexEntry(file *os.File) (*IndexEntry, error) {
 			return nil, err
 		}
 	}
-	return &IndexEntry{f, IndexPath(name)}, nil
+	return &IndexEntry{f, v3e, IndexPath(name)}, nil
 }
 
 // A Stage represents a git merge stage in the index.
@@ -365,6 +396,7 @@ func (g *Index) AddStage(c *Client, path IndexPath, mode EntryMode, s Sha1, stag
 			s,
 			flags,
 		},
+		&V3IndexExtensions{},
 		path,
 	}
 	newentry.RefreshStat(c)
@@ -530,11 +562,25 @@ func (g Index) WriteIndex(file io.Writer) error {
 	w := io.MultiWriter(file, s)
 	binary.Write(w, binary.BigEndian, g.fixedGitIndex)
 	for _, entry := range g.Objects {
-		binary.Write(w, binary.BigEndian, entry.FixedIndexEntry)
-		binary.Write(w, binary.BigEndian, []byte(entry.PathName))
+		if err := binary.Write(w, binary.BigEndian, entry.FixedIndexEntry); err != nil {
+			return err
+		}
+		if entry.ExtendedFlag() {
+			if g.Version == 2 {
+				return InvalidIndex
+			}
+			if err := binary.Write(w, binary.BigEndian, *entry.V3IndexExtensions); err != nil {
+				return err
+			}
+		}
+		if err := binary.Write(w, binary.BigEndian, []byte(entry.PathName)); err != nil {
+			return err
+		}
 		padding := 8 - ((82 + len(entry.PathName) + 4) % 8)
 		p := make([]byte, padding)
-		binary.Write(w, binary.BigEndian, p)
+		if err := binary.Write(w, binary.BigEndian, p); err != nil {
+			return err
+		}
 	}
 	binary.Write(w, binary.BigEndian, s.Sum(nil))
 	return nil
