@@ -116,10 +116,10 @@ mktag          Done          git 2.17.2
 mktree         None                                 (1)
 pack-objects   HappyPath     git 2.9.2              (18) No options are implemented
 prune-packed   None                                 (3)
-read-tree      Almost        git 2.9.2              (6) missing --prefix, -i, --trivial/aggressive, --exclude-per-directory, and --nosparse-checkout
+read-tree      Almost        git 2.9.2              (3) missing -i, --trivial, --aggressive
 symbolic-ref   Done          git 2.9.2
 unpack-objects Almost        git 2.9.2              (3) Dryrun, strict, and max-input-size options are missing
-update-index   HappyPath     git 2.14.2             (22) Only --add, --remove, --force-remove, --refresh and --verbose are implemented
+update-index   HappyPath     git 2.14.2             (22) Only --add, --remove, --force-remove, --refresh, --no-skip-worktree --skip-worktree, and --verbose are implemented
 update-ref     Almost        git 2.9.2              (2) missing -d(elete), and --stdin/-z
 write-tree     Done          git 2.9.2
 

@@ -32,10 +32,9 @@ type ReadTreeOptions struct {
 	TrivialMerge, AggressiveMerge bool
 
 	// Read the named tree into the directory prefix/ under the index
-	// (Not implemented)
 	Prefix string
 
-	// Not implemented
+	// Used as the name of a .gitignore to look for in each directory
 	ExcludePerDirectory string
 
 	// Name of the index file to use under c.GitDir
@@ -45,7 +44,9 @@ type ReadTreeOptions struct {
 	// named Treeish.
 	Empty bool
 
-	// Not implemented
+	// Disable sparse checkout.
+	// Note that it's the caller's responsibility to set this option if
+	// core.sparsecheckout is not equal to true.
 	NoSparseCheckout bool
 }
 
@@ -72,6 +73,45 @@ func samePath(p1, p2 IndexMap, path IndexPath) bool {
 	// It's in both, so we can safely check the sha
 	return p1i.Sha1 == p2i.Sha1
 
+}
+
+func checkSparseMatches(c *Client, opt ReadTreeOptions, path IndexPath, patterns []IgnorePattern) bool {
+	if opt.NoSparseCheckout {
+		// If noSparseCheckout is set, just claim everything
+		// matches.
+		return true
+	}
+	fp, err := path.FilePath(c)
+	if err != nil {
+		panic(err)
+	}
+	f := fp.String()
+	for _, pattern := range patterns {
+		if pattern.Matches(f, false) {
+			return true
+		}
+	}
+	return false
+}
+
+func parseSparsePatterns(c *Client, opt *ReadTreeOptions) []IgnorePattern {
+	if opt.NoSparseCheckout {
+		return nil
+	}
+	sparsefile := c.GitDir.File("info/sparse-checkout")
+	if !sparsefile.Exists() {
+		fmt.Printf("%v does not exist\n")
+		// If the file doesn't exist, pretend the
+		// flag to ignore the file was set since the
+		// logic is identical.
+		opt.NoSparseCheckout = true
+		return nil
+	}
+	sp, err := ParseIgnorePatterns(c, sparsefile, "")
+	if err != nil {
+		return nil
+	}
+	return sp
 }
 
 // ReadTreeThreeWay will perform a three-way merge on the trees stage1, stage2, and stage3.
@@ -121,13 +161,21 @@ func ReadTreeThreeWay(c *Client, opt ReadTreeOptions, stage1, stage2, stage3 Tre
 	// Sort to ensure directories come before files.
 	sort.Sort(ByPath(allPaths))
 
-	// Remove duplicates
+	// Remove duplicates and exclude files that aren't part of the
+	// sparse checkout rules if applicable.
 	var allObjects []IndexPath
+	sparsePatterns := parseSparsePatterns(c, &opt)
 	for i := range allPaths {
 		if i > 0 && allPaths[i].PathName == allPaths[i-1].PathName {
 			continue
 		}
+		if !checkSparseMatches(c, opt, allPaths[i].PathName, sparsePatterns) {
+			continue
+		}
 		allObjects = append(allObjects, allPaths[i].PathName)
+	}
+	if !opt.NoSparseCheckout && len(allObjects) == 0 {
+		return nil, fmt.Errorf("Sparse checkout would leave no files in working directory")
 	}
 	var dirs []IndexPath
 
@@ -389,7 +437,13 @@ func ReadTreeFastForward(c *Client, opt ReadTreeOptions, parent, dst Treeish) (*
 	// (We'll create a new index instead of trying to keep track of state
 	// of the existing index while iterating through it.)
 	newidx := NewIndex()
+
+	sparsePatterns := parseSparsePatterns(c, &opt)
 	for pathname, IEntry := range I {
+		if !checkSparseMatches(c, opt, pathname, sparsePatterns) {
+			continue
+		}
+
 		HEntry, HExists := H[pathname]
 		MEntry, MExists := M[pathname]
 		if !HExists && !MExists {
@@ -444,6 +498,9 @@ func ReadTreeFastForward(c *Client, opt ReadTreeOptions, parent, dst Treeish) (*
 	// Finally, handle the cases where it's in H or M but not I by going
 	// through the maps of H and M.
 	for pathname, MEntry := range M {
+		if !checkSparseMatches(c, opt, pathname, sparsePatterns) {
+			continue
+		}
 		if _, IExists := I[pathname]; IExists {
 			// If it's in I, it was already handled above.
 			continue
@@ -480,6 +537,9 @@ func ReadTreeFastForward(c *Client, opt ReadTreeOptions, parent, dst Treeish) (*
 	// Since we never added it to newidx, it's already removed. We don't
 	// need to range over H to verify that.
 
+	if !opt.NoSparseCheckout && newidx.NumberIndexEntries == 0 {
+		return nil, fmt.Errorf("Sparse checkout would leave no files in working directory")
+	}
 	// We need to make sure the number of index entries stays is correct,
 	// it's going to be an invalid index..
 	newidx.NumberIndexEntries = uint32(len(newidx.Objects))
@@ -572,6 +632,22 @@ func ReadTree(c *Client, opt ReadTreeOptions, tree Treeish) (*Index, error) {
 	if err := newidx.ResetIndex(c, tree); err != nil {
 		return nil, err
 	}
+	if !opt.NoSparseCheckout {
+		var sparseobjects []*IndexEntry
+		sparsePatterns := parseSparsePatterns(c, &opt)
+		for _, entry := range newidx.Objects {
+			if !checkSparseMatches(c, opt, entry.PathName, sparsePatterns) {
+				continue
+			}
+			sparseobjects = append(sparseobjects, entry)
+			if len(sparseobjects) == 0 {
+				return nil, fmt.Errorf("Sparse checkout would leave no files in working directory")
+			}
+		}
+		newidx.Objects = sparseobjects
+		newidx.NumberIndexEntries = uint32(len(sparseobjects))
+
+	}
 	for _, entry := range newidx.Objects {
 		if opt.Prefix != "" {
 			// Add it to the original index with the prefix
@@ -604,6 +680,10 @@ func ReadTree(c *Client, opt ReadTreeOptions, tree Treeish) (*Index, error) {
 // Check if the merge would overwrite any modified files and return an error if so (unless --reset),
 // then update the file system.
 func checkMergeAndUpdate(c *Client, opt ReadTreeOptions, origidx map[IndexPath]*IndexEntry, newidx *Index, resetremovals []File) error {
+	if !opt.NoSparseCheckout && !opt.Empty && len(newidx.Objects) == 0 {
+		return fmt.Errorf("Sparse checkout would leave no files in working directory")
+	}
+	fmt.Printf("%d %v %v", len(newidx.Objects), opt.NoSparseCheckout, newidx.Objects)
 	// Keep a list of index entries to be updated by CheckoutIndex.
 	files := make([]File, 0, len(newidx.Objects))
 

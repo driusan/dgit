@@ -45,6 +45,25 @@ type IndexEntry struct {
 func (ie IndexEntry) Stage() Stage {
 	return Stage((ie.FixedIndexEntry.Flags >> 12) & 0x3)
 }
+
+func (ie *IndexEntry) SetSkipWorktree(value bool) {
+	if value {
+		// If it's being set, we need to set the extended
+		// flag. If it's not being set, we don't care, but
+		// we don't change it in case intend-to-add is set.
+		ie.FixedIndexEntry.SetExtendedFlag(true)
+	}
+
+	if ie.V3IndexExtensions == nil {
+		ie.V3IndexExtensions = &V3IndexExtensions{}
+	}
+	if value == true {
+		ie.V3IndexExtensions.Flags |= (0x1 << 14)
+	} else {
+		ie.V3IndexExtensions.Flags &^= (0x1 << 14)
+	}
+}
+
 func NewIndex() *Index {
 	return &Index{
 		fixedGitIndex: fixedGitIndex{
@@ -79,6 +98,13 @@ type FixedIndexEntry struct {
 
 func (i FixedIndexEntry) ExtendedFlag() bool {
 	return ((i.Flags >> 14) & 0x1) == 1
+}
+func (i *FixedIndexEntry) SetExtendedFlag(val bool) {
+	if val {
+		i.Flags |= (0x1 << 14)
+	} else {
+		i.Flags &^= (0x1 << 14)
+	}
 }
 
 // Refreshes the stat information for this entry using the file
@@ -244,6 +270,7 @@ func ReadIndexEntry(file *os.File, indexVersion uint32) (*IndexEntry, error) {
 		// But reading existant index files, there seems to be an extra 4 bytes
 		// incorporated into the index size calculation.
 		sz := uint16(82)
+
 		if f.ExtendedFlag() {
 			// Add 2 bytes if the extended flag is set for the V3 extensions
 			sz += 2
@@ -287,6 +314,22 @@ const (
 	Stage2
 	Stage3
 )
+
+func (g *Index) SetSkipWorktree(c *Client, path IndexPath, value bool) error {
+	for _, entry := range g.Objects {
+		if entry.PathName == path {
+			if entry.Stage() != Stage0 {
+				return fmt.Errorf("Can not set skip worktree on unmerged paths")
+			}
+			entry.SetSkipWorktree(value)
+			break
+		}
+	}
+	if g.Version <= 2 && value {
+		g.Version = 3
+	}
+	return nil
+}
 
 // Adds an entry to the index with Sha1 s and stage stage during a merge.
 // If an entry already exists for this pathname/stage, it will be overwritten,
@@ -566,7 +609,7 @@ func (g Index) WriteIndex(file io.Writer) error {
 			return err
 		}
 		if entry.ExtendedFlag() {
-			if g.Version == 2 {
+			if g.Version == 2 || entry.V3IndexExtensions == nil {
 				return InvalidIndex
 			}
 			if err := binary.Write(w, binary.BigEndian, *entry.V3IndexExtensions); err != nil {
@@ -576,7 +619,11 @@ func (g Index) WriteIndex(file io.Writer) error {
 		if err := binary.Write(w, binary.BigEndian, []byte(entry.PathName)); err != nil {
 			return err
 		}
-		padding := 8 - ((82 + len(entry.PathName) + 4) % 8)
+		sz := 82
+		if entry.ExtendedFlag() {
+			sz += 2
+		}
+		padding := 8 - ((sz + len(entry.PathName) + 4) % 8)
 		p := make([]byte, padding)
 		if err := binary.Write(w, binary.BigEndian, p); err != nil {
 			return err
