@@ -264,7 +264,7 @@ func (s *SmartHTTPServerRetriever) NegotiateSendPack() ([]*Reference, error) {
 		return nil, err
 	}
 	s.password = pw
-	r, err := s.getRefs("git-receive-pack", "application/x-git-receive-pack-request")
+	r, err := s.getRefs("git-receive-pack", "application/x-git-receive-pack-advertisement")
 	if err != nil {
 		return nil, err
 	}
