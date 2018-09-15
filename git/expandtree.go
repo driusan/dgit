@@ -80,7 +80,7 @@ func expandGitTreeIntoIndexesRecursive(c *Client, t TreeID, prefix string, recur
 					}
 				}
 
-				newEntry.Flags = uint16(len(dirname)) & 0xFFF
+				newEntry.FixedIndexEntry.Flags = uint16(len(dirname)) & 0xFFF
 			}
 			newEntries = append(newEntries, &newEntry)
 		}
