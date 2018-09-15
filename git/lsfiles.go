@@ -251,7 +251,11 @@ func LsFiles(c *Client, opt LsFilesOptions, files []File) ([]*IndexEntry, error)
 
 		if opt.Cached {
 			if opt.Status {
-				entry.PathName = "H " + entry.PathName
+				if entry.SkipWorktree() {
+					entry.PathName = "S " + entry.PathName
+				} else {
+					entry.PathName = "H " + entry.PathName
+				}
 			}
 			fs = append(fs, entry)
 			continue
