@@ -154,30 +154,32 @@ func CheckoutCommit(c *Client, opts CheckoutOptions, commit Commitish) error {
 		return err
 	}
 
-	// Check that nothing would be lost
-	lstree, err := LsTree(c, LsTreeOptions{Recurse: true}, cid, nil)
-	if err != nil {
-		return err
-	}
-	newfiles := make([]File, 0, len(lstree))
-	for _, entry := range lstree {
-		f, err := entry.PathName.FilePath(c)
+	if !opts.Force {
+		// Check that nothing would be lost
+		lstree, err := LsTree(c, LsTreeOptions{Recurse: true}, cid, nil)
 		if err != nil {
 			return err
 		}
-		newfiles = append(newfiles, f)
-	}
-	untracked, err := LsFiles(c, LsFilesOptions{Others: true}, newfiles)
-	if err != nil {
-		return err
-	}
-	if len(untracked) > 0 {
-		err := "error: The following untracked working tree files would be overwritten by checkout:\n"
-		for _, f := range untracked {
-			err += "\t" + f.IndexEntry.PathName.String() + "\n"
+		newfiles := make([]File, 0, len(lstree))
+		for _, entry := range lstree {
+			f, err := entry.PathName.FilePath(c)
+			if err != nil {
+				return err
+			}
+			newfiles = append(newfiles, f)
 		}
-		err += "Please move or remove them before you switch branches.\nAborting"
-		return fmt.Errorf("%v", err)
+		untracked, err := LsFiles(c, LsFilesOptions{Others: true}, newfiles)
+		if err != nil {
+			return err
+		}
+		if len(untracked) > 0 {
+			err := "error: The following untracked working tree files would be overwritten by checkout:\n"
+			for _, f := range untracked {
+				err += "\t" + f.IndexEntry.PathName.String() + "\n"
+			}
+			err += "Please move or remove them before you switch branches.\nAborting"
+			return fmt.Errorf("%v", err)
+		}
 	}
 
 	// Now actually read the tree into the index
