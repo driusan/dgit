@@ -9,7 +9,7 @@
 set -e
 
 # This is the tag of the release that dgit originated
-TAG=v2.8.0
+TAG=v2.10.0
 
 d=`dirname $0`
 

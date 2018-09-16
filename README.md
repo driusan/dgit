@@ -1,4 +1,4 @@
-![travis ci](https://api.travis-ci.org/driusan/dgit.svg?branch=master)
+![travis ci](https://api.travis-ci.org/driusan/dgit.svg?branch=master) (Note: Travis currently runs dgit against (a subset of) the git 2.10.0 test suite)
 
 This repo contains a pure Go implementation of the command
 line git client that I've been working on so that I can

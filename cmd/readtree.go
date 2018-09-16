@@ -49,13 +49,11 @@ func ReadTree(c *git.Client, args []string) error {
 	// true
 	config, err := git.LoadLocalConfig(c)
 	if err != nil {
-		fmt.Printf("DISABLING SPARSE CHEKCOUT")
 		options.NoSparseCheckout = true
 		return err
 	}
 	sparseenabled, _ := config.GetConfig("core.sparsecheckout")
 	if sparseenabled != "true" {
-		fmt.Printf("DISABLING SPARSE CHEKCOUG")
 		options.NoSparseCheckout = true
 	}
 	args = flags.Args()
