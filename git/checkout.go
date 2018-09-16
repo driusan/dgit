@@ -236,12 +236,38 @@ func CheckoutFiles(c *Client, opts CheckoutOptions, tree Treeish, files []File) 
 	//
 	// If they weren't, we want to checkout a treeish, so let ReadTree update
 	// the workdir so that we don't lose any changes.
-	updateAll := (len(files) == 0)
-	i, err := ReadTree(c, ReadTreeOptions{Update: updateAll, Merge: updateAll, NoSparseCheckout: opts.IgnoreSkipWorktreeBits}, tree)
+	// Load the index so that we can check the skip worktree bit if applicable
+	index, err := c.GitDir.ReadIndex()
 	if err != nil {
 		return err
 	}
-	// ReadTree wrote the index to disk, but since we already have a copy in
-	// memory we use the Uncommited variation.
-	return CheckoutIndexUncommited(c, i, CheckoutIndexOptions{Force: true, UpdateStat: true}, files)
+	imap := index.GetMap()
+	expandedfiles, err := LsTree(c, LsTreeOptions{Recurse: true}, tree, files)
+	if err != nil {
+		return err
+	}
+	files = make([]File, 0, len(files))
+	for _, entry := range expandedfiles {
+		f, err := entry.PathName.FilePath(c)
+		if err != nil {
+			return err
+		}
+		if opts.IgnoreSkipWorktreeBits {
+			files = append(files, f)
+			continue
+		}
+		if entry, ok := imap[entry.PathName]; ok && entry.SkipWorktree() {
+			continue
+		}
+		files = append(files, f)
+	}
+
+	// We just want to load the tree as an index so that CheckoutIndexUncommited, so we
+	// specify DryRun.
+	treeidx, err := ReadTree(c, ReadTreeOptions{DryRun: true}, tree)
+	if err != nil {
+		return err
+	}
+
+	return CheckoutIndexUncommited(c, treeidx, CheckoutIndexOptions{Force: true, UpdateStat: true}, files)
 }
