@@ -258,12 +258,12 @@ func (s *SmartHTTPServerRetriever) getRefs(service, expectedmime string) (io.Rea
 func (s *SmartHTTPServerRetriever) NegotiateSendPack() ([]*Reference, error) {
 	var err error
 
-	s.username = readLine("Username: ")
-	pw, err := getPassword(s.Location)
+	userpass, err := getUserPassword(s.Location)
 	if err != nil {
 		return nil, err
 	}
-	s.password = pw
+	s.username = userpass.user
+	s.password = userpass.password
 	r, err := s.getRefs("git-receive-pack", "application/x-git-receive-pack-advertisement")
 	if err != nil {
 		return nil, err
