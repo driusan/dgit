@@ -16,8 +16,15 @@ func ShowRef(c *git.Client, args []string) error {
 		flags.PrintDefaults()
 	}
 
+	opts := git.ShowRefOptions{}
+	flags.BoolVar(&opts.IncludeHead, "head", false, "Include the HEAD reference")
+	flags.BoolVar(&opts.Heads, "heads", false, "Show only heads")
+	flags.BoolVar(&opts.Tags, "tags", false, "Show only tags")
+	flags.BoolVar(&opts.Tags, "quiet", false, "Do not print matching refs")
+	flags.BoolVar(&opts.Tags, "q", false, "alias of --q")
+
 	// These flags can be moved out of these lists and below as proper flags as they are implemented
-	for _, bf := range []string{"q", "quiet", "verify", "head", "d", "dereference", "tags", "heads"} {
+	for _, bf := range []string{"verify", "d", "dereference"} {
 		flags.Var(newNotimplBoolValue(), bf, "Not implemented")
 	}
 	for _, sf := range []string{"s", "hash", "abbrev"} {
@@ -25,5 +32,14 @@ func ShowRef(c *git.Client, args []string) error {
 	}
 
 	flags.Parse(args)
+	refs, err := git.ShowRef(c, opts, flags.Args())
+	if err != nil {
+		return err
+	}
+	if !opts.Quiet {
+		for _, ref := range refs {
+			fmt.Println(ref)
+		}
+	}
 	return nil
 }
