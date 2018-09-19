@@ -24,6 +24,26 @@ func (r Ref) String() string {
 	return fmt.Sprintf("%v %v", r.Value, r.Name)
 }
 
+func (r Ref) CommitID(c *Client) (CommitID, error) {
+	switch r.Value.Type(c) {
+	case "commit":
+		return CommitID(r.Value), nil
+	default:
+		return CommitID{}, fmt.Errorf("Can not convert %v to commit", r.Name)
+	}
+}
+
+func (r Ref) TreeID(c *Client) (TreeID, error) {
+	switch r.Value.Type(c) {
+	case "commit":
+		return CommitID(r.Value).TreeID(c)
+	case "tree":
+		return TreeID(r.Value), nil
+	default:
+		return TreeID{}, fmt.Errorf("Can not get tree for %v", r.Name)
+	}
+}
+
 type ShowRefOptions struct {
 	IncludeHead bool
 
@@ -46,14 +66,14 @@ func ShowRef(c *Client, opts ShowRefOptions, patterns []string) ([]Ref, error) {
 	var vals []Ref
 	if opts.IncludeHead {
 		hcid, err := c.GetHeadCommit()
-		if err != nil {
-			return nil, err
+		if err == nil {
+			// If the HEAD reference is a symbolic ref to something that
+			// doesn't exist it's not an invalid state of git, we just
+			// don't include it in the list.
+			vals = append(vals, Ref{"HEAD", Sha1(hcid)})
 		}
-		vals = append(vals, Ref{"HEAD", Sha1(hcid)})
 	}
-	// FIXME: If nothing was included, walk everything (including remotes)
-	// FIXME2: Include packed refs
-	// FIXME3: Match patterns
+	// FIXME: Include packed refs
 	if !opts.Heads && !opts.Tags {
 		err := filepath.Walk(c.GitDir.File("refs").String(),
 			func(path string, info os.FileInfo, err error) error {

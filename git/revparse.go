@@ -178,8 +178,14 @@ func RevParseTreeish(c *Client, opt *RevParseOptions, arg string) (Treeish, erro
 			return nil, fmt.Errorf("%s is not a tree-ish", arg)
 		}
 	}
+
 	if arg == "HEAD" {
 		return c.GetHeadCommit()
+	}
+
+	refs, err := ShowRef(c, ShowRefOptions{}, []string{arg})
+	if err == nil && len(refs) > 0 {
+		return refs[0], nil
 	}
 
 	cid, err := RevParseCommitish(c, opt, arg)
