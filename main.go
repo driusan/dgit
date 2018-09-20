@@ -159,6 +159,11 @@ func main() {
 		} else {
 			fmt.Printf("%s\n", sha1)
 		}
+	case "mktree":
+		if err := cmd.MkTree(c, args); err != nil {
+			fmt.Fprintln(os.Stderr, err)
+			os.Exit(1)
+		}
 	case "update-ref":
 		if err := cmd.UpdateRef(c, args); err != nil {
 			fmt.Fprintf(os.Stderr, "%v\n", err)
