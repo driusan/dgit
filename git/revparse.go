@@ -298,6 +298,17 @@ func RevParse(c *Client, opt RevParseOptions, args []string) (commits []ParsedRe
 					} else {
 						commits = append(commits, ParsedRevision{sha, exclude})
 					}
+				} else if strings.HasSuffix(arg, "^{tree}") {
+					tree, err := RevParseTreeish(c, &opt, strings.TrimSuffix(sha, "^{tree}"))
+					if err != nil {
+						err2 = err
+					} else {
+						treeid, err := tree.TreeID(c)
+						if err != nil {
+							err2 = err
+						}
+						commits = append(commits, ParsedRevision{Sha1(treeid), exclude})
+					}
 				} else {
 					cmt, err := RevParseCommit(c, &opt, sha)
 					if err != nil {
