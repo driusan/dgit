@@ -54,6 +54,9 @@ func Commit(c *git.Client, args []string) (string, error) {
 	flags.BoolVar(&opts.AllowEmpty, "allow-empty", false, "")
 	flags.BoolVar(&opts.AllowEmptyMessage, "allow-empty-message", false, "")
 
+	flags.BoolVar(&opts.Quiet, "quiet", false, "Suppress printing of commit id")
+	flags.BoolVar(&opts.Quiet, "q", false, "Alias of --quiet")
+
 	edit := false
 	flags.BoolVar(&edit, "edit", false, "")
 	flags.BoolVar(&edit, "e", false, "Alias for --edit")
@@ -112,6 +115,9 @@ func Commit(c *git.Client, args []string) (string, error) {
 		printNoUserMessage(committer)
 		fallthrough
 	case nil:
+		if opts.Quiet {
+			return "", nil
+		}
 		return cmt.String(), nil
 	default:
 		return "", err
