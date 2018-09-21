@@ -22,14 +22,11 @@ func parseCacheInfo(input string) (git.CacheInfo, error) {
 		ret.Mode = git.ModeExec
 	case "120000":
 		ret.Mode = git.ModeSymlink
-		//		case "160000":
-		//			ret.Mode = git.Commit
-		//	An index can't contain a commit..
-		//		case "040000", "40000":
-		//			ret.EntryMode = git.Tree
-		// an index can't contain a tree, either..
+	case "160000":
+		// A commit may be part of a tree if dealing with submodules
+		ret.Mode = git.ModeCommit
 	default:
-		return git.CacheInfo{}, fmt.Errorf("Invalid EntryMode")
+		return git.CacheInfo{}, fmt.Errorf("Invalid EntryMode: %v", pieces[0])
 	}
 
 	sha1, err := git.Sha1FromString(pieces[1])
