@@ -5,6 +5,7 @@ import (
 	"io/ioutil"
 	"os"
 	"path/filepath"
+	"regexp"
 	"sort"
 	"strings"
 	"time"
@@ -677,6 +678,61 @@ func checkMergeAndUpdate(c *Client, opt ReadTreeOptions, origidx map[IndexPath]*
 		}
 		if !leavesFile && newSparse {
 			return fmt.Errorf("Sparse checkout would leave no file in work tree")
+		}
+	}
+
+	// Check for invalid path names which are disallowed by git
+	disallow := func(path, piece string) bool {
+		casesensitive := true
+		if protectHFS(c) {
+			// HFS is case insensitive and ignores zero width
+			// non-joiners anywhere in the file path
+			casesensitive = false
+			path = strings.Replace(path, "\u200c", "", -1)
+			path = strings.TrimSpace(path)
+		}
+		if protectNTFS(c) {
+			// git treats "protectNTFS" as "protect the filesystem for
+			// windows", which means it also inherits weird dos filename
+			// restrictions such as 8.3 length filenames and ~ and
+			// no dots at the end of a path because that would just be
+			// an empty file extension.
+			casesensitive = false
+
+			re := regexp.MustCompile(`(?i)(^|\\|/)git~[0-9]+($|\\|/)`)
+			if re.MatchString(path) {
+				// Handle the case where the "." was removed and
+				// we're left with nothing, or where the the .git
+				// directory is 8.3 encoded.
+				return true
+			}
+			// Handle space or dots at end of a filename and backslashes
+			re = regexp.MustCompile(`(?i)(^|\\|/)\.git( |[.])*($|\\|/)`)
+			if re.MatchString(path) {
+				return true
+			}
+		}
+
+		if !casesensitive {
+			path = strings.ToLower(path)
+		}
+
+		if path == piece {
+			return true
+		}
+		if strings.HasSuffix(path, "/"+piece) || strings.HasPrefix(path, piece+"/") {
+			return true
+		}
+		if strings.Index(path, "/"+piece+"/") != -1 {
+			return true
+		}
+		return false
+	}
+	for _, entry := range newidx.Objects {
+		path := entry.PathName.String()
+
+		if disallow(path, ".") || disallow(path, "..") || disallow(path, ".git") {
+			return fmt.Errorf("Invalid path %v", path)
 		}
 	}
 	// Keep a list of index entries to be updated by CheckoutIndex.
