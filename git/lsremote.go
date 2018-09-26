@@ -22,5 +22,6 @@ func LsRemote(c *Client, opts LsRemoteOptions, r Remote, patterns []string) ([]R
 	if err := remoteconn.OpenConn(); err != nil {
 		return nil, err
 	}
+	defer remoteconn.Close()
 	return remoteconn.GetRefs(opts, patterns)
 }

@@ -2,6 +2,7 @@ package git
 
 import (
 	"fmt"
+	"net/url"
 	"strings"
 )
 
@@ -50,18 +51,32 @@ type RemoteConn interface {
 	// restrict to refs which match the pattern. If not, return all
 	// refs
 	GetRefs(opts LsRemoteOptions, patterns []string) ([]Ref, error)
+
+	// Close the underlying connection to this service.
+	Close() error
 }
 
 func NewRemoteConn(c *Client, r Remote) (RemoteConn, error) {
-	if sl, err := r.IsStateless(c); err == nil && sl {
-		url, err := r.RemoteURL(c)
-		if err != nil {
-			return nil, err
-		}
+	urls, err := r.RemoteURL(c)
+	if err != nil {
+		return nil, err
+	}
+	uri, err := url.Parse(urls)
+	if err != nil {
+		return nil, err
+	}
+	switch uri.Scheme {
+	case "http", "https":
 		conn := &smartHTTPConn{
-			giturl: url,
+			giturl: urls,
 		}
 		return conn, nil
+	case "git":
+		conn := &gitConn{
+			uri: uri,
+		}
+		return conn, nil
+	default:
+		return nil, fmt.Errorf("Unsupported remote type for: %v", r)
 	}
-	return nil, fmt.Errorf("Unsupported remote type for: %v", r)
 }

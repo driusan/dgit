@@ -22,6 +22,12 @@ func PktLineEncode(line []byte) (PktLine, error) {
 	return PktLine(fmt.Sprintf("%.4x%s\n", len(line)+5, line)), nil
 }
 
+func PktLineEncodeNoNl(line []byte) (PktLine, error) {
+	if len(line) > 65535 {
+		return "", fmt.Errorf("Line too long to encode in PktLine format")
+	}
+	return PktLine(fmt.Sprintf("%.4x%s", len(line)+4, line)), nil
+}
 func (p PktLine) String() string {
 	return string(p)
 }

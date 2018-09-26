@@ -92,7 +92,7 @@ func (s *smartHTTPConn) OpenConn() error {
 		respreader = resp.Body
 	}
 
-	version, capabilities, refs, err := parseRemoteInitialConnection(respreader)
+	version, capabilities, refs, err := parseRemoteInitialConnection(respreader, true)
 	if err != nil {
 		s.isopen = &falseref
 		return err
@@ -112,9 +112,9 @@ func (s *smartHTTPConn) OpenConn() error {
 	}
 }
 
-func parseRemoteInitialConnection(r io.Reader) (uint8, map[string]struct{}, []Ref, error) {
+func parseRemoteInitialConnection(r io.Reader, stateless bool) (uint8, map[string]struct{}, []Ref, error) {
 	switch line := loadLine(r); line {
-	case "version 2":
+	case "version 2", "version 2\n":
 		cap := make(map[string]struct{})
 		for line := loadLine(r); line != ""; line = loadLine(r) {
 			// Version 2 lists capabilities one per line and nothing
@@ -122,13 +122,16 @@ func parseRemoteInitialConnection(r io.Reader) (uint8, map[string]struct{}, []Re
 			cap[line] = struct{}{}
 		}
 		return 2, cap, nil, nil
+
 	case "# service=git-upload-pack\n":
-		// version 1 has the service advertisement, a flush line,
-		// and then a list of refs. The first ref has a list of
-		// capabilities hidden behind a nil byte.
-		if loadLine(r) != "" {
-			// Flush line
-			return 0, nil, nil, InvalidResponse
+		fallthrough
+	default:
+		if stateless {
+			// v1 protocol has a flush line when it's stateless
+			if loadLine(r) != "" {
+				// Flush line
+				return 0, nil, nil, InvalidResponse
+			}
 		}
 
 		cap := make(map[string]struct{})
@@ -180,6 +183,7 @@ func parseRemoteInitialConnection(r io.Reader) (uint8, map[string]struct{}, []Re
 			return &ret, nil
 		}
 		for line := loadLine(r); line != ""; line = loadLine(r) {
+
 			ref, err := parseLine(line)
 			if err != nil {
 				return 0, nil, nil, err
@@ -189,8 +193,6 @@ func parseRemoteInitialConnection(r io.Reader) (uint8, map[string]struct{}, []Re
 			}
 		}
 		return 1, cap, refs, nil
-	default:
-		return 0, nil, nil, fmt.Errorf("Unhandled first response line: '%v'", line)
 	}
 }
 
@@ -198,86 +200,20 @@ func (s smartHTTPConn) GetRefs(opts LsRemoteOptions, patterns []string) ([]Ref, 
 	if s.isopen == nil || *s.isopen == false {
 		return nil, fmt.Errorf("Connection is not open: %v", s)
 	}
-	var vals []Ref
 	switch s.protocolversion {
 	case 1:
-		if len(patterns) == 0 {
-			return s.refs, nil
-		}
-
-	refs:
-		for _, r := range s.refs {
-			for _, p := range patterns {
-				// FIXME: Matches is the logic used by show-ref
-				// This isn't the same as the logic for ls-remote
-				// which should honour ie. "Foo*"
-				if r.Matches(p) {
-					vals = append(vals, r)
-					continue refs
-				}
-			}
-		}
-		return vals, nil
+		return getRefsV1(s.refs, opts, patterns)
 	case 2:
+		var vals []Ref
 		// Make request to $giturl/git-upload-pack
 		// payload ls-refs=	maybe symrefs, maybe peel, maybe ref-prefix depending on options\n
 		// foreach pattern 0001 pktline patternarg
 		// 0000
-		topost, err := PktLineEncode([]byte("command=ls-refs"))
-		topost += "0001"
-		if !opts.RefsOnly {
-			penc, err := PktLineEncode([]byte("peel"))
-			if err != nil {
-				return nil, err
-			}
-			topost += penc
-		}
-		if opts.SymRef {
-			penc, err := PktLineEncode([]byte("symrefs"))
-			if err != nil {
-				return nil, err
-			}
-			topost += penc
-		}
-		if len(patterns) == 0 {
-			if opts.Heads {
-				penc, err := PktLineEncode([]byte("ref-prefix refs/heads"))
-				if err != nil {
-					return nil, err
-				}
-				topost += penc
-
-			}
-			if opts.Tags {
-				penc, err := PktLineEncode([]byte("ref-prefix refs/tags"))
-				if err != nil {
-					return nil, err
-				}
-				topost += penc
-
-			}
-		} else {
-			// These appear to be the prefixes git uses with
-			// tracing turned on. They don't seem to change
-			// regardless of the command line options.
-			prefixes := []string{"", "refs/", "refs/heads/", "refs/tags/", "refs/remotes/"}
-			// FIXME: Do better
-			for _, p := range patterns {
-				for _, prefix := range prefixes {
-					penc, err := PktLineEncode([]byte("ref-prefix " + prefix + p))
-					if err != nil {
-						return nil, err
-					}
-					topost += penc
-				}
-			}
-		}
-
-		topost += "0000"
+		topost, err := buildLsRefsCmdV2(opts, patterns)
 		if err != nil {
 			return nil, err
 		}
-		r, err := http.NewRequest("POST", s.giturl+"/git-upload-pack", strings.NewReader(topost.String()))
+		r, err := http.NewRequest("POST", s.giturl+"/git-upload-pack", strings.NewReader(topost))
 		r.Header.Set("User-Agent", "dgit/0.0.2")
 		r.Header.Set("Git-Protocol", "version=2")
 		r.Header.Set("Content-Type", "application/x-git-upload-pack-request")
@@ -288,16 +224,109 @@ func (s smartHTTPConn) GetRefs(opts LsRemoteOptions, patterns []string) ([]Ref, 
 		}
 		defer resp.Body.Close()
 		for line := loadLine(resp.Body); line != ""; line = loadLine(resp.Body) {
-			sha1, err := Sha1FromString(line[0:40])
+			ref, err := parseLsRef(string(line))
 			if err != nil {
 				return nil, err
 			}
-			name := line[41:]
-			vals = append(vals, Ref{Name: name, Value: sha1})
+			vals = append(vals, ref)
 		}
 		return vals, nil
 
 	default:
-		return nil, fmt.Errorf("Unsupported protocol version: %v", s.protocolversion)
+		return nil, fmt.Errorf("Unsupported protocol version")
 	}
+}
+
+func (s smartHTTPConn) Close() error {
+	// http remotes are stateless
+	return nil
+}
+
+func getRefsV1(refs []Ref, opts LsRemoteOptions, patterns []string) ([]Ref, error) {
+	if len(patterns) == 0 {
+		return refs, nil
+	}
+	var vals []Ref
+refs:
+	for _, r := range refs {
+		for _, p := range patterns {
+			// FIXME: Matches is the logic used by show-ref
+			// This isn't the same as the logic for ls-remote
+			// which should honour ie. "Foo*"
+			if r.Matches(p) {
+				vals = append(vals, r)
+				continue refs
+			}
+		}
+	}
+	return vals, nil
+}
+
+// Builds the ls-refs command to send over V2, for both stateless and stateful
+// protocol variants
+func buildLsRefsCmdV2(opts LsRemoteOptions, patterns []string) (string, error) {
+	// FIXME: This should take a writer instead of returning a string
+	cmd, err := PktLineEncode([]byte("command=ls-refs"))
+	if err != nil {
+		return "", err
+	}
+	cmd += "0001"
+	if !opts.RefsOnly {
+		penc, err := PktLineEncode([]byte("peel"))
+		if err != nil {
+			return "", err
+		}
+		cmd += penc
+	}
+	if opts.SymRef {
+		penc, err := PktLineEncode([]byte("symrefs"))
+		if err != nil {
+			return "", err
+		}
+		cmd += penc
+	}
+	if len(patterns) == 0 {
+		if opts.Heads {
+			penc, err := PktLineEncode([]byte("ref-prefix refs/heads"))
+			if err != nil {
+				return "", err
+			}
+			cmd += penc
+
+		}
+		if opts.Tags {
+			penc, err := PktLineEncode([]byte("ref-prefix refs/tags"))
+			if err != nil {
+				return "", err
+			}
+			cmd += penc
+
+		}
+	} else {
+		// These appear to be the prefixes git uses with
+		// tracing turned on. They don't seem to change
+		// regardless of the command line options.
+		prefixes := []string{"", "refs/", "refs/heads/", "refs/tags/", "refs/remotes/"}
+		// FIXME: Do better
+		for _, p := range patterns {
+			for _, prefix := range prefixes {
+				penc, err := PktLineEncode([]byte("ref-prefix " + prefix + p))
+				if err != nil {
+					return "", err
+				}
+				cmd += penc
+			}
+		}
+	}
+	return cmd.String() + "0000", nil
+}
+
+// parses a ref returned from the LsRefs command
+func parseLsRef(s string) (Ref, error) {
+	sha1, err := Sha1FromString(s[0:40])
+	if err != nil {
+		return Ref{}, err
+	}
+	name := string(s[41:])
+	return Ref{Name: name, Value: sha1}, nil
 }
