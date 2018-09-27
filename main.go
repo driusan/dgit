@@ -397,6 +397,12 @@ func main() {
 			fmt.Fprintln(os.Stderr, err)
 			os.Exit(4)
 		}
+	case "ls-remote":
+		subcommandUsage = "[repo [<patterns>..]]"
+		if err := cmd.LsRemote(c, args); err != nil {
+			fmt.Fprintln(os.Stderr, err)
+			os.Exit(1)
+		}
 	case "clean":
 		if err := cmd.Clean(c, args); err != nil {
 			fmt.Fprintln(os.Stderr, err)
