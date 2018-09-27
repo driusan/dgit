@@ -76,6 +76,8 @@ func NewRemoteConn(c *Client, r Remote) (RemoteConn, error) {
 			uri: uri,
 		}
 		return conn, nil
+	case "ssh":
+		return &sshConn{uploadpack: "git-upload-pack", uri: uri}, nil
 	default:
 		return nil, fmt.Errorf("Unsupported remote type for: %v", r)
 	}
