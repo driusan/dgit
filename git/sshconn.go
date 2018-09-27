@@ -1,16 +1,14 @@
 package git
 
 import (
-	"bytes"
+	"crypto"
+	_ "crypto/sha1"
 	"fmt"
 	"io"
 	"log"
+	"net/url"
 	"os"
 	"os/user"
-	//	"net"
-	"crypto"
-	_ "crypto/sha1"
-	"net/url"
 
 	"bitbucket.org/mischief/libauth"
 	"golang.org/x/crypto/ssh"
@@ -60,10 +58,7 @@ func (s *sshConn) OpenConn() error {
 		Auth: []ssh.AuthMethod{
 			ssh.PublicKeysCallback(getSigners),
 		},
-		// FIXME: This should parse the OS appropriate host key digests
-		// (ie $home/lib/sshthumbs on Plan9, $HOME/.ssh/known_hosts on
-		// other platforms)
-		HostKeyCallback: ssh.InsecureIgnoreHostKey(),
+		HostKeyCallback: hostKeyCallback(),
 	}
 	conn, err := ssh.Dial("tcp", host+":"+port, config)
 	if err != nil {
@@ -156,8 +151,12 @@ func getSigners() ([]ssh.Signer, error) {
 	return signers, nil
 }
 
-// Implements ssh.PublicKeys interface (initial based on mischief's scpu,
+// Implements ssh.PublicKeys interface (initially based on mischief's scpu,
 // but modified to accept more key types)
+//
+// This is necessary because we don't (necessarily) have access to the private
+// key (it may be in factotum) and not exposed from libauth, so we need to be
+// able to sign using libauth.RsaSign
 type keySigner struct {
 	key  ssh.PublicKey
 	hash crypto.Hash
@@ -177,4 +176,12 @@ func (s keySigner) Sign(rand io.Reader, data []byte) (*ssh.Signature, error) {
 		return nil, err
 	}
 	return &ssh.Signature{Format: "ssh-rsa", Blob: sig}, nil
+}
+
+// this should be overridden for various platforms. Plan9/9front should parse
+// $home/lib/sshthumbs, unix should parse ~/.ssh/known_hosts, and Windows should..
+// do something?
+func hostKeyCallback() ssh.HostKeyCallback {
+	fmt.Fprintln(os.Stderr, "WARNING: Fingerprint for hostname not validated.")
+	return ssh.InsecureIgnoreHostKey()
 }
