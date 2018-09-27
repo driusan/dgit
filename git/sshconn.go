@@ -1,15 +1,12 @@
 package git
 
 import (
-	"bytes"
 	"fmt"
 	"io"
 	"log"
 	"os"
 	"os/user"
 	//	"net"
-	"crypto"
-	_ "crypto/sha1"
 	"net/url"
 
 	"bitbucket.org/mischief/libauth"
@@ -136,7 +133,7 @@ func (s sshConn) GetRefs(opts LsRemoteOptions, patterns []string) ([]Ref, error)
 
 // from mischief's scpu, get a list of signers
 func getSigners() ([]ssh.Signer, error) {
-	// FIXME: Don't assume Plan 9/factotum is present, look into ~/.ssh
+	// FIXME: Don't assume Plan 9/factotum is present, look into ~/.ssh/
 	// on other platforms.
 	k, err := libauth.Listkeys()
 	if err != nil {
@@ -146,35 +143,11 @@ func getSigners() ([]ssh.Signer, error) {
 	}
 	signers := make([]ssh.Signer, len(k))
 	for i, key := range k {
-		skey, err := ssh.NewPublicKey(&key)
+		s, err := ssh.NewSignerFromKey(&key)
 		if err != nil {
 			return nil, err
 		}
-		// FIXME: Don't hardcode Sha1
-		signers[i] = keySigner{skey, crypto.SHA1}
+		signers[i] = s
 	}
 	return signers, nil
-}
-
-// Implements ssh.PublicKeys interface (initial based on mischief's scpu,
-// but modified to accept more key types)
-type keySigner struct {
-	key  ssh.PublicKey
-	hash crypto.Hash
-}
-
-func (s keySigner) PublicKey() ssh.PublicKey {
-	return s.key
-}
-
-func (s keySigner) Sign(rand io.Reader, data []byte) (*ssh.Signature, error) {
-	h := s.hash.New()
-	h.Write(data)
-	digest := h.Sum(nil)
-
-	sig, err := libauth.RsaSign(digest)
-	if err != nil {
-		return nil, err
-	}
-	return &ssh.Signature{Format: "ssh-rsa", Blob: sig}, nil
 }
