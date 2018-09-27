@@ -1,2 +1,8 @@
+9fans.net/go v0.0.0-20180727211846-5d4fa602e1e8 h1:I5as7fR6RT+wVrs+vOeEtOHJ4z2vnUnIR+cqvAiQ80s=
+9fans.net/go v0.0.0-20180727211846-5d4fa602e1e8/go.mod h1:diCsxrliIURU9xsYtjCp5AbpQKqdhKmf0ujWDUSkfoY=
 bitbucket.org/mischief/libauth v0.0.0-20180917063427-eea7aee20a38 h1:UQkBplKkYbmXVI3uXbSuEeWQhwe6iri1qNOHV7g3eSg=
 bitbucket.org/mischief/libauth v0.0.0-20180917063427-eea7aee20a38/go.mod h1:3xI+y8DcaNvBpBDXfN1UyhUONW++xFj4jsYTQKES3Ak=
+golang.org/x/crypto v0.0.0-20180910181607-0e37d006457b h1:2b9XGzhjiYsYPnKXoEfL7klWZQIt8IfyRCz62gCqqlQ=
+golang.org/x/crypto v0.0.0-20180910181607-0e37d006457b/go.mod h1:6SG95UA2DQfeDnfUPMdvaQW0Q7yPrPDi9nlGo2tz2b4=
+golang.org/x/sys v0.0.0-20180926160741-c2ed4eda69e7 h1:bit1t3mgdR35yN0cX0G8orgLtOuyL9Wqxa1mccLB0ig=
+golang.org/x/sys v0.0.0-20180926160741-c2ed4eda69e7/go.mod h1:STP8DvDyc/dI5b8T5hshtkjS+E42TnysNCUPdjciGhY=
