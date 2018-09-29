@@ -138,7 +138,7 @@ func FetchPack(c *Client, opts FetchPackOptions, rmt Remote, wants, haves []Refn
 		}
 
 	default:
-		log.Println("Using protocol was %d: using version 1 for fetch-pack", v)
+		log.Printf("Using protocol was %d: using version 1 for fetch-pack\n", v)
 		// protocol v1
 		sideband := false
 		rmtrefs, err := conn.GetRefs(LsRemoteOptions{Heads: true, Tags: true, RefsOnly: true}, refs)

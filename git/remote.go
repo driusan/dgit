@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"io"
 	"net/url"
+	"path/filepath"
 	"strings"
 )
 
@@ -18,7 +19,17 @@ func (r Remote) RemoteURL(c *Client) (string, error) {
 		// It's already a URL
 		return string(r), nil
 	}
-	// It's a remote name, look it up in the config.
+	if File(r.String()).Exists() {
+		// It's a known file path, so convert it to a file url
+		// and let localConn handle it.
+		// It needs to be absolute for the file:// url to work.
+		abs, err := filepath.Abs(string(r))
+		if err != nil {
+			return "", err
+		}
+		return "file://" + abs, nil
+	}
+	// If it might be a remote name, look it up in the config.
 	cfg, _ := config.GetConfig(fmt.Sprintf("remote.%v.url", r))
 	if cfg == "" {
 		return "", fmt.Errorf("Unknown remote")
@@ -122,6 +133,11 @@ func NewRemoteConn(c *Client, r Remote) (RemoteConn, error) {
 		return conn, nil
 	case "ssh":
 		return &sshConn{
+			sharedRemoteConn: sharedRemoteConn{uri: uri},
+			uploadpack:       "git-upload-pack",
+		}, nil
+	case "file":
+		return &localConn{
 			sharedRemoteConn: sharedRemoteConn{uri: uri},
 			uploadpack:       "git-upload-pack",
 		}, nil
