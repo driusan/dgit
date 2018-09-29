@@ -16,7 +16,7 @@ var InvalidArgument error = errors.New("Invalid argument to function")
 
 func requiresGitDir(cmd string) bool {
 	switch cmd {
-	case "init", "clone":
+	case "init", "clone", "ls-remote":
 		return false
 	default:
 		return true
