@@ -13,6 +13,7 @@ import (
 // server initially send" and "what info have we already determined from previous
 // requests"
 type smartHTTPConn struct {
+	sharedRemoteConn
 	// The giturl is the URL for this connection. It may or may not be
 	// the same as what it was initiated as, depending on whether or not
 	// ".git" had to be appended to the URL.
@@ -21,20 +22,10 @@ type smartHTTPConn struct {
 	// username/password to use over HTTP basic auth.
 	username, password string
 
-	// protocol 1 or 2
-	protocolversion uint8
-
-	// capabilities advertised in the initial connection
-	capabilities map[string]struct{}
-
 	// nil we haven't tried to open yet, true if successfully got initial
 	// git-upload-pack response, and false if there was a problem getting
 	// the upload-pack response
 	isopen *bool
-
-	// List of refs advertised at the connection opening. Only valid for
-	// protocol version 1. Version 2 uses the ls-refs command.
-	refs []Ref
 }
 
 // Opens a connection to s.giturl over the smart http protocol
@@ -126,14 +117,6 @@ func parseRemoteInitialConnection(r io.Reader, stateless bool) (uint8, map[strin
 	case "# service=git-upload-pack\n":
 		fallthrough
 	default:
-		if stateless {
-			// v1 protocol has a flush line when it's stateless
-			if loadLine(r) != "" {
-				// Flush line
-				return 0, nil, nil, InvalidResponse
-			}
-		}
-
 		cap := make(map[string]struct{})
 		var refs []Ref
 		// parseLine populates cap if it's the first line, and
@@ -182,6 +165,14 @@ func parseRemoteInitialConnection(r io.Reader, stateless bool) (uint8, map[strin
 			}
 			return &ret, nil
 		}
+		ref, err := parseLine(line)
+		if err != nil {
+			return 0, nil, nil, err
+		}
+		if ref != nil {
+			refs = append(refs, *ref)
+		}
+
 		for line := loadLine(r); line != ""; line = loadLine(r) {
 
 			ref, err := parseLine(line)
@@ -240,6 +231,21 @@ func (s smartHTTPConn) GetRefs(opts LsRemoteOptions, patterns []string) ([]Ref, 
 func (s smartHTTPConn) Close() error {
 	// http remotes are stateless
 	return nil
+}
+
+func (s smartHTTPConn) SetUploadPack(string) error {
+	// Not applicable for http
+	return nil
+}
+
+func (s smartHTTPConn) Write(data []byte) (int, error) {
+	return 0, fmt.Errorf("Write not implemented for smartHTTPConn")
+}
+func (s smartHTTPConn) Flush() error {
+	return fmt.Errorf("Flush not implemented for smartHTTPConn")
+}
+func (s smartHTTPConn) Read([]byte) (int, error) {
+	return 0, fmt.Errorf("Read not implemented for smartHTTPConn")
 }
 
 func getRefsV1(refs []Ref, opts LsRemoteOptions, patterns []string) ([]Ref, error) {

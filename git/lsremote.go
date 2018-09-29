@@ -19,12 +19,10 @@ func LsRemote(c *Client, opts LsRemoteOptions, r Remote, patterns []string) ([]R
 	if err != nil {
 		return nil, err
 	}
-	switch con := remoteconn.(type) {
-	case *sshConn:
-		if opts.UploadPack != "" {
-			con.uploadpack = opts.UploadPack
-		}
+	if opts.UploadPack != "" {
+		remoteconn.SetUploadPack(opts.UploadPack)
 	}
+
 	if err := remoteconn.OpenConn(); err != nil {
 		return nil, err
 	}

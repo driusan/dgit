@@ -379,6 +379,11 @@ func main() {
 			fmt.Fprintln(os.Stderr, err)
 			os.Exit(4)
 		}
+	case "fetch-pack":
+		if err := cmd.FetchPack(c, args); err != nil {
+			fmt.Fprintln(os.Stderr, err)
+			os.Exit(1)
+		}
 	case "check-ignore":
 		subcommandUsage = "[<pathname>...]"
 		if err := cmd.CheckIgnore(c, args); err != nil {

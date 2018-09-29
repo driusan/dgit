@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"io"
 	"log"
-	"net/url"
 	"os"
 	"os/user"
 
@@ -17,18 +16,13 @@ import (
 // an sshConn represents a remote which uses ssh
 // for transport (ie. a remote that starts with ssh://)
 type sshConn struct {
+	// Add functionality shared amongst all types of remotes
+	sharedRemoteConn
+
 	// name of the remote upload pack command
 	uploadpack string
-	uri        *url.URL
 
 	session *ssh.Session
-
-	protocolversion uint8
-	capabilities    map[string]struct{}
-
-	// References advertised upon opening the connection. Only for
-	// protocol v1
-	refs []Ref
 
 	stdin  io.Reader
 	stdout io.Writer
@@ -79,11 +73,14 @@ func (s *sshConn) OpenConn() error {
 	if err := session.Start(s.uploadpack + " " + s.uri.Path); err != nil {
 		return err
 	}
+
 	v, cap, refs, err := parseRemoteInitialConnection(s.stdin, false)
 	if err != nil {
 		session.Close()
 		return err
 	}
+	s.packProtocolReader = packProtocolReader{conn: s.stdin, state: PktLineMode}
+
 	s.protocolversion = v
 	s.capabilities = cap
 	s.refs = refs
@@ -107,9 +104,8 @@ func (s sshConn) GetRefs(opts LsRemoteOptions, patterns []string) ([]Ref, error)
 		fmt.Fprintf(s.stdout, cmd)
 		line := make([]byte, 65536)
 		var vals []Ref
-		r := packProtocolReader{s.stdin}
 		for {
-			n, err := r.Read(line)
+			n, err := s.Read(line)
 			switch err {
 			case flushPkt:
 				return vals, nil
@@ -127,6 +123,27 @@ func (s sshConn) GetRefs(opts LsRemoteOptions, patterns []string) ([]Ref, error)
 	default:
 		return nil, fmt.Errorf("Protocol version not supported")
 	}
+}
+
+func (s *sshConn) SetUploadPack(up string) error {
+	if s.session != nil {
+		return fmt.Errorf("Must call SetUploadPack before opening connection")
+	}
+	s.uploadpack = up
+	return nil
+}
+
+func (s sshConn) Flush() error {
+	fmt.Fprintf(s.stdout, "0000")
+	return nil
+}
+func (s sshConn) Write(data []byte) (int, error) {
+	l, err := PktLineEncodeNoNl(data)
+	if err != nil {
+		return 0, err
+	}
+	fmt.Fprintf(s.stdout, "%s", l)
+	return len(data), nil
 }
 
 // from mischief's scpu, get a list of signers

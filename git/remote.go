@@ -2,6 +2,7 @@ package git
 
 import (
 	"fmt"
+	"io"
 	"net/url"
 	"strings"
 )
@@ -54,6 +55,41 @@ type RemoteConn interface {
 
 	// Close the underlying connection to this service.
 	Close() error
+
+	// Sets the name of git-upload-pack to use for this remote, where
+	// applicable. This must be called before OpenConn.
+	// When called on a transport type that does not support it (such
+	// as the git transport protocol), it will return a nil error. An
+	// error indicates that the protocol *should* support the operation
+	// but was unable to set the variable.
+	SetUploadPack(string) error
+
+	// Gets the protocol version that was negotiated during connection
+	// opening. Only valid after calling OpenConn.
+	ProtocolVersion() uint8
+
+	// Returns the capabilities determined during the initial protocol
+	// connection.
+	GetCapabilities() map[string]struct{}
+
+	// Tells the connection to print any sideband data to w
+	SetSideband(w io.Writer)
+
+	// Determines how reading from the connection returns data to the
+	// caller.
+	SetReadMode(mode PackProtocolMode)
+
+	// A RemoteConn should act as a writter. When written to, it should
+	// write to the underlying connection in pkt-line format.
+	io.Writer
+
+	// Reading from a RemoteConn should return the data after decoding
+	// the line length from a pktline.
+	// It includes the sideband data (if applicable.)
+	io.Reader
+
+	// Send a flush packet to the connection
+	Flush() error
 }
 
 func NewRemoteConn(c *Client, r Remote) (RemoteConn, error) {
@@ -68,17 +104,43 @@ func NewRemoteConn(c *Client, r Remote) (RemoteConn, error) {
 	switch uri.Scheme {
 	case "http", "https":
 		conn := &smartHTTPConn{
-			giturl: urls,
+			sharedRemoteConn: sharedRemoteConn{uri: uri},
+			giturl:           urls,
 		}
 		return conn, nil
 	case "git":
 		conn := &gitConn{
-			uri: uri,
+			sharedRemoteConn: sharedRemoteConn{uri: uri},
 		}
 		return conn, nil
 	case "ssh":
-		return &sshConn{uploadpack: "git-upload-pack", uri: uri}, nil
+		return &sshConn{
+			sharedRemoteConn: sharedRemoteConn{uri: uri},
+			uploadpack:       "git-upload-pack",
+		}, nil
 	default:
 		return nil, fmt.Errorf("Unsupported remote type for: %v", r)
 	}
+}
+
+// Helper for implenting things which are shared across all RemoteConn
+// implementations
+type sharedRemoteConn struct {
+	uri             *url.URL
+	protocolversion uint8
+	capabilities    map[string]struct{}
+
+	// References advertised during opening of connection. Only valid
+	// for protocol v1
+	refs []Ref
+
+	packProtocolReader
+}
+
+func (r sharedRemoteConn) GetCapabilities() map[string]struct{} {
+	return r.capabilities
+}
+
+func (r sharedRemoteConn) ProtocolVersion() uint8 {
+	return r.protocolversion
 }
