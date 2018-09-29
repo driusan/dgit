@@ -4,7 +4,6 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"io/ioutil"
 	"log"
 	"os"
 	"strconv"
@@ -36,6 +35,11 @@ func FetchPack(c *Client, opts FetchPackOptions, rmt Remote, wants, haves []Refn
 		// This can currently only be used for cloning, not fetching.
 		return fmt.Errorf("Incremental fetch is not implemented")
 	}
+	if len(wants) == 0 && !opts.All {
+		// There is nothing to fetch, so don't bother connecting.
+		return nil
+	}
+
 	conn, err := NewRemoteConn(c, rmt)
 	if err != nil {
 		return err
@@ -86,9 +90,9 @@ func FetchPack(c *Client, opts FetchPackOptions, rmt Remote, wants, haves []Refn
 		if err := conn.Delim(); err != nil {
 			return err
 		}
-		fmt.Fprintf(conn, "ofs-delta")
+		fmt.Fprintf(conn, "ofs-delta\n")
 		if opts.NoProgress {
-			fmt.Fprintf(conn, "no-progress")
+			fmt.Fprintf(conn, "no-progress\n")
 		}
 		wanted := false
 		for _, ref := range refs {
@@ -119,27 +123,12 @@ func FetchPack(c *Client, opts FetchPackOptions, rmt Remote, wants, haves []Refn
 			// support them, so make sure people know it's a bug.
 			panic(fmt.Sprintf("Unexpected line returned: got %s want packfile", buf[:n]))
 		}
+
 		// V2 always uses side-band-64k
 		conn.SetReadMode(PktLineSidebandMode)
-
-		// We temporarily just copy the file for now.
-		tmp, err := ioutil.TempFile("", "gitpackv2-")
-		if err != nil {
-			return err
-		}
-		fmt.Println("Copying to", tmp.Name())
-		if _, err := io.Copy(tmp, conn); err != nil {
-			if err == flushPkt {
-				fmt.Println("Copied successfully")
-				return nil
-			}
-			fmt.Printf("ERRORING HERE")
-			return err
-		}
-
 	default:
-		log.Println("Using protocol was %d: using version 1 for fetch-pack", v)
 		// protocol v1
+		log.Println("Using protocol was %d: using version 1 for fetch-pack", v)
 		sideband := false
 		rmtrefs, err := conn.GetRefs(LsRemoteOptions{Heads: true, Tags: true, RefsOnly: true}, refs)
 		if err != nil {
@@ -192,29 +181,25 @@ func FetchPack(c *Client, opts FetchPackOptions, rmt Remote, wants, haves []Refn
 		if _, err := conn.Read(buf); err != nil {
 			return err
 		}
-		fmt.Printf("%s\n", buf)
 		if sideband {
 			conn.SetReadMode(PktLineSidebandMode)
 		} else {
 			conn.SetReadMode(DirectReadMode)
 		}
-		// We temporarily just copy the file for now.
-		tmp, err := ioutil.TempFile("", "gitpack")
-		if err != nil {
-			return err
-		}
-		fmt.Println("Copying to", tmp.Name())
-		if _, err := io.Copy(tmp, conn); err != nil {
-			if err == flushPkt {
-				fmt.Println("Copied successfully")
-				return nil
-			}
-			fmt.Printf("ERRORING HERE")
-			return err
-		}
 	}
 
-	return fmt.Errorf("fetch-pack not implemented")
+	// Whether we've used V1 or V2, the connection is now returning the
+	// packfile upon read, so we want to index it and copy it into the
+	// .git directory.
+	_, err = IndexAndCopyPack(
+		c,
+		IndexPackOptions{
+			Verbose: opts.Verbose,
+			FixThin: opts.Thin,
+		},
+		conn,
+	)
+	return err
 }
 
 var flushPkt = errors.New("Git protocol flush packet")
