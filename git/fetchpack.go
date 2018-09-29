@@ -57,12 +57,90 @@ func FetchPack(c *Client, opts FetchPackOptions, rmt Remote, wants, haves []Refn
 	for _, r := range wants {
 		refs = append(refs, string(r))
 	}
-	switch conn.ProtocolVersion() {
+	switch v := conn.ProtocolVersion(); v {
 	case 2:
-		return fmt.Errorf("Fetch-pack protocol v2 not implemented")
+		log.Println("Using protocol version 2 for fetch-pack")
+		capabilities := conn.Capabilities()
+		// Discard the extra capabilities advertised by the server
+		// because we don't support any of them yet.
+		_, ok := capabilities["fetch"]
+		if !ok {
+			return fmt.Errorf("Server did not advertise fetch capability")
+		}
+		// First we use ls-refs to get a list of references that we
+		// want.
+		var refs []Ref
+		var rs []string = make([]string, len(wants))
+		for i := range wants {
+			rs[i] = string(wants[i])
+		}
+		rmtrefs, err := conn.GetRefs(LsRemoteOptions{Heads: true, Tags: true, RefsOnly: true}, rs)
+		if err != nil {
+			return err
+		}
+		refs = rmtrefs
+		fmt.Printf("%v", refs)
+
+		// Now we perform the fetch itself.
+		fmt.Fprintf(conn, "command=fetch\n")
+		if err := conn.Delim(); err != nil {
+			return err
+		}
+		fmt.Fprintf(conn, "ofs-delta")
+		if opts.NoProgress {
+			fmt.Fprintf(conn, "no-progress")
+		}
+		wanted := false
+		for _, ref := range refs {
+			have, _, err := c.HaveObject(ref.Value)
+			if err != nil {
+				return err
+			}
+			if !have {
+				fmt.Fprintf(conn, "want %v\n", ref.Value)
+				wanted = true
+			}
+		}
+		if !wanted {
+			return fmt.Errorf("Already up to date.")
+		}
+		fmt.Fprintf(conn, "done\n")
+		if err := conn.Flush(); err != nil {
+			return err
+		}
+		buf := make([]byte, 65536)
+		n, err := conn.Read(buf)
+		if err != nil {
+			return err
+		}
+		if string(buf[:n]) != "packfile\n" {
+			// Panic because this is a bug in dgit. There are other
+			// valid values that a server can return, but we don't
+			// support them, so make sure people know it's a bug.
+			panic(fmt.Sprintf("Unexpected line returned: got %s want packfile", buf[:n]))
+		}
+		// V2 always uses side-band-64k
+		conn.SetReadMode(PktLineSidebandMode)
+
+		// We temporarily just copy the file for now.
+		tmp, err := ioutil.TempFile("", "gitpackv2-")
+		if err != nil {
+			return err
+		}
+		fmt.Println("Copying to", tmp.Name())
+		if _, err := io.Copy(tmp, conn); err != nil {
+			if err == flushPkt {
+				fmt.Println("Copied successfully")
+				return nil
+			}
+			fmt.Printf("ERRORING HERE")
+			return err
+		}
+
 	default:
-		sideband := false
+		log.Println("Using protocol was %d: using version 1 for fetch-pack", v)
 		// protocol v1
+		sideband := false
 		rmtrefs, err := conn.GetRefs(LsRemoteOptions{Heads: true, Tags: true, RefsOnly: true}, refs)
 		if err != nil {
 			return err

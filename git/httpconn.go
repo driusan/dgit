@@ -99,6 +99,7 @@ func (s *smartHTTPConn) OpenConn() error {
 	}
 	switch version {
 	case 1, 2:
+		s.packProtocolReader = packProtocolReader{respreader, PktLineMode, nil}
 		s.protocolversion = version
 		s.capabilities = capabilities
 		s.refs = refs
@@ -112,14 +113,25 @@ func (s *smartHTTPConn) OpenConn() error {
 	}
 }
 
-func parseRemoteInitialConnection(r io.Reader, stateless bool) (uint8, map[string]struct{}, []Ref, error) {
+func parseRemoteInitialConnection(r io.Reader, stateless bool) (uint8, map[string]map[string]struct{}, []Ref, error) {
 	switch line := loadLine(r); line {
 	case "version 2", "version 2\n":
-		cap := make(map[string]struct{})
+		cap := make(map[string]map[string]struct{})
 		for line := loadLine(r); line != ""; line = loadLine(r) {
-			// Version 2 lists capabilities one per line and nothing
-			// else on the initial connection
-			cap[line] = struct{}{}
+			// Version 2 lists capabilities one per line. If there's
+			// an equal sign, it's the options supported by that
+			// command.
+			if eq := strings.Index(line, "="); eq == -1 {
+				cap[line] = make(map[string]struct{})
+			} else {
+				name := line[:eq]
+
+				args := make(map[string]struct{})
+				for _, opt := range strings.Fields(line[eq+1:]) {
+					args[opt] = struct{}{}
+				}
+				cap[name] = args
+			}
 		}
 		return 2, cap, nil, nil
 
@@ -132,7 +144,7 @@ func parseRemoteInitialConnection(r io.Reader, stateless bool) (uint8, map[strin
 		}
 		fallthrough
 	default:
-		cap := make(map[string]struct{})
+		cap := make(map[string]map[string]struct{})
 		var refs []Ref
 		// parseLine populates cap if it's the first line, and
 		// refs otherwise
@@ -173,7 +185,16 @@ func parseRemoteInitialConnection(r io.Reader, stateless bool) (uint8, map[strin
 					// The first line, so parse the capabilities
 					caps := strings.Split(s[nameEnd:], " ")
 					for _, c := range caps {
-						cap[c] = struct{}{}
+						if eq := strings.Index(c, "="); eq == -1 {
+							cap[c] = make(map[string]struct{})
+						} else {
+							name := line[:eq]
+							args := make(map[string]struct{})
+							for _, opt := range strings.Fields(line[eq+1:]) {
+								args[opt] = struct{}{}
+							}
+							cap[name] = args
+						}
 					}
 					return &ret, nil
 				}
@@ -259,49 +280,57 @@ func (s *smartHTTPConn) Write(data []byte) (int, error) {
 		return 0, err
 	}
 	fmt.Fprintf(&s.buf, "%s", l)
-	if string(data) == "done\n" || string(data) == "done" {
-		if err :=  s.sendRequest("application/x-git-upload-pack-result"); err != nil {
-			return 0, err
+	// protocol v2 sends "done" and then a flush, while v1 sends a flush
+	// and then done. So if it's v2, don't send the request when we see
+	// "done"
+	if s.protocolversion != 2 {
+		if string(data) == "done\n" || string(data) == "done" {
+			if err := s.sendRequest("application/x-git-upload-pack-result"); err != nil {
+				return 0, err
+			}
 		}
 	}
 	return len(l), nil
 }
 func (s *smartHTTPConn) Flush() error {
-	switch v := s.ProtocolVersion(); v {
-		case 0, 1:
-			fmt.Fprintf(&s.buf, "0000")
-			return s.sendRequest("application/x-git-upload-pack-result")
-		case 2:
-			return fmt.Errorf("Protocol V2 not implemented for http")
-		default:
-			return fmt.Errorf("Unknown protocol version %d", v)
-	}
+	fmt.Fprintf(&s.buf, "0000")
+	return s.sendRequest("application/x-git-upload-pack-result")
 }
+
+func (s *smartHTTPConn) Delim() error {
+	fmt.Fprintf(&s.buf, "0001")
+	return nil
+}
+
 func (s *smartHTTPConn) sendRequest(expectedmime string) error {
 	topost := s.buf.String()
 	r, err := http.NewRequest("POST", s.giturl+"/git-upload-pack", strings.NewReader(topost))
 	r.Header.Set("User-Agent", "dgit/0.0.2")
-			r.Header.Set("Content-Type", "application/x-git-upload-pack-request")
-			r.ContentLength = int64(len([]byte(topost)))
-			if s.username != "" || s.password != "" {
-				r.SetBasicAuth(s.username, s.password)
-			}
-			resp, err := http.DefaultClient.Do(r)
-			if err != nil {
-				return err
-			}
-			// If the response or status code is wrong we return an
-			// error and don't try alternatives, because this should
-			// have all been negotiated correctly during OpenConn()
-			if ct := resp.Header.Get("Content-Type"); ct != expectedmime {
-				return fmt.Errorf("Unexpected Content-Type for %v: got %v\n", s.giturl, ct)
-			}
-			if sc := resp.StatusCode; sc != 200 {
-				return fmt.Errorf("Unexpected status code for response: got %v", sc)
-			}
-			s.lastresp = resp.Body
-			s.packProtocolReader.conn = s.lastresp
-			return nil
+	if s.protocolversion == 2 {
+		r.Header.Set("Git-Protocol", "version=2")
+	}
+
+	r.Header.Set("Content-Type", "application/x-git-upload-pack-request")
+	r.ContentLength = int64(len([]byte(topost)))
+	if s.username != "" || s.password != "" {
+		r.SetBasicAuth(s.username, s.password)
+	}
+	resp, err := http.DefaultClient.Do(r)
+	if err != nil {
+		return err
+	}
+	// If the response or status code is wrong we return an
+	// error and don't try alternatives, because this should
+	// have all been negotiated correctly during OpenConn()
+	if ct := resp.Header.Get("Content-Type"); ct != expectedmime {
+		return fmt.Errorf("Unexpected Content-Type for %v: got %v\n", s.giturl, ct)
+	}
+	if sc := resp.StatusCode; sc != 200 {
+		return fmt.Errorf("Unexpected status code for response: got %v", sc)
+	}
+	s.lastresp = resp.Body
+	s.packProtocolReader.conn = s.lastresp
+	return nil
 }
 func (s smartHTTPConn) Read(buf []byte) (int, error) {
 	if s.isopen == nil || *s.isopen == false {
@@ -312,11 +341,11 @@ func (s smartHTTPConn) Read(buf []byte) (int, error) {
 	}
 	n, err := s.sharedRemoteConn.packProtocolReader.Read(buf)
 	/*
-	if err == io.EOF {
-		// The EOF comes from the request, but we want the caller to
-		// think the connection is fully duplexed
-		return n, nil
-	}
+		if err == io.EOF {
+			// The EOF comes from the request, but we want the caller to
+			// think the connection is fully duplexed
+			return n, nil
+		}
 	*/
 	return n, err
 }

@@ -70,11 +70,13 @@ type RemoteConn interface {
 
 	// Returns the capabilities determined during the initial protocol
 	// connection.
-	Capabilities() map[string]struct{}
+	//
+	// The first index is the capability, the second is the arguments
+	// defined for it.
+	Capabilities() map[string]map[string]struct{}
 
 	// Tells the connection to print any sideband data to w
 	SetSideband(w io.Writer)
-
 
 	// A RemoteConn should act as a writter. When written to, it should
 	// write to the underlying connection in pkt-line format.
@@ -92,6 +94,9 @@ type RemoteConn interface {
 
 	// Send a flush packet to the connection
 	Flush() error
+
+	// Sends a Delimiter packet in protocol V2
+	Delim() error
 }
 
 func NewRemoteConn(c *Client, r Remote) (RemoteConn, error) {
@@ -130,7 +135,7 @@ func NewRemoteConn(c *Client, r Remote) (RemoteConn, error) {
 type sharedRemoteConn struct {
 	uri             *url.URL
 	protocolversion uint8
-	capabilities    map[string]struct{}
+	capabilities    map[string]map[string]struct{}
 
 	// References advertised during opening of connection. Only valid
 	// for protocol v1
@@ -139,7 +144,7 @@ type sharedRemoteConn struct {
 	packProtocolReader
 }
 
-func (r sharedRemoteConn) Capabilities() map[string]struct{} {
+func (r sharedRemoteConn) Capabilities() map[string]map[string]struct{} {
 	return r.capabilities
 }
 

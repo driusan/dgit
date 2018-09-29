@@ -105,3 +105,8 @@ func (g gitConn) Flush() error {
 	fmt.Fprintf(g.conn, "0000")
 	return nil
 }
+
+func (g gitConn) Delim() error {
+	fmt.Fprintf(g.conn, "0001")
+	return nil
+}

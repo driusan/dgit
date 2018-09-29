@@ -137,6 +137,12 @@ func (s sshConn) Flush() error {
 	fmt.Fprintf(s.stdout, "0000")
 	return nil
 }
+
+func (s sshConn) Delim() error {
+	fmt.Fprintf(s.stdout, "0001")
+	return nil
+}
+
 func (s sshConn) Write(data []byte) (int, error) {
 	l, err := PktLineEncodeNoNl(data)
 	if err != nil {

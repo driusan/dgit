@@ -9,6 +9,8 @@ import (
 func FetchPack(c *git.Client, args []string) error {
 	flags := newFlagSet("fetch-pack")
 	opts := git.FetchPackOptions{}
+	flags.StringVar(&opts.UploadPack, "upload-pack", "", "Execute upload-pack instead of git-upload-pack")
+	flags.StringVar(&opts.UploadPack, "exec", "", "Execute upload-pack instead of git-upload-pack")
 	flags.Parse(args)
 	args = flags.Args()
 	if len(args) < 1 {
