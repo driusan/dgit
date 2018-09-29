@@ -51,6 +51,7 @@ func FetchPack(c *Client, opts FetchPackOptions, rmt Remote, wants, haves []Refn
 	}
 	defer conn.Close()
 
+	// FIXME: This should be configurable
 	conn.SetSideband(os.Stderr)
 	refs := make([]string, 0, len(wants))
 	for _, r := range wants {
@@ -70,7 +71,7 @@ func FetchPack(c *Client, opts FetchPackOptions, rmt Remote, wants, haves []Refn
 		// requesting things even with a nil wants
 		for i, ref := range rmtrefs {
 			if i == 0 {
-				capabilities := conn.GetCapabilities()
+				capabilities := conn.Capabilities()
 				var caps string
 				// Add protocol capabilities on the first line
 				if _, ok := capabilities["ofs-delta"]; ok {
@@ -130,6 +131,7 @@ func FetchPack(c *Client, opts FetchPackOptions, rmt Remote, wants, haves []Refn
 				fmt.Println("Copied successfully")
 				return nil
 			}
+			fmt.Printf("ERRORING HERE")
 			return err
 		}
 	}

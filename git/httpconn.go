@@ -14,6 +14,7 @@ import (
 // requests"
 type smartHTTPConn struct {
 	sharedRemoteConn
+
 	// The giturl is the URL for this connection. It may or may not be
 	// the same as what it was initiated as, depending on whether or not
 	// ".git" had to be appended to the URL.
@@ -26,6 +27,14 @@ type smartHTTPConn struct {
 	// git-upload-pack response, and false if there was a problem getting
 	// the upload-pack response
 	isopen *bool
+
+	// Writing to a smartHTTPConn builds the request in a buffer until a
+	// flush packet. Once a flush packet is sent, it sends the request
+	// from the buffer
+	buf strings.Builder
+
+	// Body of the last response from the server.
+	lastresp io.ReadCloser
 }
 
 // Opens a connection to s.giturl over the smart http protocol
@@ -114,7 +123,13 @@ func parseRemoteInitialConnection(r io.Reader, stateless bool) (uint8, map[strin
 		}
 		return 2, cap, nil, nil
 
-	case "# service=git-upload-pack\n":
+	case "# service=git-upload-pack", "# service=git-upload-pack\n":
+		// An http connection starts with the service announcement. We
+		// need to parse the next line
+		line = loadLine(r)
+		if line == "" {
+			line = loadLine(r)
+		}
 		fallthrough
 	default:
 		cap := make(map[string]struct{})
@@ -189,7 +204,7 @@ func parseRemoteInitialConnection(r io.Reader, stateless bool) (uint8, map[strin
 
 func (s smartHTTPConn) GetRefs(opts LsRemoteOptions, patterns []string) ([]Ref, error) {
 	if s.isopen == nil || *s.isopen == false {
-		return nil, fmt.Errorf("Connection is not open: %v", s)
+		return nil, fmt.Errorf("Connection is not open")
 	}
 	switch s.protocolversion {
 	case 1:
@@ -229,23 +244,81 @@ func (s smartHTTPConn) GetRefs(opts LsRemoteOptions, patterns []string) ([]Ref, 
 }
 
 func (s smartHTTPConn) Close() error {
-	// http remotes are stateless
+	// http remotes are stateless, closing them is meaningless
 	return nil
 }
 
 func (s smartHTTPConn) SetUploadPack(string) error {
-	// Not applicable for http
+	// Not applicable for http (or should it change the URL?)
 	return nil
 }
 
-func (s smartHTTPConn) Write(data []byte) (int, error) {
-	return 0, fmt.Errorf("Write not implemented for smartHTTPConn")
+func (s *smartHTTPConn) Write(data []byte) (int, error) {
+	l, err := PktLineEncodeNoNl(data)
+	if err != nil {
+		return 0, err
+	}
+	fmt.Fprintf(&s.buf, "%s", l)
+	if string(data) == "done\n" || string(data) == "done" {
+		if err :=  s.sendRequest("application/x-git-upload-pack-result"); err != nil {
+			return 0, err
+		}
+	}
+	return len(l), nil
 }
-func (s smartHTTPConn) Flush() error {
-	return fmt.Errorf("Flush not implemented for smartHTTPConn")
+func (s *smartHTTPConn) Flush() error {
+	switch v := s.ProtocolVersion(); v {
+		case 0, 1:
+			fmt.Fprintf(&s.buf, "0000")
+			return s.sendRequest("application/x-git-upload-pack-result")
+		case 2:
+			return fmt.Errorf("Protocol V2 not implemented for http")
+		default:
+			return fmt.Errorf("Unknown protocol version %d", v)
+	}
 }
-func (s smartHTTPConn) Read([]byte) (int, error) {
-	return 0, fmt.Errorf("Read not implemented for smartHTTPConn")
+func (s *smartHTTPConn) sendRequest(expectedmime string) error {
+	topost := s.buf.String()
+	r, err := http.NewRequest("POST", s.giturl+"/git-upload-pack", strings.NewReader(topost))
+	r.Header.Set("User-Agent", "dgit/0.0.2")
+			r.Header.Set("Content-Type", "application/x-git-upload-pack-request")
+			r.ContentLength = int64(len([]byte(topost)))
+			if s.username != "" || s.password != "" {
+				r.SetBasicAuth(s.username, s.password)
+			}
+			resp, err := http.DefaultClient.Do(r)
+			if err != nil {
+				return err
+			}
+			// If the response or status code is wrong we return an
+			// error and don't try alternatives, because this should
+			// have all been negotiated correctly during OpenConn()
+			if ct := resp.Header.Get("Content-Type"); ct != expectedmime {
+				return fmt.Errorf("Unexpected Content-Type for %v: got %v\n", s.giturl, ct)
+			}
+			if sc := resp.StatusCode; sc != 200 {
+				return fmt.Errorf("Unexpected status code for response: got %v", sc)
+			}
+			s.lastresp = resp.Body
+			s.packProtocolReader.conn = s.lastresp
+			return nil
+}
+func (s smartHTTPConn) Read(buf []byte) (int, error) {
+	if s.isopen == nil || *s.isopen == false {
+		return 0, fmt.Errorf("Connection not open")
+	}
+	if s.lastresp == nil {
+		return 0, fmt.Errorf("Can not read until after first Flush() call")
+	}
+	n, err := s.sharedRemoteConn.packProtocolReader.Read(buf)
+	/*
+	if err == io.EOF {
+		// The EOF comes from the request, but we want the caller to
+		// think the connection is fully duplexed
+		return n, nil
+	}
+	*/
+	return n, err
 }
 
 func getRefsV1(refs []Ref, opts LsRemoteOptions, patterns []string) ([]Ref, error) {

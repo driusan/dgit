@@ -70,14 +70,11 @@ type RemoteConn interface {
 
 	// Returns the capabilities determined during the initial protocol
 	// connection.
-	GetCapabilities() map[string]struct{}
+	Capabilities() map[string]struct{}
 
 	// Tells the connection to print any sideband data to w
 	SetSideband(w io.Writer)
 
-	// Determines how reading from the connection returns data to the
-	// caller.
-	SetReadMode(mode PackProtocolMode)
 
 	// A RemoteConn should act as a writter. When written to, it should
 	// write to the underlying connection in pkt-line format.
@@ -85,8 +82,13 @@ type RemoteConn interface {
 
 	// Reading from a RemoteConn should return the data after decoding
 	// the line length from a pktline.
-	// It includes the sideband data (if applicable.)
+	// The behaviour of the read depends on the PackProtocolMode set
+	// by SetReadMode
 	io.Reader
+
+	// Determines how reading from the connection returns data to the
+	// caller.
+	SetReadMode(mode PackProtocolMode)
 
 	// Send a flush packet to the connection
 	Flush() error
@@ -137,7 +139,7 @@ type sharedRemoteConn struct {
 	packProtocolReader
 }
 
-func (r sharedRemoteConn) GetCapabilities() map[string]struct{} {
+func (r sharedRemoteConn) Capabilities() map[string]struct{} {
 	return r.capabilities
 }
 
