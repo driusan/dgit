@@ -77,10 +77,10 @@ func Clone(opts CloneOptions, rmt Remote, dst File) error {
 		org = "origin"
 	}
 	config.SetConfig(fmt.Sprintf("remote.%v.url", org), rmt.String())
-	config.SetConfig(fmt.Sprintf("remote.%v.remote", br), org)
+	config.SetConfig(fmt.Sprintf("branch.%v.remote", br), org)
 	// This should be smarter and get the HEAD symref from the connection.
 	// It isn't necessarily named refs/heads/master
-	config.SetConfig(fmt.Sprintf("remote.%v.merge", br), "refs/heads/master")
+	config.SetConfig(fmt.Sprintf("branch.%v.merge", br), "refs/heads/master")
 	if err := config.WriteConfig(); err != nil {
 		return err
 	}
@@ -89,8 +89,8 @@ func Clone(opts CloneOptions, rmt Remote, dst File) error {
 			// FIXME: This should have been done by GetRefs()
 			continue
 		}
-		brname := strings.TrimPrefix(ref.Name, "refs/heads/")
-		f := c.GitDir.File(File("refs/remotes/" + org + "/" + brname))
+		refname := strings.Replace(ref.Name, "refs/heads/", "refs/remotes/" + org + "/", 1)
+		f := c.GitDir.File(File(refname))
 		if err := f.Create(); err != nil {
 			return err
 		}
