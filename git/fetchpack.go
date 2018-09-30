@@ -31,27 +31,36 @@ type FetchPackOptions struct {
 // FetchPack fetches a packfile from rmt. It uses wants to retrieve the refnames
 // from the remote, and haves to negotiate the missing objects. FetchPack
 // always makes a single request and declares "done" at the end.
-func FetchPack(c *Client, opts FetchPackOptions, rm Remote, wants, haves []Refname) error {
+func FetchPack(c *Client, opts FetchPackOptions, rm Remote, wants []Refname) ([]Ref, error) {
 	conn, err := NewRemoteConn(c, rm)
 	if err != nil {
-		return err
+		return nil, err
 	}
 	if err := conn.OpenConn(); err != nil {
 		return err
 	}
 	defer conn.Close()
 
-	_, err = fetchPackDone(c, opts, conn, wants, haves)
-	return err
+	// We just declare everything we have locally for this remote as a "have"
+	// and then declare done, we don't try and be intelligent about what we
+	// tell them we have. If we've gotten some objects from another remote,
+	// we'll just end up with them duplicated.
+	haves, err := rm.GetLocalRefs(c)
+	if err != nil {
+		return nil, err
+	}
+	// We put haves into a map to ensure that duplicates are excluded
+	havemap := make(map[Sha1]struct{})
+	for _, h := range haves {
+		havemap[h.Value] = struct{}{}
+	}
+
+	return fetchPackDone(c, opts, conn, wants, havemap)
 }
 
 // fetchPackDone makes a single request over conn and declares it done. It returns
 // the refs from the connection that were fetched.
-func fetchPackDone(c *Client, opts FetchPackOptions, conn RemoteConn, wants, haves []Refname) ([]Ref, error) {
-	if len(haves) > 0 {
-		// This can currently only be used for cloning, not fetching.
-		return nil, fmt.Errorf("Incremental fetch is not implemented")
-	}
+func fetchPackDone(c *Client, opts FetchPackOptions, conn RemoteConn, wants []Refname, haves map[Sha1]struct{}) ([]Ref, error) {
 	if len(wants) == 0 && !opts.All {
 		// There is nothing to fetch, so don't bother doing anything.
 		return nil, nil
@@ -119,6 +128,9 @@ func fetchPackDone(c *Client, opts FetchPackOptions, conn RemoteConn, wants, hav
 		if !wanted {
 			return nil, fmt.Errorf("Already up to date.")
 		}
+		for ref := range haves {
+			fmt.Fprintf(conn, "have %v\n", ref)
+		}
 		fmt.Fprintf(conn, "done\n")
 		if err := conn.Flush(); err != nil {
 			return nil, err
@@ -146,8 +158,6 @@ func fetchPackDone(c *Client, opts FetchPackOptions, conn RemoteConn, wants, hav
 			return nil, err
 		}
 		refs = rmtrefs
-		// FIXME: This doesn't seem to be the right references, it's
-		// requesting things even with a nil wants
 		for i, ref := range rmtrefs {
 			if i == 0 {
 				capabilities := conn.Capabilities()
@@ -184,6 +194,10 @@ func fetchPackDone(c *Client, opts FetchPackOptions, conn RemoteConn, wants, hav
 				fmt.Fprintf(conn, "want %v\n", ref.Value)
 			}
 		}
+		for ref := range haves {
+			fmt.Fprintf(conn, "have %v\n", ref)
+		}
+
 		if err := conn.Flush(); err != nil {
 			return nil, err
 		}

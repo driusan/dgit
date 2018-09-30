@@ -22,7 +22,7 @@ func Pull(c *git.Client, args []string) error {
 	addSharedMergeFlags(flags, &opts.MergeOptions)
 	flags.Parse(args)
 
-	var repository string
+	var repository git.Remote
 	var remotebranches []string
 	config, err := git.LoadLocalConfig(c)
 	if err != nil {
@@ -33,17 +33,18 @@ func Pull(c *git.Client, args []string) error {
 		// TODO simplistic, probably won't work in all cases
 		// Instead the branch information should be retrieved from the merge config
 		headbranch := c.GetHeadBranch().BranchName()
-		repository, _ = config.GetConfig("branch." + headbranch + ".remote")
+		r, _ := config.GetConfig("branch." + headbranch + ".remote")
+		repository = git.Remote(r)
 		//mergeremote, _ := config.GetConfig("branch." + head + ".merge")
 		remotebranches = []string{fmt.Sprintf("%s/%s", repository, headbranch)}
 	} else if flags.NArg() == 1 {
-		repository = flags.Arg(0)
+		repository = git.Remote(flags.Arg(0))
 		// Instead the branch information should be retrieved from the merge config
 		headbranch := c.GetHeadBranch().BranchName()
 		//mergeremote, _ := config.GetConfig("branch." + headbranch + ".merge")
 		remotebranches = []string{fmt.Sprintf("%s/%s", repository, headbranch)}
 	} else if flags.NArg() >= 2 {
-		repository = flag.Arg(0)
+		repository = git.Remote(flag.Arg(0))
 		remotebranches = flag.Args()[1:]
 	} else {
 		flags.Usage()

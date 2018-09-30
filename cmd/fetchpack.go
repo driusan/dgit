@@ -37,5 +37,6 @@ func FetchPack(c *git.Client, args []string) error {
 	for _, name := range args[1:] {
 		wants = append(wants, git.Refname(name))
 	}
-	return git.FetchPack(c, opts, rmt, wants, nil)
+	_, err := git.FetchPack(c, opts, rmt, wants)
+	return err
 }
