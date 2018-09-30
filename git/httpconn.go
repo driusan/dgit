@@ -172,14 +172,14 @@ func parseRemoteInitialConnection(r io.Reader, stateless bool) (uint8, map[strin
 					// the capabilities
 					nameEnd = idx + 1
 					if ret.Name == "" {
-						ret.Name = s[firstSpace:idx]
+						ret.Name = s[firstSpace+1 : idx]
 					}
 				}
 				if char == '\n' {
 					if ret.Name == "" {
 						// Not the first line, so there
 						// was no \0
-						ret.Name = s[firstSpace:idx]
+						ret.Name = s[firstSpace+1 : idx]
 						return &ret, nil
 					}
 					// The first line, so parse the capabilities
@@ -332,22 +332,14 @@ func (s *smartHTTPConn) sendRequest(expectedmime string) error {
 	s.packProtocolReader.conn = s.lastresp
 	return nil
 }
-func (s smartHTTPConn) Read(buf []byte) (int, error) {
+func (s *smartHTTPConn) Read(buf []byte) (int, error) {
 	if s.isopen == nil || *s.isopen == false {
 		return 0, fmt.Errorf("Connection not open")
 	}
 	if s.lastresp == nil {
 		return 0, fmt.Errorf("Can not read until after first Flush() call")
 	}
-	n, err := s.sharedRemoteConn.packProtocolReader.Read(buf)
-	/*
-		if err == io.EOF {
-			// The EOF comes from the request, but we want the caller to
-			// think the connection is fully duplexed
-			return n, nil
-		}
-	*/
-	return n, err
+	return s.sharedRemoteConn.packProtocolReader.Read(buf)
 }
 
 func getRefsV1(refs []Ref, opts LsRemoteOptions, patterns []string) ([]Ref, error) {

@@ -4,7 +4,6 @@ import (
 	"flag"
 	"fmt"
 	"os"
-	"strings"
 
 	"github.com/driusan/dgit/git"
 )
@@ -18,6 +17,7 @@ func Clone(c *git.Client, args []string) error {
 		flags.PrintDefaults()
 	}
 
+	opts := git.CloneOptions{}
 	initOpts := git.InitOptions{}
 	flags.BoolVar(&initOpts.Quiet, "quiet", false, "Operate quietly")
 	flags.BoolVar(&initOpts.Quiet, "q", false, "Alias for --quiet")
@@ -39,8 +39,9 @@ func Clone(c *git.Client, args []string) error {
 		initOpts.Template = git.File(template)
 	}
 
-	var repoid string
-	var dirName string
+	opts.InitOptions = initOpts
+	var repoid git.Remote
+	var dirName git.File
 	// TODO: This argument parsing should be smarter and more
 	// in line with how cgit does it.
 	switch flags.NArg() {
@@ -48,95 +49,14 @@ func Clone(c *git.Client, args []string) error {
 		flags.Usage()
 		os.Exit(2)
 	case 1:
-		repoid = flags.Arg(0)
+		repoid = git.Remote(flags.Arg(0))
 	case 2:
-		repoid = flags.Arg(0)
-		dirName = flags.Arg(1)
+		repoid = git.Remote(flags.Arg(0))
+		dirName = git.File(flags.Arg(1))
 	default:
-		repoid = flags.Arg(0)
-	}
-	repoid = strings.TrimRight(repoid, "/")
-	pieces := strings.Split(repoid, "/")
-
-	if dirName == "" {
-		if len(pieces) > 0 {
-			dirName = pieces[len(pieces)-1]
-		}
-		dirName = strings.TrimSuffix(dirName, ".git")
-
-		if _, err := os.Stat(dirName); err == nil {
-			return fmt.Errorf("Directory %s already exists, can not clone.\n", dirName)
-		}
-		if dirName == "" {
-			panic("No directory left to clone into.")
-		}
+		repoid = git.Remote(flags.Arg(0))
+		dirName = git.File(flags.Arg(1))
 	}
 
-	c, err := git.Init(c, initOpts, dirName)
-	if err != nil {
-		return err
-	}
-
-	config, err := git.LoadLocalConfig(c)
-	if err != nil {
-		return err
-	}
-
-	config.SetConfig("remote.origin.url", repoid)
-	config.SetConfig("branch.master.remote", "origin")
-	// This should be smarter and try and get the HEAD branch from Fetch.
-	// The HEAD refspec isn't necessarily named refs/heads/master.
-	config.SetConfig("branch.master.merge", "refs/heads/master")
-
-	err = config.WriteConfig()
-	if err != nil {
-		return err
-	}
-
-	err = git.Fetch(c, git.FetchOptions{}, "origin")
-	if err != nil {
-		return err
-	}
-
-	// Create an empty reflog for HEAD, since this is an initial clone, and then
-	// point HEAD at refs/heads/master
-	if err := os.MkdirAll(c.GitDir.File("logs").String(), 0755); err != nil {
-		return err
-	}
-
-	cmtish, err := git.RevParseCommitish(c, &git.RevParseOptions{}, "origin/master")
-	if err != nil {
-		return err
-	}
-	cmt, err := cmtish.CommitID(c)
-	if err != nil {
-		return err
-	}
-
-	// Update the master branch to point to the same commit as origin/master
-	if err := git.UpdateRefSpec(
-		c,
-		git.UpdateRefOptions{CreateReflog: true, OldValue: git.CommitID{}},
-		git.RefSpec("refs/heads/master"),
-		cmt,
-		"clone: "+flags.Arg(0),
-	); err != nil {
-		return err
-	}
-
-	// HEAD is already pointing to refs/heads/master from init, but the logs/HEAD
-	// reflog isn't created yet. We can cheat by just copying the one created for
-	// the master branch by UpdateRefSpec above.
-	reflog, err := c.GitDir.ReadFile("logs/refs/heads/master")
-	if err != nil {
-		return err
-	}
-
-	if err := c.GitDir.WriteFile("logs/HEAD", reflog, 0755); err != nil {
-		return err
-	}
-
-	// Since this is an initial clone, we just do a hard reset and don't
-	// try and be intelligent about what we're checking out.
-	return git.Reset(c, git.ResetOptions{Hard: true}, []git.File{})
+	return git.Clone(opts, repoid, dirName)
 }

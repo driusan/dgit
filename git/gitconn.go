@@ -46,12 +46,12 @@ func (g *gitConn) OpenConn() error {
 	return nil
 }
 
-func (g gitConn) Close() error {
+func (g *gitConn) Close() error {
 	g.Flush()
 	return g.conn.Close()
 }
 
-func (g gitConn) GetRefs(opts LsRemoteOptions, patterns []string) ([]Ref, error) {
+func (g *gitConn) GetRefs(opts LsRemoteOptions, patterns []string) ([]Ref, error) {
 	switch g.protocolversion {
 	case 1:
 		return getRefsV1(g.refs, opts, patterns)
@@ -89,24 +89,23 @@ func (g gitConn) SetUploadPack(up string) error {
 	return nil
 }
 
-func (g gitConn) Write(data []byte) (int, error) {
+func (g *gitConn) Write(data []byte) (int, error) {
 	l, err := PktLineEncodeNoNl(data)
 	if err != nil {
 		return 0, err
 	}
 	fmt.Fprintf(g.conn, "%s", l)
-	fmt.Printf("%s", l)
 	// We lie about how much data was written since
 	// we wrote more than asked.
 	return len(data), nil
 }
 
-func (g gitConn) Flush() error {
+func (g *gitConn) Flush() error {
 	fmt.Fprintf(g.conn, "0000")
 	return nil
 }
 
-func (g gitConn) Delim() error {
+func (g *gitConn) Delim() error {
 	fmt.Fprintf(g.conn, "0001")
 	return nil
 }
