@@ -29,38 +29,51 @@ type FetchPackOptions struct {
 }
 
 // FetchPack fetches a packfile from rmt. It uses wants to retrieve the refnames
-// from the remote, and haves to negotiate the missing objects.
-func FetchPack(c *Client, opts FetchPackOptions, rmt Remote, wants, haves []Refname) error {
-	if len(haves) > 0 {
-		// This can currently only be used for cloning, not fetching.
-		return fmt.Errorf("Incremental fetch is not implemented")
-	}
-	if len(wants) == 0 && !opts.All {
-		// There is nothing to fetch, so don't bother connecting.
-		return nil
-	}
-
-	conn, err := NewRemoteConn(c, rmt)
+// from the remote, and haves to negotiate the missing objects. FetchPack
+// always makes a single request and declares "done" at the end.
+func FetchPack(c *Client, opts FetchPackOptions, rm Remote, wants, haves []Refname) error {
+	conn, err := NewRemoteConn(c, rm)
 	if err != nil {
 		return err
 	}
-	if opts.UploadPack != "" {
-		if err := conn.SetUploadPack(opts.UploadPack); err != nil {
-			return err
-		}
-	}
-
 	if err := conn.OpenConn(); err != nil {
 		return err
 	}
 	defer conn.Close()
 
+	_, err = fetchPackDone(c, opts, conn, wants, haves)
+	return err
+}
+
+// fetchPackDone makes a single request over conn and declares it done. It returns
+// the refs from the connection that were fetched.
+func fetchPackDone(c *Client, opts FetchPackOptions, conn RemoteConn, wants, haves []Refname) ([]Ref, error) {
+	if len(haves) > 0 {
+		// This can currently only be used for cloning, not fetching.
+		return nil, fmt.Errorf("Incremental fetch is not implemented")
+	}
+	if len(wants) == 0 && !opts.All {
+		// There is nothing to fetch, so don't bother doing anything.
+		return nil, nil
+	}
+
+	if opts.UploadPack != "" {
+		if err := conn.SetUploadPack(opts.UploadPack); err != nil {
+			return nil, err
+		}
+	}
+
 	// FIXME: This should be configurable
 	conn.SetSideband(os.Stderr)
-	refs := make([]string, 0, len(wants))
-	for _, r := range wants {
-		refs = append(refs, string(r))
+
+	var refs []Ref
+
+	// Ref patterns as strings for GetRefs
+	var rs []string = make([]string, len(wants))
+	for i := range wants {
+		rs[i] = string(wants[i])
 	}
+
 	switch v := conn.ProtocolVersion(); v {
 	case 2:
 		log.Println("Using protocol version 2 for fetch-pack")
@@ -69,26 +82,24 @@ func FetchPack(c *Client, opts FetchPackOptions, rmt Remote, wants, haves []Refn
 		// because we don't support any of them yet.
 		_, ok := capabilities["fetch"]
 		if !ok {
-			return fmt.Errorf("Server did not advertise fetch capability")
+			return nil, fmt.Errorf("Server did not advertise fetch capability")
 		}
 		// First we use ls-refs to get a list of references that we
 		// want.
-		var refs []Ref
 		var rs []string = make([]string, len(wants))
 		for i := range wants {
 			rs[i] = string(wants[i])
 		}
-		rmtrefs, err := conn.GetRefs(LsRemoteOptions{Heads: true, Tags: true, RefsOnly: true}, rs)
+		rmtrefs, err := conn.GetRefs(LsRemoteOptions{Heads: true, Tags: opts.IncludeTag, RefsOnly: true}, rs)
 		if err != nil {
-			return err
+			return nil, err
 		}
 		refs = rmtrefs
-		fmt.Printf("%v", refs)
 
 		// Now we perform the fetch itself.
 		fmt.Fprintf(conn, "command=fetch\n")
 		if err := conn.Delim(); err != nil {
-			return err
+			return nil, err
 		}
 		fmt.Fprintf(conn, "ofs-delta\n")
 		if opts.NoProgress {
@@ -98,7 +109,7 @@ func FetchPack(c *Client, opts FetchPackOptions, rmt Remote, wants, haves []Refn
 		for _, ref := range refs {
 			have, _, err := c.HaveObject(ref.Value)
 			if err != nil {
-				return err
+				return nil, err
 			}
 			if !have {
 				fmt.Fprintf(conn, "want %v\n", ref.Value)
@@ -106,16 +117,16 @@ func FetchPack(c *Client, opts FetchPackOptions, rmt Remote, wants, haves []Refn
 			}
 		}
 		if !wanted {
-			return fmt.Errorf("Already up to date.")
+			return nil, fmt.Errorf("Already up to date.")
 		}
 		fmt.Fprintf(conn, "done\n")
 		if err := conn.Flush(); err != nil {
-			return err
+			return nil, err
 		}
 		buf := make([]byte, 65536)
 		n, err := conn.Read(buf)
 		if err != nil {
-			return err
+			return nil, err
 		}
 		if string(buf[:n]) != "packfile\n" {
 			// Panic because this is a bug in dgit. There are other
@@ -130,15 +141,17 @@ func FetchPack(c *Client, opts FetchPackOptions, rmt Remote, wants, haves []Refn
 		// protocol v1
 		log.Printf("Using protocol was %d: using version 1 for fetch-pack\n", v)
 		sideband := false
-		rmtrefs, err := conn.GetRefs(LsRemoteOptions{Heads: true, Tags: true, RefsOnly: true}, refs)
+		rmtrefs, err := conn.GetRefs(LsRemoteOptions{Heads: true, Tags: true, RefsOnly: true}, rs)
 		if err != nil {
-			return err
+			return nil, err
 		}
+		refs = rmtrefs
 		// FIXME: This doesn't seem to be the right references, it's
 		// requesting things even with a nil wants
 		for i, ref := range rmtrefs {
 			if i == 0 {
 				capabilities := conn.Capabilities()
+				fmt.Printf("Server Capabilities: %v\n\nDone", capabilities)
 				var caps string
 				// Add protocol capabilities on the first line
 				if _, ok := capabilities["ofs-delta"]; ok {
@@ -164,14 +177,15 @@ func FetchPack(c *Client, opts FetchPackOptions, rmt Remote, wants, haves []Refn
 				if _, ok := capabilities["agent"]; ok {
 					caps += " agent=dgit/0.0.2"
 				}
-				log.Println("Sending capabilities: ", caps)
-				fmt.Fprintf(conn, "want %v %v\n", ref.Value, strings.TrimSpace(caps))
+				caps = strings.TrimSpace(caps)
+				fmt.Printf("Sending capabilities: %v (%x)", caps, caps)
+				fmt.Fprintf(conn, "want %v %v\n", ref.Value, caps)
 			} else {
 				fmt.Fprintf(conn, "want %v\n", ref.Value)
 			}
 		}
 		if err := conn.Flush(); err != nil {
-			return err
+			return nil, err
 		}
 		fmt.Fprintf(conn, "done\n")
 
@@ -179,7 +193,7 @@ func FetchPack(c *Client, opts FetchPackOptions, rmt Remote, wants, haves []Refn
 		// reading the pack file.
 		buf := make([]byte, 65536)
 		if _, err := conn.Read(buf); err != nil {
-			return err
+			return nil, err
 		}
 		if sideband {
 			conn.SetReadMode(PktLineSidebandMode)
@@ -191,7 +205,7 @@ func FetchPack(c *Client, opts FetchPackOptions, rmt Remote, wants, haves []Refn
 	// Whether we've used V1 or V2, the connection is now returning the
 	// packfile upon read, so we want to index it and copy it into the
 	// .git directory.
-	_, err = IndexAndCopyPack(
+	_, err := IndexAndCopyPack(
 		c,
 		IndexPackOptions{
 			Verbose: opts.Verbose,
@@ -199,7 +213,7 @@ func FetchPack(c *Client, opts FetchPackOptions, rmt Remote, wants, haves []Refn
 		},
 		conn,
 	)
-	return err
+	return refs, err
 }
 
 var flushPkt = errors.New("Git protocol flush packet")
@@ -247,7 +261,7 @@ func (p packProtocolReader) Read(buf []byte) (int, error) {
 	case DirectReadMode:
 		return p.conn.Read(buf)
 	case PktLineMode:
-		n, err := p.conn.Read(buf[0:4])
+		n, err := io.ReadFull(p.conn, buf[0:4])
 		if err != nil {
 			return 0, err
 		}
@@ -271,14 +285,14 @@ func (p packProtocolReader) Read(buf []byte) (int, error) {
 		}
 	case PktLineSidebandMode:
 	sidebandRead:
-		n, err := p.conn.Read(buf[0:5])
+		n, err := io.ReadFull(p.conn, buf[0:4])
 		if err != nil {
 			return 0, err
 		}
 
 		// Allow either flush packets or data with a sideband channel
-		if n != 4 && n != 5 {
-			return 0, fmt.Errorf("Bad read for git protocol")
+		if n != 4 {
+			return 0, fmt.Errorf("Bad read for git protocol: read %v (%s)", n, buf[:n])
 		}
 		switch string(buf[0:4]) {
 		case "0000":
@@ -293,8 +307,13 @@ func (p packProtocolReader) Read(buf []byte) (int, error) {
 			if err != nil {
 				return 0, err
 			}
-			switch buf[4] {
+			_, err = p.conn.Read(buf[0:1])
+			if err != nil {
+				return 0, err
+			}
+			switch buf[0] {
 			case sidebandDataChannel:
+				fmt.Printf("Data")
 				return io.ReadFull(p.conn, buf[:size-5])
 			case sidebandChannel:
 				n, err := io.ReadFull(p.conn, buf[:size-5])
@@ -302,17 +321,18 @@ func (p packProtocolReader) Read(buf []byte) (int, error) {
 					return n, err
 				}
 				if p.sideband != nil {
-					fmt.Fprintf(p.sideband, "%s", buf[:n])
+					fmt.Fprintf(p.sideband, "remote: %s", buf[:n])
 				}
 				goto sidebandRead
 			case sidebandErrChannel:
+				fmt.Printf("err")
 				n, err := io.ReadFull(p.conn, buf[:size-5])
 				if err != nil {
 					return n, err
 				}
 				return n, fmt.Errorf("%s", buf[:n])
 			default:
-				return 0, fmt.Errorf("Invalid sideband channel")
+				return 0, fmt.Errorf("Invalid sideband channel: %d", buf[0])
 			}
 			return io.ReadFull(p.conn, buf[:size-5])
 		}
