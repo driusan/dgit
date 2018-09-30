@@ -610,7 +610,14 @@ func IndexAndCopyPack(c *Client, opts IndexPackOptions, r io.Reader) (PackfileIn
 	// starting. (We can't just make the parameter a ReadSeeker, because
 	// os.Stdin is an *os.File which has a Seek method which always returns
 	// an error.)
-	io.Copy(pack, r)
+	switch _, err := io.Copy(pack, r); err {
+	case nil, flushPkt:
+		// Either there was no error copying, or reader was a RemoteConn
+		// which returned a flush packet to delimit the end (in which
+		// case we just keep going.)
+	default:
+		return nil, err
+	}
 	pack.Seek(0, io.SeekStart)
 
 	var idx PackfileIndex
