@@ -89,7 +89,7 @@ func Clone(opts CloneOptions, rmt Remote, dst File) error {
 			// FIXME: This should have been done by GetRefs()
 			continue
 		}
-		refname := strings.Replace(ref.Name, "refs/heads/", "refs/remotes/" + org + "/", 1)
+		refname := strings.Replace(ref.Name, "refs/heads/", "refs/remotes/"+org+"/", 1)
 		f := c.GitDir.File(File(refname))
 		if err := f.Create(); err != nil {
 			return err
