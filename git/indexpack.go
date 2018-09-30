@@ -616,7 +616,7 @@ func IndexAndCopyPack(c *Client, opts IndexPackOptions, r io.Reader) (PackfileIn
 		// which returned a flush packet to delimit the end (in which
 		// case we just keep going.)
 	default:
-		return err
+		return nil, err
 	}
 	pack.Seek(0, io.SeekStart)
 
