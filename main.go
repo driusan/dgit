@@ -16,7 +16,7 @@ var InvalidArgument error = errors.New("Invalid argument to function")
 
 func requiresGitDir(cmd string) bool {
 	switch cmd {
-	case "init", "clone":
+	case "init", "clone", "ls-remote":
 		return false
 	default:
 		return true
@@ -378,6 +378,11 @@ func main() {
 		if err := cmd.Var(c, args); err != nil {
 			fmt.Fprintln(os.Stderr, err)
 			os.Exit(4)
+		}
+	case "fetch-pack":
+		if err := cmd.FetchPack(c, args); err != nil {
+			fmt.Fprintln(os.Stderr, err)
+			os.Exit(1)
 		}
 	case "check-ignore":
 		subcommandUsage = "[<pathname>...]"

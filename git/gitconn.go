@@ -4,21 +4,13 @@ import (
 	"fmt"
 	"io"
 	"net"
-	"net/url"
 )
 
 // gitConn represents a remote which uses the git protocol
 // for transport (ie. a remote that starts with git://)
 type gitConn struct {
-	uri  *url.URL
+	sharedRemoteConn
 	conn io.ReadWriteCloser
-
-	protocolversion uint8
-	capabilities    map[string]struct{}
-
-	// References advertised upon opening the connection. Only for
-	// protocol v1
-	refs []Ref
 }
 
 func (g *gitConn) OpenConn() error {
@@ -28,25 +20,21 @@ func (g *gitConn) OpenConn() error {
 		port = "9418"
 	}
 
-	// Advertisement string. Built it before trying to open the connection
-	// just in case something (somehow) goes wrong.
-	adv, err := PktLineEncodeNoNl(
-		[]byte(fmt.Sprintf(
-			"git-upload-pack %s\x00host=%s\x00\x00version=2\x00",
-			g.uri.Path,
-			host,
-		)),
-	)
-	if err != nil {
-		return err
-	}
 	conn, err := net.Dial("tcp", host+":"+port)
 	if err != nil {
 		return err
 	}
 	g.conn = conn
+	g.packProtocolReader = packProtocolReader{g.conn, PktLineMode, nil}
 
-	fmt.Fprintf(conn, "%v", adv)
+	// Advertise the connection and try to negotiate protocol version 2
+	fmt.Fprintf(
+		g,
+		"git-upload-pack %s\x00host=%s\x00\x00version=2\x00",
+		g.uri.Path,
+		host,
+	)
+
 	v, cap, refs, err := parseRemoteInitialConnection(conn, false)
 	if err != nil {
 		conn.Close()
@@ -59,7 +47,7 @@ func (g *gitConn) OpenConn() error {
 }
 
 func (g gitConn) Close() error {
-	fmt.Fprintf(g.conn, "0000")
+	g.Flush()
 	return g.conn.Close()
 }
 
@@ -75,9 +63,8 @@ func (g gitConn) GetRefs(opts LsRemoteOptions, patterns []string) ([]Ref, error)
 		fmt.Fprintf(g.conn, cmd)
 		line := make([]byte, 65536)
 		var vals []Ref
-		r := packProtocolReader{g.conn}
 		for {
-			n, err := r.Read(line)
+			n, err := g.Read(line)
 			switch err {
 			case flushPkt:
 				return vals, nil
@@ -95,4 +82,31 @@ func (g gitConn) GetRefs(opts LsRemoteOptions, patterns []string) ([]Ref, error)
 	default:
 		return nil, fmt.Errorf("Protocol version not supported")
 	}
+}
+
+func (g gitConn) SetUploadPack(up string) error {
+	// not applicable for git protocol
+	return nil
+}
+
+func (g gitConn) Write(data []byte) (int, error) {
+	l, err := PktLineEncodeNoNl(data)
+	if err != nil {
+		return 0, err
+	}
+	fmt.Fprintf(g.conn, "%s", l)
+	fmt.Printf("%s", l)
+	// We lie about how much data was written since
+	// we wrote more than asked.
+	return len(data), nil
+}
+
+func (g gitConn) Flush() error {
+	fmt.Fprintf(g.conn, "0000")
+	return nil
+}
+
+func (g gitConn) Delim() error {
+	fmt.Fprintf(g.conn, "0001")
+	return nil
 }
