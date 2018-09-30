@@ -313,7 +313,6 @@ func (p packProtocolReader) Read(buf []byte) (int, error) {
 			}
 			switch buf[0] {
 			case sidebandDataChannel:
-				fmt.Printf("Data")
 				return io.ReadFull(p.conn, buf[:size-5])
 			case sidebandChannel:
 				n, err := io.ReadFull(p.conn, buf[:size-5])
@@ -325,7 +324,6 @@ func (p packProtocolReader) Read(buf []byte) (int, error) {
 				}
 				goto sidebandRead
 			case sidebandErrChannel:
-				fmt.Printf("err")
 				n, err := io.ReadFull(p.conn, buf[:size-5])
 				if err != nil {
 					return n, err
