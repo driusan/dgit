@@ -29,7 +29,7 @@ func Fetch(c *Client, opts FetchOptions, rmt Remote) error {
 				fmt.Printf("Creating %s with %s\n", refloc, ref.Value)
 				ioutil.WriteFile(
 					refloc,
-					[]byte(ref.Value[:]),
+					[]byte(ref.Value.String() + "\n"),
 					0644,
 				)
 			}

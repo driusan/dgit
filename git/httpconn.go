@@ -351,12 +351,30 @@ func (s *smartHTTPConn) Read(buf []byte) (int, error) {
 }
 
 func getRefsV1(refs []Ref, opts LsRemoteOptions, patterns []string) ([]Ref, error) {
-	if len(patterns) == 0 {
-		return refs, nil
-	}
 	var vals []Ref
+	all := !(opts.Heads || opts.Tags)
 refs:
 	for _, r := range refs {
+		if !all {
+			if opts.Heads {
+				if strings.HasPrefix(r.Name, "refs/heads/") || r.Name == "HEAD" {
+					goto good
+				}
+			}
+			if opts.Tags {
+				if strings.HasPrefix(r.Name, "refs/tags/") {
+					goto good
+				}
+			}
+			// We weren't looking for all and it was neither a tag nor
+			// a head ref
+			continue refs
+		}
+	good:
+		if len(patterns) == 0 {
+			vals = append(vals, r)
+			continue refs
+		}
 		for _, p := range patterns {
 			// FIXME: Matches is the logic used by show-ref
 			// This isn't the same as the logic for ls-remote

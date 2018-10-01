@@ -161,8 +161,18 @@ func fetchPackDone(c *Client, opts FetchPackOptions, conn RemoteConn, wants []Re
 		if len(rmtrefs) == 0 {
 			return nil, nil
 		}
-		for i, ref := range rmtrefs {
-			if i == 0 {
+		wanted := false
+		for _, ref := range rmtrefs {
+			found, _, err := c.HaveObject(ref.Value)
+			if err != nil {
+				return nil, err
+			}
+			if found {
+				haves[ref.Value] = struct{}{}
+				continue
+			}
+
+			if !wanted {
 				capabilities := conn.Capabilities()
 				log.Printf("Server Capabilities: %v\n", capabilities)
 				var caps string
@@ -194,10 +204,15 @@ func fetchPackDone(c *Client, opts FetchPackOptions, conn RemoteConn, wants []Re
 				log.Printf("Sending capabilities: %v", caps)
 				log.Printf("want %v (%v)\n", ref.Value, ref.Name)
 				fmt.Fprintf(conn, "want %v %v\n", ref.Value, caps)
+				wanted = true
 			} else {
 				log.Printf("want %v (%v)\n", ref.Value, ref.Name)
 				fmt.Fprintf(conn, "want %v\n", ref.Value)
 			}
+		}
+		if !wanted {
+			// Nothing wanted, already up to date.
+			return refs, nil
 		}
 		if h, ok := conn.(*smartHTTPConn); ok {
 			// Hack so that the flush doesn't send a request.
