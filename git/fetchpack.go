@@ -32,15 +32,6 @@ type FetchPackOptions struct {
 // from the remote, and haves to negotiate the missing objects. FetchPack
 // always makes a single request and declares "done" at the end.
 func FetchPack(c *Client, opts FetchPackOptions, rm Remote, wants []Refname) ([]Ref, error) {
-	conn, err := NewRemoteConn(c, rm)
-	if err != nil {
-		return nil, err
-	}
-	if err := conn.OpenConn(); err != nil {
-		return err
-	}
-	defer conn.Close()
-
 	// We just declare everything we have locally for this remote as a "have"
 	// and then declare done, we don't try and be intelligent about what we
 	// tell them we have. If we've gotten some objects from another remote,
@@ -54,6 +45,15 @@ func FetchPack(c *Client, opts FetchPackOptions, rm Remote, wants []Refname) ([]
 	for _, h := range haves {
 		havemap[h.Value] = struct{}{}
 	}
+
+	conn, err := NewRemoteConn(c, rm)
+	if err != nil {
+		return nil, err
+	}
+	if err := conn.OpenConn(); err != nil {
+		return nil, err
+	}
+	defer conn.Close()
 
 	return fetchPackDone(c, opts, conn, wants, havemap)
 }
@@ -158,10 +158,13 @@ func fetchPackDone(c *Client, opts FetchPackOptions, conn RemoteConn, wants []Re
 			return nil, err
 		}
 		refs = rmtrefs
+		if len(rmtrefs) == 0 {
+			return nil, nil
+		}
 		for i, ref := range rmtrefs {
 			if i == 0 {
 				capabilities := conn.Capabilities()
-				fmt.Printf("Server Capabilities: %v\n\nDone", capabilities)
+				log.Printf("Server Capabilities: %v\n", capabilities)
 				var caps string
 				// Add protocol capabilities on the first line
 				if _, ok := capabilities["ofs-delta"]; ok {
@@ -188,26 +191,44 @@ func fetchPackDone(c *Client, opts FetchPackOptions, conn RemoteConn, wants []Re
 					caps += " agent=dgit/0.0.2"
 				}
 				caps = strings.TrimSpace(caps)
-				fmt.Printf("Sending capabilities: %v (%x)", caps, caps)
+				log.Printf("Sending capabilities: %v", caps)
+				log.Printf("want %v (%v)\n", ref.Value, ref.Name)
 				fmt.Fprintf(conn, "want %v %v\n", ref.Value, caps)
 			} else {
+				log.Printf("want %v (%v)\n", ref.Value, ref.Name)
 				fmt.Fprintf(conn, "want %v\n", ref.Value)
 			}
 		}
-		for ref := range haves {
-			fmt.Fprintf(conn, "have %v\n", ref)
+		if h, ok := conn.(*smartHTTPConn); ok {
+			// Hack so that the flush doesn't send a request.
+			h.almostdone = true
 		}
-
 		if err := conn.Flush(); err != nil {
 			return nil, err
 		}
-		fmt.Fprintf(conn, "done\n")
+		for ref := range haves {
+			log.Printf("have %v\n", ref)
+			fmt.Fprintf(conn, "have %v\n", ref)
+		}
+
+		if _, err := fmt.Fprintf(conn, "done\n"); err != nil {
+			return nil, err
+		}
 
 		// Read the last ack/nack and discard it before
 		// reading the pack file.
 		buf := make([]byte, 65536)
 		if _, err := conn.Read(buf); err != nil {
 			return nil, err
+		}
+		if len(haves) > 1 {
+			// If there were have lines, read the extras to ensure
+			// they're all read before trying to read the packfile.
+			for i := 0; i < len(haves); i++ {
+				if _, err := conn.Read(buf); err != nil {
+					return nil, err
+				}
+			}
 		}
 		if sideband {
 			conn.SetReadMode(PktLineSidebandMode)
@@ -346,7 +367,6 @@ func (p packProtocolReader) Read(buf []byte) (int, error) {
 			default:
 				return 0, fmt.Errorf("Invalid sideband channel: %d", buf[0])
 			}
-			return io.ReadFull(p.conn, buf[:size-5])
 		}
 
 	default:

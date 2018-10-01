@@ -35,6 +35,8 @@ type smartHTTPConn struct {
 
 	// Body of the last response from the server.
 	lastresp io.ReadCloser
+
+	almostdone bool
 }
 
 // Opens a connection to s.giturl over the smart http protocol
@@ -279,7 +281,9 @@ func (s *smartHTTPConn) Write(data []byte) (int, error) {
 	if err != nil {
 		return 0, err
 	}
-	fmt.Fprintf(&s.buf, "%s", l)
+	if n, err := fmt.Fprintf(&s.buf, "%s", l); err != nil {
+		return n, err
+	}
 	// protocol v2 sends "done" and then a flush, while v1 sends a flush
 	// and then done. So if it's v2, don't send the request when we see
 	// "done"
@@ -294,6 +298,9 @@ func (s *smartHTTPConn) Write(data []byte) (int, error) {
 }
 func (s *smartHTTPConn) Flush() error {
 	fmt.Fprintf(&s.buf, "0000")
+	if s.almostdone && s.protocolversion == 1 {
+		return nil
+	}
 	return s.sendRequest("application/x-git-upload-pack-result")
 }
 
@@ -328,6 +335,7 @@ func (s *smartHTTPConn) sendRequest(expectedmime string) error {
 	if sc := resp.StatusCode; sc != 200 {
 		return fmt.Errorf("Unexpected status code for response: got %v", sc)
 	}
+
 	s.lastresp = resp.Body
 	s.packProtocolReader.conn = s.lastresp
 	return nil
