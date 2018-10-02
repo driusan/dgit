@@ -191,7 +191,43 @@ func CheckoutCommit(c *Client, opts CheckoutOptions, commit Commitish) error {
 	if opts.IgnoreSkipWorktreeBits {
 		readtreeopts.NoSparseCheckout = true
 	}
-	if _, err := ReadTree(c, readtreeopts, cid); err != nil {
+
+	// We take a diff of the things that were staged before we
+	// do the read-tree so that we can put them back afterwards.
+	headtree, err := head.CommitID(c)
+	if err != nil {
+		return err
+	}
+	diffs, err := DiffIndex(c, DiffIndexOptions{}, nil, headtree, nil)
+	if err != nil {
+		return err
+	}
+	idx, err := ReadTree(c, readtreeopts, cid)
+	if err != nil {
+		return err
+	}
+	var restoredFiles []File
+	for _, diff := range diffs {
+		// Put the staged file back in the index.
+		if err := idx.AddStage(c, diff.Name, diff.Dst.FileMode, diff.Dst.Sha1, Stage0, uint32(diff.DstSize), 0, UpdateIndexOptions{}); err != nil {
+			return err
+		}
+		f, err := diff.Name.FilePath(c)
+		if err != nil {
+			return err
+		}
+		restoredFiles = append(restoredFiles, f)
+	}
+	// Also restore the file on the filesystem
+	if err := CheckoutIndexUncommited(c, idx, CheckoutIndexOptions{Force: true, UpdateStat: true}, restoredFiles); err != nil {
+		return err
+	}
+	f, err := c.GitDir.Create("index")
+	if err != nil {
+		return err
+	}
+	defer f.Close()
+	if err := idx.WriteIndex(f); err != nil {
 		return err
 	}
 
