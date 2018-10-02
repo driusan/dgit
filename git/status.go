@@ -41,7 +41,32 @@ type StatusOptions struct {
 	Column           StatusColumnOptions
 }
 
+// Helper to run update-index --refresh
+func refreshIndex(c *Client) error {
+	idx, err := c.GitDir.ReadIndex()
+	if err != nil {
+		return err
+	}
+	nidx, err := UpdateIndex(c, idx, UpdateIndexOptions{Refresh: true}, nil)
+	if err != nil {
+		return err
+	}
+	f, err := c.GitDir.Create("index")
+	if err != nil {
+		return err
+	}
+	if err := nidx.WriteIndex(f); err != nil {
+		return err
+	}
+	return nil
+}
 func Status(c *Client, opts StatusOptions, files []File) (string, error) {
+	// This doesn't feel right, but seems to be required to match the behaviour
+	// of git. Start status by refreshing the stat info on disk to limit spurious
+	// empty diffs
+	if err := refreshIndex(c); err != nil {
+		return "", err
+	}
 	if opts.Porcelain > 1 || opts.ShowStash || opts.Verbose || opts.Ignored || (opts.Column != "default" && opts.Column != "") {
 		return "", fmt.Errorf("Unsupported option for Status")
 	}

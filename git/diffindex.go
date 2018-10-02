@@ -14,7 +14,17 @@ type DiffIndexOptions struct {
 	Cached bool
 }
 
+// DiffIndex compares the index against a tree. If the index passed is nil, it reads
+// the index from the .git directory
 func DiffIndex(c *Client, opt DiffIndexOptions, index *Index, tree Treeish, paths []File) ([]HashDiff, error) {
+	if index == nil {
+		indx, err := c.GitDir.ReadIndex()
+		if err != nil {
+			return nil, err
+		}
+		index = indx
+	}
+
 	lsTreeOpts := LsTreeOptions{Recurse: true}
 	if len(paths) == 0 {
 		lsTreeOpts.FullTree = true

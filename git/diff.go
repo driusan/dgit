@@ -37,6 +37,9 @@ func Diff(c *Client, opt DiffOptions, paths []File) ([]HashDiff, error) {
 		}
 		return nil, nil
 	}
+	if err := refreshIndex(c); err != nil {
+		return nil, err
+	}
 	if opt.Staged {
 		head, err := c.GetHeadCommit()
 		if err != nil {
