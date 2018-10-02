@@ -17,6 +17,9 @@ func CheckoutIndexCmd(c *git.Client, args []string) error {
 		flag.Usage()
 		fmt.Fprintf(flag.CommandLine.Output(), "\n\nOptions:\n")
 		flags.PrintDefaults()
+		// Some git tests test for a 129 exit code if the commandline
+		// parsing fails for checkout-index.
+		os.Exit(129)
 	}
 	options := git.CheckoutIndexOptions{}
 

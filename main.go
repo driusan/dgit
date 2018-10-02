@@ -24,6 +24,7 @@ func requiresGitDir(cmd string) bool {
 }
 
 var subcommand, subcommandUsage string
+var globalOptsInUsage bool = true
 
 func main() {
 	// First thing, set up logging
@@ -69,7 +70,12 @@ func main() {
 		if subcommand == "" {
 			subcommand = "subcommand"
 		}
-		subcommandUsage = fmt.Sprintf("%s [global options] %s [options] %s", os.Args[0], subcommand, subcommandUsage)
+
+		glOpts := "[global options] "
+		if !globalOptsInUsage {
+			glOpts = ""
+		}
+		subcommandUsage = fmt.Sprintf("%s %s%s [options] %s", os.Args[0], glOpts, subcommand, subcommandUsage)
 		fmt.Fprintf(flag.CommandLine.Output(), "Usage: %s\n\n", subcommandUsage)
 		fmt.Fprintf(flag.CommandLine.Output(), "\nGlobal options:\n\n")
 		flag.PrintDefaults()
@@ -121,6 +127,7 @@ func main() {
 			os.Exit(4)
 		}
 	case "checkout-index":
+		globalOptsInUsage = false
 		if err := cmd.CheckoutIndexCmd(c, args); err != nil {
 			fmt.Fprintf(os.Stderr, "%v\n", err)
 			os.Exit(4)
