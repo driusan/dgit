@@ -200,6 +200,14 @@ func UpdateIndexFromReader(c *Client, opts UpdateIndexOptions, r io.Reader) (*In
 
 func UpdateIndexRefresh(c *Client, idx *Index, opts UpdateIndexOptions) (*Index, error) {
 	for _, entry := range idx.Objects {
+		f, err := entry.PathName.FilePath(c)
+		if err != nil {
+			return nil, err
+		}
+		if !f.Exists() {
+			// Nothing to refresh
+			continue
+		}
 		if err := entry.RefreshStat(c); err != nil {
 			return nil, err
 		}
