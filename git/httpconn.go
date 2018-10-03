@@ -35,6 +35,8 @@ type smartHTTPConn struct {
 
 	// Body of the last response from the server.
 	lastresp io.ReadCloser
+
+	almostdone bool
 }
 
 // Opens a connection to s.giturl over the smart http protocol
@@ -279,7 +281,9 @@ func (s *smartHTTPConn) Write(data []byte) (int, error) {
 	if err != nil {
 		return 0, err
 	}
-	fmt.Fprintf(&s.buf, "%s", l)
+	if n, err := fmt.Fprintf(&s.buf, "%s", l); err != nil {
+		return n, err
+	}
 	// protocol v2 sends "done" and then a flush, while v1 sends a flush
 	// and then done. So if it's v2, don't send the request when we see
 	// "done"
@@ -294,6 +298,9 @@ func (s *smartHTTPConn) Write(data []byte) (int, error) {
 }
 func (s *smartHTTPConn) Flush() error {
 	fmt.Fprintf(&s.buf, "0000")
+	if s.almostdone && s.protocolversion == 1 {
+		return nil
+	}
 	return s.sendRequest("application/x-git-upload-pack-result")
 }
 
@@ -328,6 +335,7 @@ func (s *smartHTTPConn) sendRequest(expectedmime string) error {
 	if sc := resp.StatusCode; sc != 200 {
 		return fmt.Errorf("Unexpected status code for response: got %v", sc)
 	}
+
 	s.lastresp = resp.Body
 	s.packProtocolReader.conn = s.lastresp
 	return nil
@@ -343,12 +351,30 @@ func (s *smartHTTPConn) Read(buf []byte) (int, error) {
 }
 
 func getRefsV1(refs []Ref, opts LsRemoteOptions, patterns []string) ([]Ref, error) {
-	if len(patterns) == 0 {
-		return refs, nil
-	}
 	var vals []Ref
+	all := !(opts.Heads || opts.Tags)
 refs:
 	for _, r := range refs {
+		if !all {
+			if opts.Heads {
+				if strings.HasPrefix(r.Name, "refs/heads/") || r.Name == "HEAD" {
+					goto good
+				}
+			}
+			if opts.Tags {
+				if strings.HasPrefix(r.Name, "refs/tags/") {
+					goto good
+				}
+			}
+			// We weren't looking for all and it was neither a tag nor
+			// a head ref
+			continue refs
+		}
+	good:
+		if len(patterns) == 0 {
+			vals = append(vals, r)
+			continue refs
+		}
 		for _, p := range patterns {
 			// FIXME: Matches is the logic used by show-ref
 			// This isn't the same as the logic for ls-remote

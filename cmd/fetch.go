@@ -32,11 +32,11 @@ func Fetch(c *git.Client, args []string) error {
 	addSharedFetchFlags(flags, &opts)
 	flags.Parse(args)
 
-	var repository string
+	var repository git.Remote
 	if flags.NArg() < 1 {
 		repository = "origin" // FIXME origin is the default unless the current branch unless there is an upstream branch configured for the current branch
 	} else if flags.NArg() == 1 {
-		repository = flags.Arg(0)
+		repository = git.Remote(flags.Arg(0))
 	} else {
 		fmt.Fprintf(os.Stderr, "Group and multiple repositories is not currently implemented\n")
 		flags.Usage()

@@ -53,16 +53,7 @@ func Clone(opts CloneOptions, rmt Remote, dst File) error {
 	opts.FetchPackOptions.All = true
 	opts.FetchPackOptions.Verbose = true
 
-	conn, err := NewRemoteConn(c, rmt)
-	if err != nil {
-		return err
-	}
-	if err := conn.OpenConn(); err != nil {
-		return err
-	}
-	defer conn.Close()
-
-	refs, err := fetchPackDone(c, opts.FetchPackOptions, conn, nil, nil)
+	refs, err := FetchPack(c, opts.FetchPackOptions, rmt, nil)
 	if err != nil {
 		return err
 	}

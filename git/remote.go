@@ -50,6 +50,21 @@ func (r Remote) IsStateless(c *Client) (bool, error) {
 	return strings.HasPrefix(url, "http://") || strings.HasPrefix(url, "https://"), nil
 }
 
+// Gets a list of local references cached for this Remote
+func (r Remote) GetLocalRefs(c *Client) ([]Ref, error) {
+	allrefs, err := ShowRef(c, ShowRefOptions{}, nil)
+	if err != nil {
+		return nil, err
+	}
+	ourrefs := make([]Ref, 0, len(allrefs))
+	for _, rf := range allrefs {
+		if strings.HasPrefix(rf.Name, "refs/remotes/"+r.String()) {
+			ourrefs = append(ourrefs, rf)
+		}
+	}
+	return ourrefs, nil
+}
+
 // A RemoteConn represends a connection to a remote which communicates
 // with the remote.
 type RemoteConn interface {

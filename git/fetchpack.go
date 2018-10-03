@@ -31,27 +31,36 @@ type FetchPackOptions struct {
 // FetchPack fetches a packfile from rmt. It uses wants to retrieve the refnames
 // from the remote, and haves to negotiate the missing objects. FetchPack
 // always makes a single request and declares "done" at the end.
-func FetchPack(c *Client, opts FetchPackOptions, rm Remote, wants, haves []Refname) error {
+func FetchPack(c *Client, opts FetchPackOptions, rm Remote, wants []Refname) ([]Ref, error) {
+	// We just declare everything we have locally for this remote as a "have"
+	// and then declare done, we don't try and be intelligent about what we
+	// tell them we have. If we've gotten some objects from another remote,
+	// we'll just end up with them duplicated.
+	haves, err := rm.GetLocalRefs(c)
+	if err != nil {
+		return nil, err
+	}
+	// We put haves into a map to ensure that duplicates are excluded
+	havemap := make(map[Sha1]struct{})
+	for _, h := range haves {
+		havemap[h.Value] = struct{}{}
+	}
+
 	conn, err := NewRemoteConn(c, rm)
 	if err != nil {
-		return err
+		return nil, err
 	}
 	if err := conn.OpenConn(); err != nil {
-		return err
+		return nil, err
 	}
 	defer conn.Close()
 
-	_, err = fetchPackDone(c, opts, conn, wants, haves)
-	return err
+	return fetchPackDone(c, opts, conn, wants, havemap)
 }
 
 // fetchPackDone makes a single request over conn and declares it done. It returns
 // the refs from the connection that were fetched.
-func fetchPackDone(c *Client, opts FetchPackOptions, conn RemoteConn, wants, haves []Refname) ([]Ref, error) {
-	if len(haves) > 0 {
-		// This can currently only be used for cloning, not fetching.
-		return nil, fmt.Errorf("Incremental fetch is not implemented")
-	}
+func fetchPackDone(c *Client, opts FetchPackOptions, conn RemoteConn, wants []Refname, haves map[Sha1]struct{}) ([]Ref, error) {
 	if len(wants) == 0 && !opts.All {
 		// There is nothing to fetch, so don't bother doing anything.
 		return nil, nil
@@ -119,6 +128,9 @@ func fetchPackDone(c *Client, opts FetchPackOptions, conn RemoteConn, wants, hav
 		if !wanted {
 			return nil, fmt.Errorf("Already up to date.")
 		}
+		for ref := range haves {
+			fmt.Fprintf(conn, "have %v\n", ref)
+		}
 		fmt.Fprintf(conn, "done\n")
 		if err := conn.Flush(); err != nil {
 			return nil, err
@@ -146,12 +158,23 @@ func fetchPackDone(c *Client, opts FetchPackOptions, conn RemoteConn, wants, hav
 			return nil, err
 		}
 		refs = rmtrefs
-		// FIXME: This doesn't seem to be the right references, it's
-		// requesting things even with a nil wants
-		for i, ref := range rmtrefs {
-			if i == 0 {
+		if len(rmtrefs) == 0 {
+			return nil, nil
+		}
+		wanted := false
+		for _, ref := range rmtrefs {
+			found, _, err := c.HaveObject(ref.Value)
+			if err != nil {
+				return nil, err
+			}
+			if found {
+				haves[ref.Value] = struct{}{}
+				continue
+			}
+
+			if !wanted {
 				capabilities := conn.Capabilities()
-				fmt.Printf("Server Capabilities: %v\n\nDone", capabilities)
+				log.Printf("Server Capabilities: %v\n", capabilities)
 				var caps string
 				// Add protocol capabilities on the first line
 				if _, ok := capabilities["ofs-delta"]; ok {
@@ -178,22 +201,49 @@ func fetchPackDone(c *Client, opts FetchPackOptions, conn RemoteConn, wants, hav
 					caps += " agent=dgit/0.0.2"
 				}
 				caps = strings.TrimSpace(caps)
-				fmt.Printf("Sending capabilities: %v (%x)", caps, caps)
+				log.Printf("Sending capabilities: %v", caps)
+				log.Printf("want %v (%v)\n", ref.Value, ref.Name)
 				fmt.Fprintf(conn, "want %v %v\n", ref.Value, caps)
+				wanted = true
 			} else {
+				log.Printf("want %v (%v)\n", ref.Value, ref.Name)
 				fmt.Fprintf(conn, "want %v\n", ref.Value)
 			}
+		}
+		if !wanted {
+			// Nothing wanted, already up to date.
+			return refs, nil
+		}
+		if h, ok := conn.(*smartHTTPConn); ok {
+			// Hack so that the flush doesn't send a request.
+			h.almostdone = true
 		}
 		if err := conn.Flush(); err != nil {
 			return nil, err
 		}
-		fmt.Fprintf(conn, "done\n")
+		for ref := range haves {
+			log.Printf("have %v\n", ref)
+			fmt.Fprintf(conn, "have %v\n", ref)
+		}
+
+		if _, err := fmt.Fprintf(conn, "done\n"); err != nil {
+			return nil, err
+		}
 
 		// Read the last ack/nack and discard it before
 		// reading the pack file.
 		buf := make([]byte, 65536)
 		if _, err := conn.Read(buf); err != nil {
 			return nil, err
+		}
+		if len(haves) > 1 {
+			// If there were have lines, read the extras to ensure
+			// they're all read before trying to read the packfile.
+			for i := 0; i < len(haves); i++ {
+				if _, err := conn.Read(buf); err != nil {
+					return nil, err
+				}
+			}
 		}
 		if sideband {
 			conn.SetReadMode(PktLineSidebandMode)
@@ -332,7 +382,6 @@ func (p packProtocolReader) Read(buf []byte) (int, error) {
 			default:
 				return 0, fmt.Errorf("Invalid sideband channel: %d", buf[0])
 			}
-			return io.ReadFull(p.conn, buf[:size-5])
 		}
 
 	default:

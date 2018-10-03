@@ -8,52 +8,28 @@ import (
 )
 
 type FetchOptions struct {
+	FetchPackOptions
 }
 
-func Fetch(c *Client, opts FetchOptions, repository string) error {
-	config, err := LoadLocalConfig(c)
-	if err != nil {
-		panic(err)
-	}
-
-	repoid, _ := config.GetConfig("remote." + repository + ".url")
-
-	var ups Uploadpack
-	if strings.HasPrefix(repoid, "http://") || strings.HasPrefix(repoid, "https://") {
-		ups = &SmartHTTPServerRetriever{Location: repoid,
-			C: c,
-		}
-	} else {
-		return fmt.Errorf("Unknown protocol %s", repoid)
-	}
-
-	refs, pack, err := ups.NegotiatePack()
-	switch err {
-	case NoNewCommits:
-		return nil
-	case nil:
-		break
-	default:
-		panic(err)
-	}
-	if pack != nil {
-		defer pack.Close()
-	}
-	_, err = IndexAndCopyPack(c, IndexPackOptions{Verbose: true}, pack)
+func Fetch(c *Client, opts FetchOptions, rmt Remote) error {
+	opts.FetchPackOptions.All = true
+	opts.FetchPackOptions.Verbose = true
+	newrefs, err := FetchPack(c, opts.FetchPackOptions, rmt, nil)
 	if err != nil {
 		return err
 	}
-	for _, ref := range refs {
+	for _, ref := range newrefs {
 		if c.GitDir != "" {
-			refname := ref.Refname.String()
-			if strings.HasPrefix(refname, "refs/heads") {
-				os.MkdirAll(c.GitDir.File(File("refs/remotes/"+repository)).String(), 0755)
-				refname = strings.Replace(refname, "refs/heads/", "refs/remotes/"+repository+"/", 1)
+			if strings.HasPrefix(ref.Name, "refs/heads") {
+				// FIXME: This should use update ref and also
+				// print a better message.
+				os.MkdirAll(c.GitDir.File(File("refs/remotes/"+rmt.String())).String(), 0755)
+				refname := strings.Replace(ref.Name, "refs/heads/", "refs/remotes/"+rmt.String()+"/", 1)
 				refloc := fmt.Sprintf("%s/%s", c.GitDir, refname)
-				fmt.Printf("Creating %s with %s", refloc, ref.Sha1)
+				fmt.Printf("Creating %s with %s\n", refloc, ref.Value)
 				ioutil.WriteFile(
 					refloc,
-					[]byte(ref.Sha1),
+					[]byte(ref.Value.String()+"\n"),
 					0644,
 				)
 			}

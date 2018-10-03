@@ -7,7 +7,7 @@ type PullOptions struct {
 	MergeOptions
 }
 
-func Pull(c *Client, opts PullOptions, repository string, remotebranches []string) error {
+func Pull(c *Client, opts PullOptions, repository Remote, remotebranches []string) error {
 	err := Fetch(c, opts.FetchOptions, repository)
 	if err != nil {
 		return err
