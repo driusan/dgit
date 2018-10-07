@@ -13,7 +13,7 @@ import (
 // server initially send" and "what info have we already determined from previous
 // requests"
 type smartHTTPConn struct {
-	sharedRemoteConn
+	*sharedRemoteConn
 
 	// The giturl is the URL for this connection. It may or may not be
 	// the same as what it was initiated as, depending on whether or not
@@ -101,7 +101,7 @@ func (s *smartHTTPConn) OpenConn() error {
 	}
 	switch version {
 	case 1, 2:
-		s.packProtocolReader = packProtocolReader{respreader, PktLineMode, nil}
+		s.packProtocolReader = &packProtocolReader{respreader, PktLineMode, nil, nil}
 		s.protocolversion = version
 		s.capabilities = capabilities
 		s.refs = refs
@@ -292,6 +292,7 @@ func (s *smartHTTPConn) Write(data []byte) (int, error) {
 			if err := s.sendRequest("application/x-git-upload-pack-result"); err != nil {
 				return 0, err
 			}
+			s.almostdone = false
 		}
 	}
 	return len(l), nil
@@ -310,6 +311,7 @@ func (s *smartHTTPConn) Delim() error {
 }
 
 func (s *smartHTTPConn) sendRequest(expectedmime string) error {
+	log.Println("Sending HTTP Request")
 	topost := s.buf.String()
 	r, err := http.NewRequest("POST", s.giturl+"/git-upload-pack", strings.NewReader(topost))
 	r.Header.Set("User-Agent", "dgit/0.0.2")
@@ -337,6 +339,7 @@ func (s *smartHTTPConn) sendRequest(expectedmime string) error {
 	}
 
 	s.lastresp = resp.Body
+	fmt.Printf("Setting connection")
 	s.packProtocolReader.conn = s.lastresp
 	return nil
 }

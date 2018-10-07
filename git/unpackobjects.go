@@ -62,7 +62,7 @@ func UnpackObjects(c *Client, opts UnpackObjectsOptions, r io.ReadSeeker) ([]Sha
 			return objects, err
 		}
 		t, s, ref, offset, _ := p.ReadHeaderSize(r)
-		rawdata, _ := p.ReadEntryDataStream(r)
+		rawdata := p.readEntryDataStream1(r)
 		switch t {
 		case OBJ_COMMIT, OBJ_TREE, OBJ_BLOB:
 			sha1, err := writeResolvedObject(c, t, rawdata)

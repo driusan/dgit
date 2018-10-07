@@ -124,7 +124,35 @@ func (p PackfileHeader) ReadHeaderSize(r io.Reader) (PackEntryType, PackEntrySiz
 	return entrytype, size, Sha1{}, 0, dataread
 }
 
-func (p PackfileHeader) ReadEntryDataStream(r io.ReadSeeker) (uncompressed []byte, compressed []byte) {
+// This is a hack to ensure zlib only reads 1 byte at a time and
+// doesn't overshoot, since we have no way to rewind the reader.
+type byteReader struct {
+	r io.Reader
+	n int
+}
+
+func (b *byteReader) Read(buf []byte) (int, error) {
+	n, err := b.r.Read(buf[0:1])
+	b.n += n
+	return n, err
+}
+
+func (p PackfileHeader) readEntryDataStream1(r io.Reader) []byte {
+	b := new(bytes.Buffer)
+	zr, err := zlib.NewReader(r)
+	if err != nil {
+		panic(err)
+	}
+	defer zr.Close()
+	io.Copy(b, zr)
+
+	// Read the checksum even though we don't verify it, so that we read
+	// the same number of bytes as readDataEntryStream2.
+	io.ReadFull(r, make([]byte, 4))
+	return b.Bytes()
+}
+
+func (p PackfileHeader) readEntryDataStream2(r io.ReadSeeker) (uncompressed []byte, compressed []byte) {
 	b := new(bytes.Buffer)
 	bookmark, _ := r.Seek(0, 1)
 	zr, err := zlib.NewReader(r)
@@ -171,7 +199,6 @@ func (p PackfileHeader) ReadEntryDataStream(r io.ReadSeeker) (uncompressed []byt
 	r.Read(compressed)
 	r.Seek(finalAddress, 0)
 	return b.Bytes(), compressed
-
 }
 
 type VariableLengthInt uint64
