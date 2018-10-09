@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"io"
 	"io/ioutil"
+	"log"
 	"os"
 	"sort"
 	"sync"
@@ -45,7 +46,7 @@ type IndexPackOptions struct {
 }
 
 type PackfileIndex interface {
-	GetObject(i io.ReadSeeker, s Sha1) (GitObject, error)
+	GetObject(i io.ReaderAt, s Sha1) (GitObject, error)
 	HasObject(s Sha1) bool
 	WriteIndex(w io.Writer) error
 	GetTrailer() (Packfile Sha1, Index Sha1)
@@ -123,17 +124,21 @@ func (idx PackfileIndexV2) WriteIndex(w io.Writer) error {
 
 // Using the index, retrieve an object from the packfile represented by r at offset
 // offset.
-func (idx PackfileIndexV2) getObjectAtOffset(r io.ReadSeeker, offset int64, metaOnly bool) (GitObject, error) {
+func (idx PackfileIndexV2) getObjectAtOffset(r io.ReaderAt, offset int64, metaOnly bool) (GitObject, error) {
 	var p PackfileHeader
 
-	if _, err := r.Seek(offset, io.SeekStart); err != nil {
-		return nil, err
-	}
-
-	t, sz, ref, refoffset, _ := p.ReadHeaderSize(r)
+	// 4k should be enough for the header.
+	metareader := io.NewSectionReader(r, offset, 4096)
+	t, sz, ref, refoffset, rawheader := p.ReadHeaderSize(metareader)
 	var rawdata []byte
+	// sz is the uncompressed size, so the total size should be less than
+	// sz for the compressed data. It might theoretically be a little more,
+	// but we're very generous here since this doesn't allocate anything but
+	// just determines how much data the SectionReader will read before
+	// returning an EOF.
+	datareader := io.NewSectionReader(r, offset+int64(len(rawheader)), int64(sz*3))
 	if !metaOnly || t == OBJ_OFS_DELTA || t == OBJ_REF_DELTA {
-		rawdata = p.readEntryDataStream1(r)
+		rawdata = p.readEntryDataStream1(datareader)
 	}
 
 	// The way we calculate the hash changes based on if it's a delta
@@ -220,11 +225,10 @@ func (idx PackfileIndexV2) getObjectAtOffset(r io.ReadSeeker, offset int64, meta
 	default:
 		return nil, fmt.Errorf("Unhandled object type.")
 	}
-
 }
 
 // Find the object in the table.
-func (idx PackfileIndexV2) GetObjectMetadata(r io.ReadSeeker, s Sha1) (GitObject, error) {
+func (idx PackfileIndexV2) GetObjectMetadata(r io.ReaderAt, s Sha1) (GitObject, error) {
 	foundIdx := -1
 	startIdx := idx.Fanout[s[0]]
 
@@ -238,7 +242,7 @@ func (idx PackfileIndexV2) GetObjectMetadata(r io.ReadSeeker, s Sha1) (GitObject
 		}
 	}
 	if foundIdx == -1 {
-		return nil, fmt.Errorf("Object not found")
+		return nil, fmt.Errorf("Object not found: %v", s)
 	}
 
 	var offset int64
@@ -255,7 +259,7 @@ func (idx PackfileIndexV2) GetObjectMetadata(r io.ReadSeeker, s Sha1) (GitObject
 	return idx.getObjectAtOffset(r, offset, true)
 }
 
-func (idx PackfileIndexV2) GetObject(r io.ReadSeeker, s Sha1) (GitObject, error) {
+func (idx PackfileIndexV2) GetObject(r io.ReaderAt, s Sha1) (GitObject, error) {
 	foundIdx := -1
 	startIdx := idx.Fanout[s[0]]
 	if startIdx <= 0 {
@@ -275,7 +279,7 @@ func (idx PackfileIndexV2) GetObject(r io.ReadSeeker, s Sha1) (GitObject, error)
 		}
 	}
 	if foundIdx == -1 {
-		return nil, fmt.Errorf("Object not found")
+		return nil, fmt.Errorf("Object not found: %v", s)
 	}
 
 	var offset int64
@@ -292,7 +296,7 @@ func (idx PackfileIndexV2) GetObject(r io.ReadSeeker, s Sha1) (GitObject, error)
 	return idx.getObjectAtOffset(r, offset, false)
 }
 
-func getPackFileObject(idx io.Reader, packfile io.ReadSeeker, s Sha1, metaOnly bool) (GitObject, error) {
+func getPackFileObject(idx io.Reader, packfile io.ReaderAt, s Sha1, metaOnly bool) (GitObject, error) {
 	var pack PackfileIndexV2
 	if err := binary.Read(idx, binary.BigEndian, &pack.magic); err != nil {
 		return nil, err
@@ -500,8 +504,7 @@ func IndexPack(c *Client, opts IndexPackOptions, r io.Reader) (idx PackfileIndex
 	indexfile.Sha1Table = make([]Sha1, p.Size)
 	indexfile.CRC32 = make([]uint32, p.Size)
 	indexfile.FourByteOffsets = make([]uint32, p.Size)
-	ofsChains := make(map[ObjectOffset]resolvedDelta)
-	refChains := make(map[Sha1]resolvedDelta)
+	priorObjects := make(map[Sha1]ObjectOffset)
 
 	if iscopying {
 		// Seek past the header that was just copied.
@@ -551,9 +554,10 @@ func IndexPack(c *Client, opts IndexPackOptions, r io.Reader) (idx PackfileIndex
 
 		// The way we calculate the hash changes based on if it's a delta
 		// or not.
+		var sha1 Sha1
 		switch t {
 		case OBJ_COMMIT, OBJ_TREE, OBJ_BLOB:
-			sha1, _, err := HashSlice(t.String(), rawdata)
+			sha1, _, err = HashSlice(t.String(), rawdata)
 			if err != nil && opts.Strict {
 				return indexfile, err
 			}
@@ -567,58 +571,100 @@ func IndexPack(c *Client, opts IndexPackOptions, r io.Reader) (idx PackfileIndex
 			// Maintain the list of references for further chains
 			// to use.
 			mu.Lock()
-			refChains[sha1] = resolvedDelta{rawdata, t}
-			ofsChains[ObjectOffset(location)] = resolvedDelta{rawdata, t}
+			priorObjects[sha1] = ObjectOffset(location)
 			mu.Unlock()
 
-			wg.Done()
-		case OBJ_OFS_DELTA:
-			t, deltadata, err := calculateOfsDelta(ObjectOffset(location)-offset, rawdata, ofsChains)
-			if err != nil && opts.Strict {
-				return indexfile, err
-			}
-			mu.Lock()
-			ofsChains[ObjectOffset(location)] = resolvedDelta{deltadata, t}
-			mu.Unlock()
-			if err != nil && opts.Strict {
-				return nil, err
-			}
-			sha1, _, err := HashSlice(t.String(), deltadata)
-			if err != nil && opts.Strict {
-				return nil, err
-			}
-
-			mu.Lock()
-			for j := int(sha1[0]); j < 256; j++ {
-				indexfile.Fanout[j]++
-			}
-			indexfile.Sha1Table[i] = sha1
-
-			mu.Unlock()
 			wg.Done()
 		case OBJ_REF_DELTA:
-			t, deltadata, err := calculateRefDelta(ref, rawdata, refChains)
-			if err != nil && opts.Strict {
+			log.Printf("Resolving REF_DELTA from %v\n", ref)
+			mu.Lock()
+			o, ok := priorObjects[ref]
+			if !ok {
+				mu.Unlock()
+				panic("Could not find basis for REF_DELTA")
+			}
+			// The refs in the index file need to be sorted in
+			// order for GetObject to look up the other SHA1s
+			// when resolving deltas. Chains don't have access
+			// to the priorObjects map that we have here.
+			sort.Sort(&indexfile)
+			mu.Unlock()
+			if err != nil {
 				return indexfile, err
 			}
+			base, err := indexfile.getObjectAtOffset(file, int64(o), false)
+			if err != nil {
+				return indexfile, err
+			}
+			res := resolvedDelta{Value: base.GetContent()}
+			_, val, err := calculateDelta(res, rawdata)
+			if err != nil {
+				return indexfile, err
+			}
+			switch base.GetType() {
+			case "commit":
+				t = OBJ_COMMIT
+			case "tree":
+				t = OBJ_TREE
+			case "blob":
+				t = OBJ_BLOB
+			default:
+				panic("Unhandled delta base type" + base.GetType())
+			}
+			sha1, _, err = HashSlice(base.GetType(), val)
 			if err != nil && opts.Strict {
 				return nil, err
 			}
 
-			sha1, _, err := HashSlice(t.String(), deltadata)
 			mu.Lock()
-			refChains[sha1] = resolvedDelta{deltadata, t}
+			priorObjects[sha1] = ObjectOffset(location)
 			mu.Unlock()
-
-			if err != nil && opts.Strict {
-				return nil, err
-			}
 
 			mu.Lock()
 			for j := int(sha1[0]); j < 256; j++ {
 				indexfile.Fanout[j]++
 			}
 			indexfile.Sha1Table[i] = sha1
+
+			mu.Unlock()
+			wg.Done()
+		case OBJ_OFS_DELTA:
+			log.Printf("Resolving OFS_DELTA from %v\n", location-int64(offset))
+			base, err := indexfile.getObjectAtOffset(file, location-int64(offset), false)
+			if err != nil {
+				return indexfile, err
+			}
+
+			res := resolvedDelta{Value: base.GetContent()}
+			_, val, err := calculateDelta(res, rawdata)
+			if err != nil {
+				return indexfile, err
+			}
+			switch base.GetType() {
+			case "commit":
+				t = OBJ_COMMIT
+			case "tree":
+				t = OBJ_TREE
+			case "blob":
+				t = OBJ_BLOB
+			default:
+				panic("Unhandled delta base type" + base.GetType())
+			}
+			sha1, _, err = HashSlice(base.GetType(), val)
+			if err != nil && opts.Strict {
+				return nil, err
+			}
+
+			mu.Lock()
+			priorObjects[sha1] = ObjectOffset(location)
+			mu.Unlock()
+
+			mu.Lock()
+			for j := int(sha1[0]); j < 256; j++ {
+				indexfile.Fanout[j]++
+			}
+			indexfile.Sha1Table[i] = sha1
+
 			mu.Unlock()
 			wg.Done()
 		default:
