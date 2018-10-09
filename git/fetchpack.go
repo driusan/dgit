@@ -330,10 +330,8 @@ func (p *packProtocolReader) Read(buf []byte) (int, error) {
 	}
 	switch p.state {
 	case DirectReadMode:
-		fmt.Printf("Reading direct")
 		return p.conn.Read(buf)
 	case PktLineMode:
-		fmt.Printf("Reading pktline")
 		n, err := io.ReadFull(p.conn, buf[0:4])
 		if err != nil {
 			return 0, err
@@ -357,7 +355,6 @@ func (p *packProtocolReader) Read(buf []byte) (int, error) {
 			return io.ReadFull(p.conn, buf[:size-4])
 		}
 	case PktLineSidebandMode:
-		fmt.Printf("Reading sideband")
 	sidebandRead:
 		var sizebuf []byte
 		if len(buf) < 4 {
@@ -429,7 +426,6 @@ func (p *packProtocolReader) Read(buf []byte) (int, error) {
 
 	default:
 		return 0, fmt.Errorf("Invalid read mode for pack protocol")
-
 	}
 
 }

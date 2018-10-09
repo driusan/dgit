@@ -132,9 +132,21 @@ type byteReader struct {
 }
 
 func (b *byteReader) Read(buf []byte) (int, error) {
-	n, err := b.r.Read(buf[0:1])
+	n, err := b.r.Read(buf)
 	b.n += n
 	return n, err
+}
+
+func (b *byteReader) ReadByte() (byte, error) {
+	buf := make([]byte, 1)
+	n, err := b.Read(buf)
+	if err != nil {
+		return 0, err
+	}
+	if n != 1 {
+		return 0, fmt.Errorf("Unexpected number of bytes read. Got %v", n)
+	}
+	return buf[0], nil
 }
 
 func (p PackfileHeader) readEntryDataStream1(r io.Reader) []byte {
@@ -144,11 +156,9 @@ func (p PackfileHeader) readEntryDataStream1(r io.Reader) []byte {
 		panic(err)
 	}
 	defer zr.Close()
-	io.Copy(b, zr)
-
-	// Read the checksum even though we don't verify it, so that we read
-	// the same number of bytes as readDataEntryStream2.
-	io.ReadFull(r, make([]byte, 4))
+	if _, err := io.Copy(b, zr); err != nil {
+		panic(err)
+	}
 	return b.Bytes()
 }
 
