@@ -339,7 +339,6 @@ func (s *smartHTTPConn) sendRequest(expectedmime string) error {
 	}
 
 	s.lastresp = resp.Body
-	fmt.Printf("Setting connection")
 	s.packProtocolReader.conn = s.lastresp
 	return nil
 }
