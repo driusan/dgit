@@ -137,23 +137,23 @@ func NewRemoteConn(c *Client, r Remote) (RemoteConn, error) {
 	switch uri.Scheme {
 	case "http", "https":
 		conn := &smartHTTPConn{
-			sharedRemoteConn: sharedRemoteConn{uri: uri},
+			sharedRemoteConn: &sharedRemoteConn{uri: uri},
 			giturl:           urls,
 		}
 		return conn, nil
 	case "git":
 		conn := &gitConn{
-			sharedRemoteConn: sharedRemoteConn{uri: uri},
+			sharedRemoteConn: &sharedRemoteConn{uri: uri},
 		}
 		return conn, nil
 	case "ssh":
 		return &sshConn{
-			sharedRemoteConn: sharedRemoteConn{uri: uri},
+			sharedRemoteConn: &sharedRemoteConn{uri: uri},
 			uploadpack:       "git-upload-pack",
 		}, nil
 	case "file":
 		return &localConn{
-			sharedRemoteConn: sharedRemoteConn{uri: uri},
+			sharedRemoteConn: &sharedRemoteConn{uri: uri},
 			uploadpack:       "git-upload-pack",
 		}, nil
 	default:
@@ -172,7 +172,7 @@ type sharedRemoteConn struct {
 	// for protocol v1
 	refs []Ref
 
-	packProtocolReader
+	*packProtocolReader
 }
 
 func (r sharedRemoteConn) Capabilities() map[string]map[string]struct{} {

@@ -96,6 +96,18 @@ func (z *ZLibReader) Read(p []byte) (n int, err error) {
 	z.Digest.Write(p[0:n])
 	if n != 0 || err != io.EOF {
 		z.err = err
+		if err == io.EOF {
+			if _, err := io.ReadFull(z.r, z.scratch[0:4]); err != nil {
+				z.err = err
+				return n, err
+			}
+			// ZLIB (RFC 1950) is big-endian, unlike GZIP (RFC 1952).
+			checksum := uint32(z.scratch[0])<<24 | uint32(z.scratch[1])<<16 | uint32(z.scratch[2])<<8 | uint32(z.scratch[3])
+			if checksum != z.Digest.Sum32() {
+				z.err = ErrChecksum
+				return n, z.err
+			}
+		}
 		return
 	}
 

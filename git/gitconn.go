@@ -9,7 +9,7 @@ import (
 // gitConn represents a remote which uses the git protocol
 // for transport (ie. a remote that starts with git://)
 type gitConn struct {
-	sharedRemoteConn
+	*sharedRemoteConn
 	conn io.ReadWriteCloser
 }
 
@@ -25,7 +25,7 @@ func (g *gitConn) OpenConn() error {
 		return err
 	}
 	g.conn = conn
-	g.packProtocolReader = packProtocolReader{g.conn, PktLineMode, nil}
+	g.packProtocolReader = &packProtocolReader{g.conn, PktLineMode, nil, nil}
 
 	// Advertise the connection and try to negotiate protocol version 2
 	fmt.Fprintf(

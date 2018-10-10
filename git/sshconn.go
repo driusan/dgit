@@ -14,7 +14,7 @@ import (
 // for transport (ie. a remote that starts with ssh://)
 type sshConn struct {
 	// Add functionality shared amongst all types of remotes
-	sharedRemoteConn
+	*sharedRemoteConn
 
 	// name of the remote upload pack command
 	uploadpack string
@@ -76,7 +76,7 @@ func (s *sshConn) OpenConn() error {
 		session.Close()
 		return err
 	}
-	s.packProtocolReader = packProtocolReader{conn: s.stdin, state: PktLineMode}
+	s.packProtocolReader = &packProtocolReader{conn: s.stdin, state: PktLineMode}
 
 	s.protocolversion = v
 	s.capabilities = cap

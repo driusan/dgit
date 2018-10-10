@@ -296,6 +296,10 @@ type packProtocolReader struct {
 	conn     io.Reader
 	state    PackProtocolMode
 	sideband io.Writer
+
+	// a buffer to hold the extra data from the connection when the buf
+	// passed to read isn't big enough to hold it.
+	underreadBuf []byte
 }
 
 const (
@@ -306,7 +310,24 @@ const (
 
 // Reads a line from the underlying connection into buf in a decoded
 // format.
-func (p packProtocolReader) Read(buf []byte) (int, error) {
+func (p *packProtocolReader) Read(buf []byte) (int, error) {
+	// First check if there's still data left from the last read.
+	if len(p.underreadBuf) > 0 {
+		if len(buf) > len(p.underreadBuf) {
+			for i, b := range p.underreadBuf {
+				buf[i] = b
+			}
+			n := len(p.underreadBuf)
+			p.underreadBuf = nil
+			return n, nil
+		} else {
+			for i := range buf {
+				buf[i] = p.underreadBuf[i]
+			}
+			p.underreadBuf = p.underreadBuf[len(buf):]
+			return len(buf), nil
+		}
+	}
 	switch p.state {
 	case DirectReadMode:
 		return p.conn.Read(buf)
@@ -335,7 +356,13 @@ func (p packProtocolReader) Read(buf []byte) (int, error) {
 		}
 	case PktLineSidebandMode:
 	sidebandRead:
-		n, err := io.ReadFull(p.conn, buf[0:4])
+		var sizebuf []byte
+		if len(buf) < 4 {
+			sizebuf = make([]byte, 4)
+		} else {
+			sizebuf = buf
+		}
+		n, err := io.ReadFull(p.conn, sizebuf[0:4])
 		if err != nil {
 			return 0, err
 		}
@@ -344,7 +371,7 @@ func (p packProtocolReader) Read(buf []byte) (int, error) {
 		if n != 4 {
 			return 0, fmt.Errorf("Bad read for git protocol: read %v (%s)", n, buf[:n])
 		}
-		switch string(buf[0:4]) {
+		switch string(sizebuf[0:4]) {
 		case "0000":
 			// Denotes a boundary between client/server
 			// communication
@@ -353,7 +380,7 @@ func (p packProtocolReader) Read(buf []byte) (int, error) {
 			// Delimits a command in protocol v2
 			return 0, delimPkt
 		default:
-			size, err := strconv.ParseUint(string(buf[0:4]), 16, 0)
+			size, err := strconv.ParseUint(string(sizebuf[0:4]), 16, 0)
 			if err != nil {
 				return 0, err
 			}
@@ -363,14 +390,27 @@ func (p packProtocolReader) Read(buf []byte) (int, error) {
 			}
 			switch buf[0] {
 			case sidebandDataChannel:
+				if len(buf) < int(size-5) {
+					tmp := make([]byte, size-5)
+					_, err := io.ReadFull(p.conn, tmp)
+					if err != nil {
+						return 0, err
+					}
+					p.underreadBuf = tmp[len(buf):]
+					for i := range buf {
+						buf[i] = tmp[i]
+					}
+					return len(buf), nil
+				}
 				return io.ReadFull(p.conn, buf[:size-5])
 			case sidebandChannel:
-				n, err := io.ReadFull(p.conn, buf[:size-5])
+				msgbuf := make([]byte, size-5)
+				n, err := io.ReadFull(p.conn, msgbuf)
 				if err != nil {
 					return n, err
 				}
 				if p.sideband != nil {
-					fmt.Fprintf(p.sideband, "remote: %s", buf[:n])
+					fmt.Fprintf(p.sideband, "remote: %s", msgbuf[:n])
 				}
 				goto sidebandRead
 			case sidebandErrChannel:
@@ -378,7 +418,7 @@ func (p packProtocolReader) Read(buf []byte) (int, error) {
 				if err != nil {
 					return n, err
 				}
-				return n, fmt.Errorf("%s", buf[:n])
+				return n, fmt.Errorf("remote err: %s", buf[:n])
 			default:
 				return 0, fmt.Errorf("Invalid sideband channel: %d", buf[0])
 			}
@@ -386,7 +426,6 @@ func (p packProtocolReader) Read(buf []byte) (int, error) {
 
 	default:
 		return 0, fmt.Errorf("Invalid read mode for pack protocol")
-
 	}
 
 }

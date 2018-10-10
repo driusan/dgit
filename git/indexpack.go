@@ -39,6 +39,9 @@ type IndexPackOptions struct {
 	// A number of threads to use for resolving deltas.  The 0-value
 	// will use GOMAXPROCS.
 	Threads uint
+
+	// Act as if reading from a non-seekable stream, not a file.
+	Stdin bool
 }
 
 type PackfileIndex interface {
@@ -123,15 +126,14 @@ func (idx PackfileIndexV2) WriteIndex(w io.Writer) error {
 func (idx PackfileIndexV2) getObjectAtOffset(r io.ReadSeeker, offset int64, metaOnly bool) (GitObject, error) {
 	var p PackfileHeader
 
-	_, err := r.Seek(offset, io.SeekStart)
-	if err != nil {
+	if _, err := r.Seek(offset, io.SeekStart); err != nil {
 		return nil, err
 	}
 
 	t, sz, ref, refoffset, _ := p.ReadHeaderSize(r)
 	var rawdata []byte
 	if !metaOnly || t == OBJ_OFS_DELTA || t == OBJ_REF_DELTA {
-		rawdata, _ = p.ReadEntryDataStream(r)
+		rawdata = p.readEntryDataStream1(r)
 	}
 
 	// The way we calculate the hash changes based on if it's a delta
@@ -252,6 +254,7 @@ func (idx PackfileIndexV2) GetObjectMetadata(r io.ReadSeeker, s Sha1) (GitObject
 	// to get the value from the packfile.
 	return idx.getObjectAtOffset(r, offset, true)
 }
+
 func (idx PackfileIndexV2) GetObject(r io.ReadSeeker, s Sha1) (GitObject, error) {
 	foundIdx := -1
 	startIdx := idx.Fanout[s[0]]
@@ -440,22 +443,57 @@ func (p *PackfileIndexV2) calculateTrailer() error {
 	return nil
 }
 
-func IndexPack(c *Client, opts IndexPackOptions, r io.ReadSeeker) (PackfileIndex, error) {
+func IndexPack(c *Client, opts IndexPackOptions, r io.Reader) (idx PackfileIndex, rerr error) {
 	var p PackfileHeader
+	var indexfile PackfileIndexV2
+
+	iscopying := false
+	var file *os.File
+	if r2, ok := r.(*os.File); ok && !opts.Stdin {
+		file = r2
+	} else {
+		pack, err := ioutil.TempFile(c.GitDir.File("objects/pack").String(), ".tmppackfileidx")
+		if err != nil {
+			return nil, err
+		}
+		defer pack.Close()
+		file = pack
+		r = io.TeeReader(r, pack)
+		iscopying = true
+		// If -stdin was specified, we copy it to the pack directory
+		// namd after the trailer.
+		defer func() {
+			if rerr == nil && idx != nil {
+				packhash, _ := indexfile.GetTrailer()
+				base := fmt.Sprintf("%s/pack-%s", c.GitDir.File("objects/pack").String(), packhash)
+				if err := os.Rename(pack.Name(), base+".pack"); err != nil {
+					rerr = err
+					return
+				}
+				fidx, err := os.Create(base + ".idx")
+				if err != nil {
+					rerr = err
+					return
+				}
+				if err := indexfile.WriteIndex(fidx); err != nil {
+					rerr = err
+					return
+				}
+			}
+		}()
+	}
 	binary.Read(r, binary.BigEndian, &p)
 	if p.Signature != [4]byte{'P', 'A', 'C', 'K'} {
-		return nil, fmt.Errorf("Invalid packfile.")
+		return nil, fmt.Errorf("Invalid packfile. %s", p.Signature[:])
 	}
 	if p.Version != 2 {
 		return nil, fmt.Errorf("Unsupported packfile version: %d", p.Version)
 	}
 
-	//	deltaChains := make(map[ObjectOffset]resolvedDelta)
 	var mu sync.Mutex
 	var wg sync.WaitGroup
 	wg.Add(int(p.Size))
 
-	var indexfile PackfileIndexV2
 	indexfile.magic = [4]byte{0377, 't', 'O', 'c'}
 	indexfile.Version = 2
 
@@ -464,26 +502,44 @@ func IndexPack(c *Client, opts IndexPackOptions, r io.ReadSeeker) (PackfileIndex
 	indexfile.FourByteOffsets = make([]uint32, p.Size)
 	ofsChains := make(map[ObjectOffset]resolvedDelta)
 	refChains := make(map[Sha1]resolvedDelta)
+
+	if iscopying {
+		// Seek past the header that was just copied.
+		file.Seek(12, io.SeekStart)
+	}
+
 	for i := uint32(0); i < p.Size; i += 1 {
 		if opts.Verbose {
 			progressF("Indexing objects: %2.f%% (%d/%d)", (float32(i+1) / float32(p.Size) * 100), i+1, p.Size)
 		}
-		location, err := r.Seek(0, io.SeekCurrent)
+		location, err := file.Seek(0, io.SeekCurrent)
 		if err != nil {
-			// It's not worth trying to recover from being unable to
-			// find the current location, since it's required for
-			// the offset table.
-			return nil, err
+			panic(err)
 		}
-		//t, s, ref, offset := p.ReadHeaderSize(r)
-		t, _, ref, offset, rawheader := p.ReadHeaderSize(r)
-		rawdata, compressed := p.ReadEntryDataStream(r)
-		checksum := crc32.ChecksumIEEE(append(rawheader, compressed...))
 
+		checksum := crc32.NewIEEE()
+		tr := io.TeeReader(r, checksum)
+		t, _, ref, offset, _ := p.ReadHeaderSize(tr)
+
+		var rawdata []byte
+
+		if iscopying {
+			// If we're copying from a reader, first we read from
+			// the stream to have the data tee'd into the file,
+			// then we read from the file because we need a
+			// ReadSeeker in order to get both the compressed and
+			// uncompressed data.
+			br := &byteReader{tr, 0}
+			rawdata = p.readEntryDataStream1(br)
+		} else {
+			// If we're reading from a file, we just read it
+			// directly since we can seek back.
+			rawdata, _ = p.readEntryDataStream2(file)
+		}
 		// The CRC32 checksum of the compressed data and the offset in
 		// the file don't change regardless of type.
 		mu.Lock()
-		indexfile.CRC32[i] = checksum
+		indexfile.CRC32[i] = checksum.Sum32()
 
 		if location < (1 << 31) {
 			indexfile.FourByteOffsets[i] = uint32(location)
@@ -548,6 +604,7 @@ func IndexPack(c *Client, opts IndexPackOptions, r io.ReadSeeker) (PackfileIndex
 			if err != nil && opts.Strict {
 				return nil, err
 			}
+
 			sha1, _, err := HashSlice(t.String(), deltadata)
 			mu.Lock()
 			refChains[sha1] = resolvedDelta{deltadata, t}
@@ -569,10 +626,6 @@ func IndexPack(c *Client, opts IndexPackOptions, r io.ReadSeeker) (PackfileIndex
 
 		}
 	}
-	/* It's probably premature to require a Go 1.8 feature
-	sort.Slice(index, func(i, j int) bool {
-		return index[i] < index[j]
-	})*/
 	// Read the packfile trailer into the index trailer.
 	binary.Read(r, binary.BigEndian, &indexfile.Packfile)
 	sort.Sort(&indexfile)
@@ -588,53 +641,5 @@ func IndexPack(c *Client, opts IndexPackOptions, r io.ReadSeeker) (PackfileIndex
 // doing so. This is the equivalent of "git index-pack --stdin", but works with any
 // reader.
 func IndexAndCopyPack(c *Client, opts IndexPackOptions, r io.Reader) (PackfileIndex, error) {
-	// Generate a temp file for the pack index.
-	fidx, err := ioutil.TempFile(c.GitDir.File("objects/pack").String(), ".tmppackfileidx")
-	if err != nil {
-		return nil, err
-	}
-	defer fidx.Close()
-
-	opts.Output = fidx
-	// Also use a temp file for copying the packfile to.
-	pack, err := ioutil.TempFile(c.GitDir.File("objects/pack").String(), ".tmppackfileidx")
-	if err != nil {
-		// We handle fidx and pack in one defer, so we need to
-		// manually close fidx if we haven't set up the defer yet.
-		return nil, err
-	}
-	defer pack.Close()
-	// Use a temp file for the index.
-
-	// We need a ReadSeeker, not a Reader, so copy the whole thing before
-	// starting. (We can't just make the parameter a ReadSeeker, because
-	// os.Stdin is an *os.File which has a Seek method which always returns
-	// an error.)
-	switch _, err := io.Copy(pack, r); err {
-	case nil, flushPkt:
-		// Either there was no error copying, or reader was a RemoteConn
-		// which returned a flush packet to delimit the end (in which
-		// case we just keep going.)
-	default:
-		return nil, err
-	}
-	pack.Seek(0, io.SeekStart)
-
-	var idx PackfileIndex
-	defer func() {
-		if idx != nil {
-			packhash, _ := idx.GetTrailer()
-			base := fmt.Sprintf("%s/pack-%s", c.GitDir.File("objects/pack").String(), packhash)
-			os.Rename(fidx.Name(), base+".idx")
-			os.Rename(pack.Name(), base+".pack")
-		}
-	}()
-	idx, err = IndexPack(c, opts, pack)
-	if err != nil {
-		return idx, err
-	}
-	if idx != nil {
-		return idx, idx.WriteIndex(opts.Output)
-	}
-	return nil, fmt.Errorf("Invalid packfile index.")
+	return IndexPack(c, opts, r)
 }
