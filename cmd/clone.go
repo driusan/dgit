@@ -57,6 +57,5 @@ func Clone(c *git.Client, args []string) error {
 		repoid = git.Remote(flags.Arg(0))
 		dirName = git.File(flags.Arg(1))
 	}
-
 	return git.Clone(opts, repoid, dirName)
 }

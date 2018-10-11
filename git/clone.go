@@ -2,6 +2,7 @@ package git
 
 import (
 	"fmt"
+	"path/filepath"
 	"strings"
 )
 
@@ -41,7 +42,10 @@ func Clone(opts CloneOptions, rmt Remote, dst File) error {
 	// 4. Set up some default config variables
 	// 5. UpdateRef master
 	// 6. Reset --hard
-
+	if dst == "" {
+		_, last := filepath.Split(rmt.String())
+		dst = File(last)
+	}
 	if dst.Exists() {
 		return fmt.Errorf("Directory %v already exists, can not clone.\n", dst)
 	}
