@@ -106,9 +106,12 @@ func (p PackfileHeader) ReadHeaderSize(r io.Reader) (PackEntryType, PackEntrySiz
 	}
 	switch entrytype {
 	case OBJ_REF_DELTA:
-		n, err := r.Read(refDelta)
-		if n != 20 || err != nil {
+		n, err := io.ReadFull(r, refDelta)
+		if err != nil {
 			panic(err)
+		}
+		if n != 20 {
+			panic(fmt.Sprintf("Could not read refDelta base. Got %v (%x) instead of 20 bytes", n, refDelta[:n]))
 		}
 		dataread = append(dataread, refDelta...)
 		sha, err := Sha1FromSlice(refDelta)
