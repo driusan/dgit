@@ -136,9 +136,15 @@ func (idx PackfileIndexV2) getObjectAtOffset(r io.ReaderAt, offset int64, metaOn
 	// but we're very generous here since this doesn't allocate anything but
 	// just determines how much data the SectionReader will read before
 	// returning an EOF.
-	datareader := io.NewSectionReader(r, offset+int64(len(rawheader)), int64(sz*3))
-	if !metaOnly || t == OBJ_OFS_DELTA || t == OBJ_REF_DELTA {
-		rawdata = p.readEntryDataStream1(datareader)
+	if sz != 0 {
+		datareader := io.NewSectionReader(r, offset+int64(len(rawheader)), int64(sz*3))
+		if !metaOnly || t == OBJ_OFS_DELTA || t == OBJ_REF_DELTA {
+			rawdata = p.readEntryDataStream1(datareader)
+		}
+	} else {
+		// If it's size 0, sz*3 would immediately return io.EOF and cause
+		// panic, so we just directly make the rawdata slice.
+		rawdata = make([]byte, 0)
 	}
 
 	// The way we calculate the hash changes based on if it's a delta
