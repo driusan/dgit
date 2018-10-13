@@ -180,7 +180,7 @@ func (s *GitConfigSection) ParseValues(valueslines string) {
 		}
 		varname := strings.TrimSpace(split[0])
 
-		log.Printf("%v\n", varname)
+		log.Printf("Parsed config variable %v\n", varname)
 		s.values[varname] = strings.TrimSpace(strings.Join(split[1:], "="))
 
 	}

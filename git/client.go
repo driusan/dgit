@@ -120,6 +120,10 @@ type Client struct {
 	objectCache map[Sha1]objectLocation
 
 	objcache map[shaRef]GitObject
+
+	// Cache of previous config lookups to avoid re-parsing.
+	configCache               map[string]string
+	localConfig, globalConfig *GitConfig
 }
 
 func (c *Client) Close() error {
@@ -171,7 +175,7 @@ func NewClient(gitDir, workDir string) (*Client, error) {
 		// from the gitdir if it doesn't exist.
 	}
 	m := make(map[Sha1]objectLocation)
-	return &Client{GitDir(gitdir), WorkDir(workdir), "", m, make(map[shaRef]GitObject)}, nil
+	return &Client{GitDir(gitdir), WorkDir(workdir), "", m, make(map[shaRef]GitObject), nil, nil, nil}, nil
 }
 
 // Returns the branchname of the HEAD branch, or the empty string if the
@@ -492,4 +496,48 @@ func (c *Client) HaveObject(id Sha1) (found bool, packedfile File, err error) {
 		}
 	}
 	return false, "", nil
+}
+
+// Loads a config variable for the git repo hosted by c.
+// If the local variable exists, it will be used, otherwise
+// it will use the global variable.
+// Non-existent variables will return the empty string.
+func (c *Client) GetConfig(varname string) string {
+	if c.configCache == nil {
+		c.configCache = make(map[string]string)
+	}
+	if val, ok := c.configCache[varname]; ok {
+		return val
+	}
+	if c.localConfig == nil {
+		config, err := LoadLocalConfig(c)
+		if err == nil {
+			c.localConfig = &config
+		} else {
+			// If there was an error we store
+			// a non-nil empty value in the localconfig
+			// cache to prevent it from being re-parsed
+			c.localConfig = &GitConfig{}
+		}
+	}
+	if val, _ := c.localConfig.GetConfig(varname); val != "" {
+		c.configCache[varname] = val
+		return val
+	}
+	if c.globalConfig == nil {
+		config, err := LoadGlobalConfig()
+		if err == nil {
+			c.globalConfig = &config
+		} else {
+			// If there was an error we store
+			// a non-nil empty value in the localconfig
+			// cache to prevent it from being re-parsed
+			c.globalConfig = &GitConfig{}
+		}
+	}
+	if val, _ := c.globalConfig.GetConfig(varname); val != "" {
+		c.configCache[varname] = val
+		return val
+	}
+	return ""
 }
