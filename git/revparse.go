@@ -207,7 +207,16 @@ func RevParseCommitish(c *Client, opt *RevParseOptions, arg string) (cmt Commiti
 				return
 			}
 			// FIXME: This should actually implement various ^ and @{} modifiers
-			if mod == "^" {
+			switch mod {
+			case "^0":
+				basecmt, newerr := cmt.CommitID(c)
+				if newerr != nil {
+					err = newerr
+					return
+				}
+				cmt = basecmt
+				return
+			case "^":
 				basecmt, newerr := cmt.CommitID(c)
 				if newerr != nil {
 					err = newerr
