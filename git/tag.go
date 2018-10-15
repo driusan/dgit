@@ -6,6 +6,7 @@ import (
 	"path/filepath"
 	"sort"
 	"strings"
+	"time"
 )
 
 // TagOptions is a stub for when more of Tag is implemented
@@ -16,6 +17,8 @@ type TagOptions struct {
 	// Display tags
 	List       bool
 	IgnoreCase bool
+
+	Annotated bool
 }
 
 // List tags, if tagnames is specified only list tags which match one
@@ -43,7 +46,7 @@ func TagList(c *Client, opts TagOptions, patterns []string) ([]string, error) {
 	return tags, nil
 }
 
-func TagCommit(c *Client, opts TagOptions, tagname string, cmt Commitish) error {
+func TagCommit(c *Client, opts TagOptions, tagname string, cmt Commitish, msg string) error {
 	refspec := RefSpec("refs/tags/" + tagname)
 	var comm CommitID
 	if cmt == nil {
@@ -61,6 +64,22 @@ func TagCommit(c *Client, opts TagOptions, tagname string, cmt Commitish) error 
 	}
 	if refspec.File(c).Exists() && !opts.Force {
 		return fmt.Errorf("tag '%v' already exists", tagname)
+	}
+	if opts.Annotated {
+		t := time.Now()
+		tagger, err := c.GetCommitter(&t)
+		tagstdin := fmt.Sprintf(`object %v
+type commit
+tag %v
+tagger %v
+
+%v`, comm, tagname, tagger, msg)
+		tagid, err := Mktag(c, strings.NewReader(tagstdin))
+		if err != nil {
+			return err
+		}
+		// Pretend it's a CommitID for update-ref's sake.
+		comm = CommitID(tagid)
 	}
 	return UpdateRefSpec(c, UpdateRefOptions{}, refspec, comm, "")
 }
