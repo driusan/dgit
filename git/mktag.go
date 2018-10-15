@@ -133,7 +133,7 @@ func Mktag(c *Client, r io.Reader) (Sha1, error) {
 		pos := len(lines[0]) + len(lines[1]) + len(lines[2]) + 3 + len("tagger ") + len(taggerPieces[1]) + len(taggerPieces[2]) + 3 + len(timepieces[1]) + len(timepieces[2])
 		return Sha1{}, fmt.Errorf(`error: char%d: malformed tag timezone`, pos)
 	}
-	if lines[4] != "\n" {
+	if lines[4] != "" && lines[4][0] != '\n' {
 		// There should have been a blank line
 		pos := len(lines[0]) + len(lines[1]) + len(lines[2]) + len(lines[3]) + 4
 		return Sha1{}, fmt.Errorf("error: char%d: trailing garbage in tag header", pos)
