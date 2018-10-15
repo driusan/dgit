@@ -4,6 +4,8 @@ import (
 	"fmt"
 	"io/ioutil"
 	"path/filepath"
+	"sort"
+	"strings"
 )
 
 // TagOptions is a stub for when more of Tag is implemented
@@ -11,12 +13,14 @@ type TagOptions struct {
 	// Replace existing tags instead of erroring out.
 	Force bool
 
-	List bool
+	// Display tags
+	List       bool
+	IgnoreCase bool
 }
 
 // List tags, if tagnames is specified only list tags which match one
 // of the patterns provided.
-func TagList(c *Client, patterns []string) ([]string, error) {
+func TagList(c *Client, opts TagOptions, patterns []string) ([]string, error) {
 	if len(patterns) != 0 {
 		return nil, fmt.Errorf("Tag list with patterns not implemented")
 	}
@@ -30,6 +34,12 @@ func TagList(c *Client, patterns []string) ([]string, error) {
 	for _, f := range files {
 		tags = append(tags, f.Name())
 	}
+	sort.Slice(tags, func(i, j int) bool {
+		if opts.IgnoreCase {
+			return strings.ToLower(tags[i]) < strings.ToLower(tags[j])
+		}
+		return tags[i] < tags[j]
+	})
 	return tags, nil
 }
 
