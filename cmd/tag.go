@@ -28,11 +28,13 @@ func Tag(c *git.Client, args []string) error {
 	flags.BoolVar(&options.Force, "f", false, "Alias of --force")
 	flags.BoolVar(&options.List, "list", false, "List tags")
 	flags.BoolVar(&options.List, "l", false, "Alias of --list")
+	flags.BoolVar(&options.IgnoreCase, "ignore-case", false, "Sorting and filtering are case insensitive")
+	flags.BoolVar(&options.IgnoreCase, "i", false, "Alias of --ignore-case")
 
 	flags.Parse(args)
 	tagnames := flags.Args()
 	if options.List {
-		tags, err := git.TagList(c, tagnames)
+		tags, err := git.TagList(c, options, tagnames)
 		if err != nil {
 			return err
 		}
@@ -41,7 +43,7 @@ func Tag(c *git.Client, args []string) error {
 	}
 	switch len(tagnames) {
 	case 0:
-		tags, err := git.TagList(c, tagnames)
+		tags, err := git.TagList(c, options, tagnames)
 		if err != nil {
 			return err
 		}
