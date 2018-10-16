@@ -325,12 +325,30 @@ func RevParse(c *Client, opt RevParseOptions, args []string) (commits []ParsedRe
 						commits = append(commits, ParsedRevision{Sha1(treeid), exclude})
 					}
 				} else {
-					cmt, err := RevParseCommit(c, &opt, sha)
+					obj, err := RevParseCommitish(c, &opt, sha)
 					if err != nil {
 						err2 = err
-					} else {
-						commits = append(commits, ParsedRevision{Sha1(cmt), exclude})
+						continue
 					}
+					switch r := obj.(type) {
+					case RefSpec:
+						// If it's an annotated tag,
+						// don't dereference to a commit
+						obj, err := r.Sha1(c)
+						if err != nil {
+							err2 = err
+						} else {
+							commits = append(commits, ParsedRevision{obj, exclude})
+						}
+					default:
+						cmt, err := obj.CommitID(c)
+						if err != nil {
+							err2 = err
+						} else {
+							commits = append(commits, ParsedRevision{Sha1(cmt), exclude})
+						}
+					}
+
 				}
 			}
 		}

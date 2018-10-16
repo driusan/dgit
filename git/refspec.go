@@ -1,6 +1,8 @@
 package git
 
 import (
+	"bytes"
+	"fmt"
 	"strings"
 )
 
@@ -34,12 +36,49 @@ func (r RefSpec) Value(c *Client) (string, error) {
 	return strings.TrimSpace(val), err
 }
 
-func (r RefSpec) CommitID(c *Client) (CommitID, error) {
+func (r RefSpec) Sha1(c *Client) (Sha1, error) {
 	v, err := r.Value(c)
+	if err != nil {
+		return Sha1{}, err
+	}
+	return Sha1FromString(v)
+}
+
+func (r RefSpec) CommitID(c *Client) (CommitID, error) {
+	sha1, err := r.Sha1(c)
 	if err != nil {
 		return CommitID{}, err
 	}
-	return CommitIDFromString(v)
+	switch t := sha1.Type(c); t {
+	case "commit":
+		return CommitID(sha1), nil
+	case "tag":
+		obj, err := c.GetObject(sha1)
+		if err != nil {
+			return CommitID{}, err
+		}
+		content := obj.GetContent()
+		reader := bytes.NewBuffer(content)
+		line, err := reader.ReadBytes('\n')
+		if err != nil {
+			return CommitID{}, err
+		}
+		objid := strings.TrimPrefix(string(line), "object ")
+		objsha, err := CommitIDFromString(objid)
+		if err != nil {
+			return CommitID{}, err
+		}
+		line, err = reader.ReadBytes('\n')
+		if err != nil {
+			return CommitID{}, err
+		}
+		if string(line) != "type commit\n" {
+			return CommitID{}, fmt.Errorf("Tag does not point to a commit: %v", string(line))
+		}
+		return objsha, nil
+	default:
+		return CommitID{}, fmt.Errorf("Invalid commit type %v", t)
+	}
 }
 
 func (r RefSpec) TreeID(c *Client) (TreeID, error) {
