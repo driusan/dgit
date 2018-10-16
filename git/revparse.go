@@ -256,6 +256,11 @@ func RevParseCommitish(c *Client, opt *RevParseOptions, arg string) (cmt Commiti
 			return b, nil
 		}
 	}
+	if strings.HasPrefix(cmtbase, "refs/") {
+		if rs := c.GitDir.File(File(cmtbase)); rs.Exists() {
+			return RefSpec(cmtbase), nil
+		}
+	}
 	if rs := c.GitDir.File("refs/tags/" + File(cmtbase)); rs.Exists() {
 		return RefSpec("refs/tags/" + cmtbase), nil
 	}
