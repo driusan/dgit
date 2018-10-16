@@ -3,6 +3,7 @@ package cmd
 import (
 	"flag"
 	"fmt"
+	"os"
 
 	"github.com/driusan/dgit/git"
 )
@@ -20,8 +21,8 @@ func ShowRef(c *git.Client, args []string) error {
 	flags.BoolVar(&opts.IncludeHead, "head", false, "Include the HEAD reference")
 	flags.BoolVar(&opts.Heads, "heads", false, "Show only heads")
 	flags.BoolVar(&opts.Tags, "tags", false, "Show only tags")
-	flags.BoolVar(&opts.Tags, "quiet", false, "Do not print matching refs")
-	flags.BoolVar(&opts.Tags, "q", false, "alias of --q")
+	flags.BoolVar(&opts.Quiet, "quiet", false, "Do not print matching refs")
+	flags.BoolVar(&opts.Quiet, "q", false, "alias of --q")
 
 	// These flags can be moved out of these lists and below as proper flags as they are implemented
 	for _, bf := range []string{"verify", "d", "dereference"} {
@@ -40,6 +41,9 @@ func ShowRef(c *git.Client, args []string) error {
 		for _, ref := range refs {
 			fmt.Println(ref)
 		}
+	}
+	if len(refs) == 0 {
+		os.Exit(1)
 	}
 	return nil
 }
