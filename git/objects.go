@@ -48,6 +48,31 @@ func (b GitBlobObject) String() string {
 	return string(b.content)
 }
 
+type GitTagObject struct {
+	size    int
+	content []byte
+}
+
+func (GitTagObject) GetType() string {
+	return "tag"
+}
+func (b GitTagObject) GetContent() []byte {
+	if b.content == nil {
+		panic("Attempted to get content but only loaded metadata")
+	}
+	if len(b.content) != b.size {
+		panic(fmt.Sprintf("Content of blob does not match size. %d != %d", len(b.content), b.size))
+	}
+	return b.content
+}
+func (b GitTagObject) GetSize() int {
+	return b.size
+}
+
+func (b GitTagObject) String() string {
+	return string(b.content)
+}
+
 type GitCommitObject struct {
 	size    int
 	content []byte
@@ -237,6 +262,8 @@ func (c *Client) getObject(sha1 Sha1, metaOnly bool) (GitObject, error) {
 				return GitTreeObject{sz, nil}, nil
 			case "commit":
 				return GitCommitObject{sz, nil}, nil
+			case "tag":
+				return GitTagObject{sz, nil}, nil
 			}
 			return nil, fmt.Errorf("Unknown object type: %v", pieces[0])
 		} else {
@@ -293,8 +320,21 @@ func (c *Client) getObject(sha1 Sha1, metaOnly bool) (GitObject, error) {
 		gobj := GitTreeObject{size, content}
 		c.objcache[shaRef{sha1, metaOnly}] = gobj
 		return gobj, nil
-	} else {
-		fmt.Printf("Content: %s\n", string(b))
+	} else if strings.HasPrefix(string(b), "tag ") {
+		var size int
+		var content []byte
+		for idx, val := range b {
+			if val == 0 {
+				content = b[idx+1:]
+				if size, err = strconv.Atoi(string(b[4:idx])); err != nil {
+					fmt.Printf("Error converting % x to int at idx: %d", b[5:idx], idx)
+				}
+				break
+			}
+		}
+		gobj := GitTagObject{size, content}
+		c.objcache[shaRef{sha1, metaOnly}] = gobj
+		return gobj, nil
 	}
 	return nil, InvalidObject
 }
