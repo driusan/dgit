@@ -51,6 +51,14 @@ func Branch(c *git.Client, args []string) {
 		if err := c.CreateBranch(flags.Arg(0), b); err != nil {
 			fmt.Fprintf(os.Stderr, "Could not create branch (%v): %v\n", flags.Arg(0), err)
 		}
+	case 2:
+		startpoint, err := git.RevParseCommitish(c, &git.RevParseOptions{}, flags.Arg(1))
+		if err != nil {
+			return
+		}
+		if err := c.CreateBranch(flags.Arg(0), startpoint); err != nil {
+			fmt.Fprintf(os.Stderr, "Could not create branch (%v): %v\n", flags.Arg(0), err)
+		}
 	default:
 		flag.Usage()
 		os.Exit(2)
