@@ -75,6 +75,13 @@ func ShowRef(c *Client, opts ShowRefOptions, patterns []string) ([]Ref, error) {
 				return nil, err
 			}
 			vals = append(vals, r)
+			deref, err := getDeref(c, opts, r)
+			if err != nil {
+				return nil, err
+			}
+			if deref != nil {
+				vals = append(vals, *deref)
+			}
 		}
 		return vals, nil
 	}
@@ -102,11 +109,25 @@ func ShowRef(c *Client, opts ShowRefOptions, patterns []string) ([]Ref, error) {
 				if len(patterns) == 0 {
 
 					vals = append(vals, ref)
+					deref, err := getDeref(c, opts, ref)
+					if err != nil {
+						return err
+					}
+					if deref != nil {
+						vals = append(vals, *deref)
+					}
 					return nil
 				}
 				for _, p := range patterns {
 					if ref.Matches(p) {
 						vals = append(vals, ref)
+						deref, err := getDeref(c, opts, ref)
+						if err != nil {
+							return err
+						}
+						if deref != nil {
+							vals = append(vals, *deref)
+						}
 						return nil
 					}
 				}
@@ -131,11 +152,25 @@ func ShowRef(c *Client, opts ShowRefOptions, patterns []string) ([]Ref, error) {
 			}
 			if len(patterns) == 0 {
 				vals = append(vals, ref)
+				deref, err := getDeref(c, opts, ref)
+				if err != nil {
+					return nil, err
+				}
+				if deref != nil {
+					vals = append(vals, *deref)
+				}
 				continue
 			}
 			for _, p := range patterns {
 				if ref.Matches(p) {
 					vals = append(vals, ref)
+					deref, err := getDeref(c, opts, ref)
+					if err != nil {
+						return nil, err
+					}
+					if deref != nil {
+						vals = append(vals, *deref)
+					}
 					break
 				}
 			}
@@ -154,11 +189,25 @@ func ShowRef(c *Client, opts ShowRefOptions, patterns []string) ([]Ref, error) {
 			}
 			if len(patterns) == 0 {
 				vals = append(vals, ref)
+				deref, err := getDeref(c, opts, ref)
+				if err != nil {
+					return nil, err
+				}
+				if deref != nil {
+					vals = append(vals, *deref)
+				}
 				continue
 			}
 			for _, p := range patterns {
 				if ref.Matches(p) {
 					vals = append(vals, ref)
+					deref, err := getDeref(c, opts, ref)
+					if err != nil {
+						return nil, err
+					}
+					if deref != nil {
+						vals = append(vals, *deref)
+					}
 					break
 				}
 			}
@@ -191,4 +240,18 @@ func parseRef(c *Client, filename string) (Ref, error) {
 		}
 		return Ref{refname, sha1}, nil
 	}
+}
+
+func getDeref(c *Client, opts ShowRefOptions, ref Ref) (*Ref, error) {
+	if !opts.Dereference {
+		return nil, nil
+	}
+	if ref.Value.Type(c) == "tag" {
+		deref, err := RevParse(c, RevParseOptions{}, []string{ref.Name + "^0"})
+		if err != nil {
+			return nil, err
+		}
+		return &Ref{ref.Name + "^{}", deref[0].Id}, nil
+	}
+	return nil, nil
 }

@@ -24,11 +24,10 @@ func ShowRef(c *git.Client, args []string) error {
 	flags.BoolVar(&opts.Quiet, "quiet", false, "Do not print matching refs")
 	flags.BoolVar(&opts.Quiet, "q", false, "alias of --q")
 	flags.BoolVar(&opts.Verify, "verify", false, "verify the existence of an exact ref")
+	flags.BoolVar(&opts.Dereference, "dereference", false, "dereference annotated tags")
+	flags.BoolVar(&opts.Dereference, "d", false, "alias of -d")
 
 	// These flags can be moved out of these lists and below as proper flags as they are implemented
-	for _, bf := range []string{"d", "dereference"} {
-		flags.Var(newNotimplBoolValue(), bf, "Not implemented")
-	}
 	for _, sf := range []string{"s", "hash", "abbrev"} {
 		flags.Var(newNotimplStringValue(), sf, "Not implemented")
 	}
