@@ -64,6 +64,20 @@ type ShowRefOptions struct {
 
 func ShowRef(c *Client, opts ShowRefOptions, patterns []string) ([]Ref, error) {
 	var vals []Ref
+	if opts.Verify {
+		// If verify is specified, everything must be an exact match
+		for _, ref := range patterns {
+			if f := c.GitDir.File(File(ref)); !f.Exists() {
+				return nil, fmt.Errorf("fatal: '%v' - not a valid ref", ref)
+			}
+			r, err := parseRef(c, ref)
+			if err != nil {
+				return nil, err
+			}
+			vals = append(vals, r)
+		}
+		return vals, nil
+	}
 	if opts.IncludeHead {
 		hcid, err := c.GetHeadCommit()
 		if err == nil {
@@ -81,33 +95,10 @@ func ShowRef(c *Client, opts ShowRefOptions, patterns []string) ([]Ref, error) {
 					return nil
 				}
 				refname := strings.TrimPrefix(path, c.GitDir.String())
-				refname = strings.TrimPrefix(refname, "/")
-
-				data, err := ioutil.ReadFile(c.GitDir.File(File(refname)).String())
+				ref, err := parseRef(c, refname)
 				if err != nil {
 					return err
 				}
-				var sha1 Sha1
-				if strings.HasPrefix(string(data), "ref: ") {
-					deref, err := SymbolicRefGet(c, SymbolicRefOptions{}, SymbolicRef(refname))
-					if err != nil {
-						return err
-					}
-					sha1a, err := deref.Sha1(c)
-					if err != nil {
-						return err
-					}
-					sha1 = sha1a
-				} else {
-					sha1a, err := Sha1FromString(string(data))
-					if err != nil {
-						fmt.Println(refname)
-						fmt.Println(string(data))
-						return err
-					}
-					sha1 = sha1a
-				}
-				ref := Ref{refname, sha1}
 				if len(patterns) == 0 {
 
 					vals = append(vals, ref)
@@ -134,15 +125,10 @@ func ShowRef(c *Client, opts ShowRefOptions, patterns []string) ([]Ref, error) {
 		}
 		for _, ref := range heads {
 			refname := "refs/heads/" + ref.Name()
-			data, err := ioutil.ReadFile(c.GitDir.File(File(refname)).String())
+			ref, err := parseRef(c, refname)
 			if err != nil {
 				return nil, err
 			}
-			sha1, err := Sha1FromString(string(data))
-			if err != nil {
-				return nil, err
-			}
-			ref := Ref{refname, sha1}
 			if len(patterns) == 0 {
 				vals = append(vals, ref)
 				continue
@@ -162,15 +148,10 @@ func ShowRef(c *Client, opts ShowRefOptions, patterns []string) ([]Ref, error) {
 		}
 		for _, ref := range tags {
 			refname := "refs/tags/" + ref.Name()
-			data, err := ioutil.ReadFile(c.GitDir.File(File(refname)).String())
+			ref, err := parseRef(c, refname)
 			if err != nil {
 				return nil, err
 			}
-			sha1, err := Sha1FromString(string(data))
-			if err != nil {
-				return nil, err
-			}
-			ref := Ref{refname, sha1}
 			if len(patterns) == 0 {
 				vals = append(vals, ref)
 				continue
@@ -185,4 +166,29 @@ func ShowRef(c *Client, opts ShowRefOptions, patterns []string) ([]Ref, error) {
 	}
 
 	return vals, nil
+}
+
+func parseRef(c *Client, filename string) (Ref, error) {
+	refname := strings.TrimPrefix(filename, "/")
+	data, err := ioutil.ReadFile(c.GitDir.File(File(refname)).String())
+	if err != nil {
+		return Ref{}, err
+	}
+	if strings.HasPrefix(string(data), "ref: ") {
+		deref, err := SymbolicRefGet(c, SymbolicRefOptions{}, SymbolicRef(refname))
+		if err != nil {
+			return Ref{}, err
+		}
+		sha1, err := deref.Sha1(c)
+		if err != nil {
+			return Ref{}, err
+		}
+		return Ref{refname, sha1}, nil
+	} else {
+		sha1, err := Sha1FromString(string(data))
+		if err != nil {
+			return Ref{}, err
+		}
+		return Ref{refname, sha1}, nil
+	}
 }
