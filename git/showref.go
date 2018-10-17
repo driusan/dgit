@@ -71,7 +71,9 @@ func ShowRef(c *Client, opts ShowRefOptions, patterns []string) ([]Ref, error) {
 				return nil, fmt.Errorf("fatal: '%v' - not a valid ref", ref)
 			}
 			r, err := parseRef(c, ref)
-			if err != nil {
+			if err == InvalidCommit {
+				return nil, fmt.Errorf("git show-ref: bad ref: %v (%v)", r.Name, r.Value)
+			} else if err != nil {
 				return nil, err
 			}
 			vals = append(vals, r)
@@ -237,6 +239,10 @@ func parseRef(c *Client, filename string) (Ref, error) {
 		sha1, err := Sha1FromString(string(data))
 		if err != nil {
 			return Ref{}, err
+		}
+		// check for a dangling ref
+		if _, err := c.GetObject(sha1); err != nil {
+			return Ref{refname, sha1}, InvalidCommit
 		}
 		return Ref{refname, sha1}, nil
 	}
