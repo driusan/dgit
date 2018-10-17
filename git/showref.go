@@ -87,9 +87,25 @@ func ShowRef(c *Client, opts ShowRefOptions, patterns []string) ([]Ref, error) {
 				if err != nil {
 					return err
 				}
-				sha1, err := Sha1FromString(string(data))
-				if err != nil {
-					return err
+				var sha1 Sha1
+				if strings.HasPrefix(string(data), "ref: ") {
+					deref, err := SymbolicRefGet(c, SymbolicRefOptions{}, SymbolicRef(refname))
+					if err != nil {
+						return err
+					}
+					sha1a, err := deref.Sha1(c)
+					if err != nil {
+						return err
+					}
+					sha1 = sha1a
+				} else {
+					sha1a, err := Sha1FromString(string(data))
+					if err != nil {
+						fmt.Println(refname)
+						fmt.Println(string(data))
+						return err
+					}
+					sha1 = sha1a
 				}
 				ref := Ref{refname, sha1}
 				if len(patterns) == 0 {
