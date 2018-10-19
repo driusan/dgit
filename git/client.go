@@ -286,36 +286,31 @@ func (c *Client) GetAuthor(t *time.Time) Person {
 	person := Person{}
 	name := os.Getenv("GIT_AUTHOR_NAME")
 	email := os.Getenv("GIT_AUTHOR_EMAIL")
-	var config GitConfig
-	if name == "" || email == "" {
-		// If either name or email come from the config, only parse
-		// it once.
-		configFile, err := os.Open(home + "/.gitconfig")
-		config = ParseConfig(configFile)
-		if err != nil {
-			// .gitconfig doesn't exist, so use the system defaults.
-			u, err := user.Current()
-			if err != nil {
-				panic(err)
-			}
-			name = u.Name
-			h, err := os.Hostname()
-			if err != nil {
-				panic(err)
-			}
-			email = fmt.Sprintf("%s@%s", u.Username, h)
-		}
-	}
+
 	if name != "" {
 		person.Name = name
 	} else {
-		person.Name, _ = config.GetConfig("user.name")
+		person.Name = c.GetConfig("user.name")
 	}
 
 	if email != "" {
 		person.Email = email
 	} else {
-		person.Email, _ = config.GetConfig("user.email")
+		person.Email = c.GetConfig("user.email")
+	}
+
+	// .gitconfig doesn't exist, so use the system defaults.
+	if person.Name == "" || person.Email == "" {
+		u, err := user.Current()
+		if err != nil {
+			panic(err)
+		}
+		person.Name = u.Name
+		h, err := os.Hostname()
+		if err != nil {
+			panic(err)
+		}
+		person.Email = fmt.Sprintf("%s@%s", u.Username, h)
 	}
 	person.Time = t
 	return person
@@ -332,37 +327,32 @@ func (c *Client) GetCommitter(t *time.Time) (Person, error) {
 	name := os.Getenv("GIT_COMMITTER_NAME")
 	email := os.Getenv("GIT_COMMITTER_EMAIL")
 	var configerr error
-	var config GitConfig
-	if name == "" || email == "" {
-		// If either name or email come from the config, only parse
-		// it once.
-		configFile, err := os.Open(home + "/.gitconfig")
-		config = ParseConfig(configFile)
-		if err != nil {
-			// .gitconfig doesn't exist, so use the system defaults.
-			u, err := user.Current()
-			if err != nil {
-				panic(err)
-			}
-			name = u.Name
-			h, err := os.Hostname()
-			if err != nil {
-				panic(err)
-			}
-			email = fmt.Sprintf("%s@%s", u.Username, h)
-			configerr = NoGlobalConfig
-		}
-	}
+
 	if name != "" {
 		person.Name = name
 	} else {
-		person.Name, _ = config.GetConfig("user.name")
+		person.Name = c.GetConfig("user.name")
 	}
 
 	if email != "" {
 		person.Email = email
 	} else {
-		person.Email, _ = config.GetConfig("user.email")
+		person.Email = c.GetConfig("user.email")
+	}
+
+	// .gitconfig doesn't exist, so use the system defaults.
+	if person.Name == "" || person.Email == "" {
+		u, err := user.Current()
+		if err != nil {
+			panic(err)
+		}
+		person.Name = u.Name
+		h, err := os.Hostname()
+		if err != nil {
+			panic(err)
+		}
+		person.Email = fmt.Sprintf("%s@%s", u.Username, h)
+		configerr = NoGlobalConfig
 	}
 	person.Time = t
 	return person, configerr
