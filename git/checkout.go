@@ -182,6 +182,13 @@ func CheckoutCommit(c *Client, opts CheckoutOptions, commit Commitish) error {
 		}
 	}
 
+	// "head" is a Commitish, but we need a Treeish, so just resolve it
+	// to a commit.
+	hc, err := head.CommitID(c)
+	if err != nil {
+		return err
+	}
+	staged, err := DiffIndex(c, DiffIndexOptions{}, nil, hc, nil)
 	// Now actually read the tree into the index
 	readtreeopts := ReadTreeOptions{Update: true, Merge: true}
 	if opts.Force {
@@ -191,7 +198,39 @@ func CheckoutCommit(c *Client, opts CheckoutOptions, commit Commitish) error {
 	if opts.IgnoreSkipWorktreeBits {
 		readtreeopts.NoSparseCheckout = true
 	}
-	if _, err := ReadTree(c, readtreeopts, cid); err != nil {
+	idx, err := ReadTree(c, readtreeopts, cid)
+	if err != nil {
+		return err
+	}
+
+	// Put back changes that were staged before doing read-tree -u
+	for _, diff := range staged {
+		if diff.Dst.Sha1 == (Sha1{}) {
+			continue
+		}
+		if err := idx.AddStage(c, diff.Name, diff.Dst.FileMode, diff.Dst.Sha1, Stage0, uint32(diff.DstSize), 0, UpdateIndexOptions{}); err != nil {
+			return err
+		}
+		content, err := CatFile(c, "blob", diff.Dst.Sha1, CatFileOptions{})
+		if err != nil {
+			return err
+		}
+		f, err := diff.Name.FilePath(c)
+		if err != nil {
+			return err
+		}
+		if err := ioutil.WriteFile(f.String(), []byte(content), os.FileMode(diff.Dst.FileMode)); err != nil {
+			return err
+		}
+	}
+
+	f, err := c.GitDir.Create("index")
+	if err != nil {
+		return err
+	}
+	defer f.Close()
+
+	if err := idx.WriteIndex(f); err != nil {
 		return err
 	}
 
