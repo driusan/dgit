@@ -127,14 +127,7 @@ func StandardIgnorePatterns(c *Client, paths []File) ([]IgnorePattern, error) {
 	finalPatterns = append(finalPatterns, ignorePatterns...)
 
 	// Check for a core.excludesfile config value
-	configFile, err := c.GitDir.Open("config")
-	if err != nil {
-		return []IgnorePattern{}, err
-	}
-
-	config := ParseConfig(configFile)
-
-	excludes, _ := config.GetConfig("core.excludesfile")
+	excludes := c.GetConfig("core.excludesfile")
 	if excludes != "" {
 		excludesFile := File(excludes)
 		ignorePatterns, err = ParseIgnorePatterns(c, excludesFile, File(""))
