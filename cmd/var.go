@@ -10,7 +10,7 @@ import (
 	"github.com/driusan/dgit/git"
 )
 
-func getLogVar(c *git.Client, config *git.GitConfig, key string, envVar string) string {
+func getLogVar(c *git.Client, key string, envVar string) string {
 	if envVar != "" {
 		return envVar
 	}
@@ -38,7 +38,7 @@ func getLogVar(c *git.Client, config *git.GitConfig, key string, envVar string) 
 		person := c.GetAuthor(&t)
 		return fmt.Sprintf("%s <%s> %v %s", person.Name, person.Email, time.Now().Unix(), time.Now().Format("-0700"))
 	} else if key == "GIT_EDITOR" {
-		coreEditor, _ := config.GetConfig("core.editor")
+		coreEditor := c.GetConfig("core.editor")
 		if coreEditor != "" {
 			return coreEditor
 		}
@@ -55,7 +55,7 @@ func getLogVar(c *git.Client, config *git.GitConfig, key string, envVar string) 
 
 		return "ed"
 	} else if key == "GIT_PAGER" {
-		corePager, _ := config.GetConfig("core.pager")
+		corePager := c.GetConfig("core.pager")
 		if corePager != "" {
 			return corePager
 		}
@@ -106,7 +106,7 @@ func Var(c *git.Client, args []string) error {
 
 	switch {
 	case flags.NArg() == 1:
-		fmt.Printf("%s\n", getLogVar(c, &config, flags.Arg(0), os.Getenv(flags.Arg(0))))
+		fmt.Printf("%s\n", getLogVar(c, flags.Arg(0), os.Getenv(flags.Arg(0))))
 		return nil
 	case *list:
 		list := config.GetConfigList()
@@ -114,7 +114,7 @@ func Var(c *git.Client, args []string) error {
 			fmt.Printf("%s\n", entry)
 		}
 		for _, logVar := range []string{"GIT_AUTHOR_IDENT", "GIT_COMMITTER_IDENT", "GIT_EDITOR", "GIT_PAGER"} {
-			fmt.Printf("%s=%s\n", logVar, getLogVar(c, &config, logVar, os.Getenv(logVar)))
+			fmt.Printf("%s=%s\n", logVar, getLogVar(c, logVar, os.Getenv(logVar)))
 		}
 		return nil
 	}
