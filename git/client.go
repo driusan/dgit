@@ -296,19 +296,23 @@ func (c *Client) GetAuthor(t *time.Time) Person {
 	}
 
 	// system defaults
-	if name == "" {
+	if name == "" || email == "" {
 		u, err := user.Current()
 		if err != nil {
 			panic(err)
 		}
-		name = u.Name
-	}
-	if email == "" {
-		h, err := os.Hostname()
-		if err != nil {
-			panic(err)
+
+		if name == "" {
+			name = u.Name
 		}
-		email = fmt.Sprintf("%s@%s", name, h)
+
+		if email == "" {
+			h, err := os.Hostname()
+			if err != nil {
+				panic(err)
+			}
+			email = fmt.Sprintf("%s@%s", u.Name, h)
+		}
 	}
 	person.Name = name
 	person.Email = email
@@ -337,20 +341,23 @@ func (c *Client) GetCommitter(t *time.Time) (Person, error) {
 	}
 
 	// system defaults
-	if name == "" {
+	if name == "" || email == "" {
 		u, err := user.Current()
 		if err != nil {
 			panic(err)
 		}
-		name = u.Name
-		configerr = NoGlobalConfig
-	}
-	if email == "" {
-		h, err := os.Hostname()
-		if err != nil {
-			panic(err)
+
+		if name == "" {
+			name = u.Name
 		}
-		email = fmt.Sprintf("%s@%s", name, h)
+
+		if email == "" {
+			h, err := os.Hostname()
+			if err != nil {
+				panic(err)
+			}
+			email = fmt.Sprintf("%s@%s", u.Name, h)
+		}
 		configerr = NoGlobalConfig
 	}
 	person.Name = name
