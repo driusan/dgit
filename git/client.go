@@ -287,31 +287,31 @@ func (c *Client) GetAuthor(t *time.Time) Person {
 	name := os.Getenv("GIT_AUTHOR_NAME")
 	email := os.Getenv("GIT_AUTHOR_EMAIL")
 
-	if name != "" {
-		person.Name = name
-	} else {
-		person.Name = c.GetConfig("user.name")
+	// git config
+	if name == "" {
+		name = c.GetConfig("user.name")
+	}
+	if email == "" {
+		email = c.GetConfig("user.email")
 	}
 
-	if email != "" {
-		person.Email = email
-	} else {
-		person.Email = c.GetConfig("user.email")
-	}
-
-	// .gitconfig doesn't exist, so use the system defaults.
-	if person.Name == "" || person.Email == "" {
+	// system defaults
+	if name == "" {
 		u, err := user.Current()
 		if err != nil {
 			panic(err)
 		}
-		person.Name = u.Name
+		name = u.Name
+	}
+	if email == "" {
 		h, err := os.Hostname()
 		if err != nil {
 			panic(err)
 		}
-		person.Email = fmt.Sprintf("%s@%s", u.Username, h)
+		email = fmt.Sprintf("%s@%s", u.Username, h)
 	}
+	person.Name = name
+	person.Email = email
 	person.Time = t
 	return person
 }
@@ -328,32 +328,33 @@ func (c *Client) GetCommitter(t *time.Time) (Person, error) {
 	email := os.Getenv("GIT_COMMITTER_EMAIL")
 	var configerr error
 
-	if name != "" {
-		person.Name = name
-	} else {
-		person.Name = c.GetConfig("user.name")
+	// git config
+	if name == "" {
+		name = c.GetConfig("user.name")
+	}
+	if email == "" {
+		email = c.GetConfig("user.email")
 	}
 
-	if email != "" {
-		person.Email = email
-	} else {
-		person.Email = c.GetConfig("user.email")
-	}
-
-	// .gitconfig doesn't exist, so use the system defaults.
-	if person.Name == "" || person.Email == "" {
+	// system defaults
+	if name == "" {
 		u, err := user.Current()
 		if err != nil {
 			panic(err)
 		}
-		person.Name = u.Name
+		name = u.Name
+		configerr = NoGlobalConfig
+	}
+	if email == "" {
 		h, err := os.Hostname()
 		if err != nil {
 			panic(err)
 		}
-		person.Email = fmt.Sprintf("%s@%s", u.Username, h)
+		email = fmt.Sprintf("%s@%s", u.Username, h)
 		configerr = NoGlobalConfig
 	}
+	person.Name = name
+	person.Email = email
 	person.Time = t
 	return person, configerr
 }
