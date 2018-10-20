@@ -308,7 +308,7 @@ func (c *Client) GetAuthor(t *time.Time) Person {
 		if err != nil {
 			panic(err)
 		}
-		email = fmt.Sprintf("%s@%s", u.Username, h)
+		email = fmt.Sprintf("%s@%s", name, h)
 	}
 	person.Name = name
 	person.Email = email
@@ -350,7 +350,7 @@ func (c *Client) GetCommitter(t *time.Time) (Person, error) {
 		if err != nil {
 			panic(err)
 		}
-		email = fmt.Sprintf("%s@%s", u.Username, h)
+		email = fmt.Sprintf("%s@%s", name, h)
 		configerr = NoGlobalConfig
 	}
 	person.Name = name
