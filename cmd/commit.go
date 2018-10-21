@@ -20,7 +20,7 @@ following commands:
 	dgit config --global user.name 'Your Name'
 	dgit config --global user.email your@email
 
-After doing this, you may fix the identity userd for this commit with:
+After doing this, you may fix the identity used for this commit with:
 
 	dgit commit --amend --reset-author
 `, committer)
