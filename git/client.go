@@ -279,10 +279,6 @@ func timeToGitTime(t time.Time) string {
 // Returns the author that should be used for a commit message.
 // If time t is provided,
 func (c *Client) GetAuthor(t *time.Time) Person {
-	home := os.Getenv("HOME")
-	if home == "" {
-		home = os.Getenv("home") // On some OSes, it is home
-	}
 	person := Person{}
 	name := os.Getenv("GIT_AUTHOR_NAME")
 	email := os.Getenv("GIT_AUTHOR_EMAIL")
@@ -323,10 +319,6 @@ func (c *Client) GetAuthor(t *time.Time) Person {
 // Returns the author that should be used for a commit message.
 // If time t is provided,
 func (c *Client) GetCommitter(t *time.Time) (Person, error) {
-	home := os.Getenv("HOME")
-	if home == "" {
-		home = os.Getenv("home") // On some OSes, it is home
-	}
 	person := Person{}
 	name := os.Getenv("GIT_COMMITTER_NAME")
 	email := os.Getenv("GIT_COMMITTER_EMAIL")
