@@ -297,13 +297,13 @@ func ReadIndexEntry(file *os.File, indexVersion uint32) (*IndexEntry, error) {
 			}
 			name = append(name, nbyte...)
 		}
-		off, err := file.Seek(0, os.SEEK_CUR)
+		off, err := file.Seek(0, io.SeekCurrent)
 		if err != nil {
 			return nil, err
 		}
 		// The mystery 4 appears again.
 		padding := 8 - ((off + 4) % 8)
-		if _, err := file.Seek(padding, os.SEEK_CUR); err != nil {
+		if _, err := file.Seek(padding, io.SeekCurrent); err != nil {
 			return nil, err
 		}
 	}
