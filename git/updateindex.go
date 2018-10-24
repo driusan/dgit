@@ -142,15 +142,15 @@ func UpdateIndexFromReader(c *Client, opts UpdateIndexOptions, r io.Reader) (*In
 		switch len(spaces) {
 		case 2:
 			// mode SP sha1 TAB path
+			sha1, err := Sha1FromString(spaces[1])
+			if err != nil {
+				return nil, err
+			}
 			if spaces[0] == "0" {
 				// Mode "0" means remove index
 				idx.RemoveFile(IndexPath(path))
 			} else {
 				mode, err := ModeFromString(spaces[0])
-				if err != nil {
-					return nil, err
-				}
-				sha1, err := Sha1FromString(spaces[1])
 				if err != nil {
 					return nil, err
 				}
