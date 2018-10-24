@@ -142,7 +142,22 @@ func UpdateIndexFromReader(c *Client, opts UpdateIndexOptions, r io.Reader) (*In
 		switch len(spaces) {
 		case 2:
 			// mode SP sha1 TAB path
-			return nil, fmt.Errorf("update-index --index-info variant 1 not implemented")
+			sha1, err := Sha1FromString(spaces[1])
+			if err != nil {
+				return nil, err
+			}
+			if spaces[0] == "0" {
+				// Mode "0" means remove index
+				idx.RemoveFile(IndexPath(path))
+			} else {
+				mode, err := ModeFromString(spaces[0])
+				if err != nil {
+					return nil, err
+				}
+				if err := idx.AddStage(c, IndexPath(path), mode, sha1, Stage0, 0, 0, UpdateIndexOptions{Add: true}); err != nil {
+					return nil, err
+				}
+			}
 		case 3:
 			switch len(spaces[1]) {
 			case 40:
