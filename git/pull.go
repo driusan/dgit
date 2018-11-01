@@ -9,7 +9,10 @@ type PullOptions struct {
 
 func Pull(c *Client, opts PullOptions, repository Remote, remotebranches []string) error {
 	err := Fetch(c, opts.FetchOptions, repository)
-	if err != nil {
+	if err != nil && err.Error() != "Already up to date." {
+		// If fetch says we have all the refs, that doesn't
+		// mean that they're merged into the current branch
+		// so we don't error out.
 		return err
 	}
 
