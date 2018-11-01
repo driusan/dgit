@@ -213,6 +213,9 @@ func main() {
 		subcommandUsage = "[<repository [<refspec>...]]"
 		if err := cmd.Pull(c, args); err != nil {
 			fmt.Fprintf(os.Stderr, "%v\n", err)
+			if err.Error() == "Already up to date." {
+				os.Exit(0)
+			}
 			os.Exit(2)
 		}
 	case "reset":
