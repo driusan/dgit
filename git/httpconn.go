@@ -116,7 +116,18 @@ func (s *smartHTTPConn) OpenConn() error {
 }
 
 func parseRemoteInitialConnection(r io.Reader, stateless bool) (uint8, map[string]map[string]struct{}, []Ref, error) {
-	switch line := loadLine(r); line {
+	line := loadLine(r)
+	switch line {
+	case "# service=git-upload-pack", "# service=git-upload-pack\n":
+		// An http connection starts with the service announcement. We
+		// need to parse the next line
+		line = loadLine(r)
+		if line == "" {
+			line = loadLine(r)
+		}
+	}
+
+	switch line {
 	case "version 2", "version 2\n":
 		cap := make(map[string]map[string]struct{})
 		for line := loadLine(r); line != ""; line = loadLine(r) {
@@ -137,14 +148,6 @@ func parseRemoteInitialConnection(r io.Reader, stateless bool) (uint8, map[strin
 		}
 		return 2, cap, nil, nil
 
-	case "# service=git-upload-pack", "# service=git-upload-pack\n":
-		// An http connection starts with the service announcement. We
-		// need to parse the next line
-		line = loadLine(r)
-		if line == "" {
-			line = loadLine(r)
-		}
-		fallthrough
 	default:
 		cap := make(map[string]map[string]struct{})
 		var refs []Ref
@@ -253,7 +256,7 @@ func (s smartHTTPConn) GetRefs(opts LsRemoteOptions, patterns []string) ([]Ref, 
 		}
 		defer resp.Body.Close()
 		for line := loadLine(resp.Body); line != ""; line = loadLine(resp.Body) {
-			ref, err := parseLsRef(string(line))
+			ref, err := parseLsRef(line)
 			if err != nil {
 				return nil, err
 			}
@@ -456,5 +459,6 @@ func parseLsRef(s string) (Ref, error) {
 		return Ref{}, err
 	}
 	name := string(s[41:])
+	name = strings.TrimSuffix(name, "\n")
 	return Ref{Name: name, Value: sha1}, nil
 }

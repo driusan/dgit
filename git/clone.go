@@ -62,6 +62,9 @@ func Clone(opts CloneOptions, rmt Remote, dst File) error {
 		return err
 	}
 	config, err := LoadLocalConfig(c)
+	if err != nil {
+		return err
+	}
 	config.SetConfig("remote.origin.url", rmt.String())
 	br := opts.Branch
 	if br == "" {
@@ -79,6 +82,7 @@ func Clone(opts CloneOptions, rmt Remote, dst File) error {
 	if err := config.WriteConfig(); err != nil {
 		return err
 	}
+
 	for _, ref := range refs {
 		if !strings.HasPrefix(ref.Name, "refs/heads/") {
 			// FIXME: This should have been done by GetRefs()
