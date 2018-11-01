@@ -126,7 +126,7 @@ func parseRemoteInitialConnection(r io.Reader, stateless bool) (uint8, map[strin
 			line = loadLine(r)
 		}
 	}
-	
+
 	switch line {
 	case "version 2", "version 2\n":
 		cap := make(map[string]map[string]struct{})
