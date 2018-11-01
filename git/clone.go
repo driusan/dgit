@@ -83,7 +83,6 @@ func Clone(opts CloneOptions, rmt Remote, dst File) error {
 		return err
 	}
 
-	// FetchPack returned refs for V1, 
 	for _, ref := range refs {
 		if !strings.HasPrefix(ref.Name, "refs/heads/") {
 			// FIXME: This should have been done by GetRefs()

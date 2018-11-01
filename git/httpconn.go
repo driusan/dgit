@@ -119,7 +119,6 @@ func parseRemoteInitialConnection(r io.Reader, stateless bool) (uint8, map[strin
 	line := loadLine(r)
 	switch line {
 	case "# service=git-upload-pack", "# service=git-upload-pack\n":
-		println("Upload pack")
 		// An http connection starts with the service announcement. We
 		// need to parse the next line
 		line = loadLine(r)
