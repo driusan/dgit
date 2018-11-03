@@ -2,8 +2,11 @@ package git
 
 import (
 	"archive/tar"
+	"archive/zip"
+	"compress/flate"
 	"compress/gzip"
 	"fmt"
+	"io"
 	"os"
 	"strings"
 	"time"
@@ -25,15 +28,14 @@ const (
 	archiveUnknow = ArchiveFormat(iota)
 	archiveTar
 	archiveTarGzip
-
-//	archiveZip
+	archiveZip
 )
 
 var supportedArchiveFormats = map[string]ArchiveFormat{
 	"tar":    archiveTar,
 	"tgz":    archiveTarGzip,
 	"tar.gz": archiveTarGzip,
-	//	"zip":    archiveZip,
+	"zip":    archiveZip,
 }
 
 func findOutputFileFormat(output string) ArchiveFormat {
@@ -138,6 +140,66 @@ func createTarArchive(c *Client, opts ArchiveOptions, tgz bool, sha Sha1, entrie
 	return nil
 }
 
+func createZipArchive(c *Client, opts ArchiveOptions, sha Sha1, entries []*IndexEntry) error {
+	fileOutput := os.Stdout
+
+	// If the output file is not empty use it instead of stdout
+	if opts.OutputFile != "" {
+		if file, err := os.Create(opts.OutputFile); err == nil {
+			fileOutput = file
+			defer file.Close()
+		} else {
+			return err
+		}
+	}
+
+	mtime := time.Now()
+
+	// If the sha is a tree we set the file modification time to the current time
+	// otherwise we must use the commit time.
+	if sha.Type(c) != "tree" {
+		if t, err := CommitID(sha).GetDate(c); err == nil {
+			mtime = t
+		}
+	}
+
+	zw := zip.NewWriter(fileOutput)
+	defer zw.Close()
+
+	// set the compression level
+	zw.RegisterCompressor(zip.Deflate, func(out io.Writer) (io.WriteCloser, error) {
+		return flate.NewWriter(out, opts.CompressionLevel)
+	})
+
+	// Set the commit sha as the zip comment.
+	zw.SetComment(sha.String())
+
+	for _, e := range entries {
+		o, err := c.GetObject(e.Sha1)
+		if err != nil {
+			return err
+		}
+		if obj, ok := o.(GitBlobObject); ok {
+			hdr := &zip.FileHeader{
+				Name:     opts.BasePrefix + e.PathName.String(),
+				Modified: mtime,
+				Method:   zip.Deflate,
+			}
+			f, err := zw.CreateHeader(hdr)
+
+			if err != nil {
+				return nil
+			}
+
+			if _, err := f.Write(obj.GetContent()); err != nil {
+				return err
+			}
+		}
+	}
+
+	return nil
+}
+
 // Return the list of supported archive file format
 func ArchiveFormatList() []string {
 	formats := make([]string, 0, len(supportedArchiveFormats))
@@ -205,6 +267,8 @@ func Archive(c *Client, opts ArchiveOptions, arg string) error {
 		return createTarArchive(c, opts, false, sha1, lstree)
 	case archiveTarGzip:
 		return createTarArchive(c, opts, true, sha1, lstree)
+	case archiveZip:
+		return createZipArchive(c, opts, sha1, lstree)
 	}
 	return nil
 }
