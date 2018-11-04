@@ -1,6 +1,7 @@
 package cmd
 
 import (
+	"errors"
 	"flag"
 	"fmt"
 	"os"
@@ -8,6 +9,22 @@ import (
 
 	"github.com/driusan/dgit/git"
 )
+
+func findArchiveFormat(input string) (git.ArchiveFormat, error) {
+	// If the output is empty return the default value, a tarball.
+	if input == "" {
+		return git.ArchiveTar, nil
+	}
+
+	for k, v := range git.ArchiveFormatList() {
+		if strings.HasSuffix(strings.ToLower(input), k) {
+			return v, nil
+		}
+	}
+	// The archive format is not found,
+	// return tar by default and an error.
+	return git.ArchiveTar, errors.New("Archive format not supported!")
+}
 
 func Archive(c *git.Client, args []string) error {
 	flags := flag.NewFlagSet("archive", flag.ExitOnError)
@@ -20,7 +37,10 @@ func Archive(c *git.Client, args []string) error {
 
 	opts := git.ArchiveOptions{}
 
-	// default compression level in the deflate package.
+	// Default archive format is tar.
+	opts.Format = git.ArchiveTar
+
+	// Default compression level in the deflate package.
 	opts.CompressionLevel = -1
 
 	//flags.BoolVar(&opts.Verbose, "verbose", false, "Report archived files on stderr")
@@ -29,9 +49,6 @@ func Archive(c *git.Client, args []string) error {
 	flags.Var(newNotimplBoolValue(), "v", "Not implemented")
 
 	flags.StringVar(&opts.BasePrefix, "prefix", "", "Prepend prefix to each pathname in the archive")
-	flags.StringVar(&opts.OutputFile, "output", "", "Write the archive to this file")
-	flags.StringVar(&opts.OutputFile, "o", "", "Alias for --output")
-
 	//flags.BoolVar(&opts.WorktreeAttributes, "worktree-attributes", false, "Not implemented")
 	flags.Var(newNotimplBoolValue(), "worktree-attributes", "Not implemented")
 
@@ -41,7 +58,10 @@ func Archive(c *git.Client, args []string) error {
 	flags.Var(newNotimplStringValue(), "remote", "Not implemented")
 	flags.Var(newNotimplStringValue(), "exec", "Not implemented")
 
-	flags.StringVar(&opts.ArchiveFormat, "format", "", "Archive format")
+	var flagOutput, flagFormat string
+	flags.StringVar(&flagOutput, "output", "", "Write the archive to this file")
+	flags.StringVar(&flagOutput, "o", "", "Alias for --output")
+	flags.StringVar(&flagFormat, "format", "", "Archive format")
 
 	// FIXME: Find a better way to do this.
 	var cl [10]bool
@@ -94,6 +114,36 @@ func Archive(c *git.Client, args []string) error {
 		}
 	}
 
+	formatInput := flagOutput
+
+	// If a --format is set use it instead
+	if flagFormat != "" {
+		formatInput = flagFormat
+	}
+
+	if formatInput != "" {
+		format, err := findArchiveFormat(formatInput)
+
+		// If we're trying to get the format from the --format flag
+		// we must error if format is not supported.
+		if err != nil && flagFormat != "" {
+			return fmt.Errorf("Unknow archive format '%s'", flagFormat)
+		}
+
+		opts.Format = format
+
+		// If the --output flag is not empty we must open/create the
+		// output file.
+		if flagOutput != "" {
+			if file, err := os.Create(flagOutput); err != nil {
+				return err
+			} else {
+				opts.OutputFile = file
+				defer file.Close()
+			}
+		}
+	}
+
 	if opts.List {
 		formatList := git.ArchiveFormatList()
 		for _, f := range formatList {
@@ -110,5 +160,9 @@ func Archive(c *git.Client, args []string) error {
 		//opts.IncludePath = h[1]
 	}
 
-	return git.Archive(c, opts, treeish)
+	if tree, err := git.RevParseTreeish(c, &git.RevParseOptions{}, treeish); err != nil {
+		return err
+	} else {
+		return git.Archive(c, opts, tree)
+	}
 }

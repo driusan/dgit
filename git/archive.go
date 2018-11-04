@@ -5,11 +5,8 @@ import (
 	"archive/zip"
 	"compress/flate"
 	"compress/gzip"
-	"errors"
-	"fmt"
 	"io"
 	"os"
-	"strings"
 	"time"
 )
 
@@ -17,67 +14,36 @@ type ArchiveOptions struct {
 	Verbose            bool
 	List               bool
 	WorktreeAttributes bool
-	ArchiveFormat      string
+	Format             ArchiveFormat
 	BasePrefix         string
-	OutputFile         string
+	OutputFile         *os.File
 	CompressionLevel   int
 }
 
 type ArchiveFormat int
 
 const (
-	archiveTar = ArchiveFormat(iota)
-	archiveTarGzip
-	archiveZip
+	ArchiveTar = ArchiveFormat(iota)
+	ArchiveTarGzip
+	ArchiveZip
 )
 
 var supportedArchiveFormats = map[string]ArchiveFormat{
-	"tar":    archiveTar,
-	"tgz":    archiveTarGzip,
-	"tar.gz": archiveTarGzip,
-	"zip":    archiveZip,
+	"tar":    ArchiveTar,
+	"tgz":    ArchiveTarGzip,
+	"tar.gz": ArchiveTarGzip,
+	"zip":    ArchiveZip,
 }
 
-func findOutputFileFormat(output string) (ArchiveFormat, error) {
-	// if the output is empty return the default value, a tarball.
-	if output == "" {
-		return archiveTar, nil
-	}
-
-	for k, v := range supportedArchiveFormats {
-		if strings.HasSuffix(strings.ToLower(output), k) {
-			return v, nil
-		}
-	}
-	// The archive format is not found,
-	// return tar by default and an error.
-	return archiveTar, errors.New("Archive format not supported!")
-}
-
-func createTarArchive(c *Client, opts ArchiveOptions, tgz bool, sha Sha1, entries []*IndexEntry) error {
+func createTarArchive(c *Client, opts ArchiveOptions, tgz bool, sha Sha1, mtime time.Time, entries []*IndexEntry) error {
 	var fileOutput io.Writer = os.Stdout
 
-	// If the output file is not empty use it instead of stdout
-	if opts.OutputFile != "" {
-		if file, err := os.Create(opts.OutputFile); err == nil {
-			fileOutput = file
-			defer file.Close()
-		} else {
-			return err
-		}
+	// If the output file is set use it instead of stdout
+	if opts.OutputFile != nil {
+		fileOutput = opts.OutputFile
 	}
 
-	mtime := time.Now()
-
-	// If the sha is a tree we set the file modification time to the current time
-	// otherwise we must use the commit time.
-	if sha.Type(c) != "tree" {
-		if t, err := CommitID(sha).GetDate(c); err == nil {
-			mtime = t
-		}
-	}
-
-	// If gzip compression is enabled
+	// gzip compression is enabled
 	if tgz {
 		gw := gzip.NewWriter(fileOutput)
 		fileOutput = gw
@@ -134,27 +100,12 @@ func createTarArchive(c *Client, opts ArchiveOptions, tgz bool, sha Sha1, entrie
 	return nil
 }
 
-func createZipArchive(c *Client, opts ArchiveOptions, sha Sha1, entries []*IndexEntry) error {
+func createZipArchive(c *Client, opts ArchiveOptions, sha Sha1, mtime time.Time, entries []*IndexEntry) error {
 	fileOutput := os.Stdout
 
-	// If the output file is not empty use it instead of stdout
-	if opts.OutputFile != "" {
-		if file, err := os.Create(opts.OutputFile); err == nil {
-			fileOutput = file
-			defer file.Close()
-		} else {
-			return err
-		}
-	}
-
-	mtime := time.Now()
-
-	// If the sha is a tree we set the file modification time to the current time
-	// otherwise we must use the commit time.
-	if sha.Type(c) != "tree" {
-		if t, err := CommitID(sha).GetDate(c); err == nil {
-			mtime = t
-		}
+	// If the output file is set use it instead of stdout
+	if opts.OutputFile != nil {
+		fileOutput = opts.OutputFile
 	}
 
 	zw := zip.NewWriter(fileOutput)
@@ -195,66 +146,43 @@ func createZipArchive(c *Client, opts ArchiveOptions, sha Sha1, entries []*Index
 }
 
 // Return the list of supported archive file format
-func ArchiveFormatList() []string {
-	formats := make([]string, 0, len(supportedArchiveFormats))
-	for key := range supportedArchiveFormats {
-		formats = append(formats, key)
-	}
-	return formats
+func ArchiveFormatList() map[string]ArchiveFormat {
+	return supportedArchiveFormats
 }
 
-func Archive(c *Client, opts ArchiveOptions, arg string) error {
-	format := archiveTar
-
-	//
-	treeish, err := RevParseTreeish(c, &RevParseOptions{}, arg)
-	if err != nil {
-		return err
-	}
-
-	// find the format output desired
-	if opts.ArchiveFormat != "" {
-		format, err = findOutputFileFormat(opts.ArchiveFormat)
-		if err != nil {
-			return fmt.Errorf("Unknow archive format '%s'", opts.ArchiveFormat)
-		}
-	} else if opts.OutputFile != "" {
-		// if the output file is not empty try to find
-		// the archive format from the file extension.
-		format, _ = findOutputFileFormat(opts.OutputFile)
-	}
-
+func Archive(c *Client, opts ArchiveOptions, tree Treeish) error {
 	// commit hash
 	var sha1 Sha1
 
-	// if the input it's a tag we must resolve it to a commit
-	if h, ok := treeish.(Ref); ok {
-		refspec := RefSpec(h.Name)
-		if c, err := refspec.CommitID(c); err != nil {
+	mtime := time.Now()
+
+	commitish, ok := tree.(Commitish)
+	if ok {
+		cid, err := commitish.CommitID(c)
+		if err != nil {
 			return err
-		} else {
-			treeish = c
+		}
+		sha1 = Sha1(cid)
+
+		// If the sha is a tree we set the file modification time to the current time
+		// otherwise we must use the commit time.
+		if t, err := cid.GetDate(c); err == nil {
+			mtime = t
 		}
 	}
 
-	if s, ok := treeish.(CommitID); ok {
-		sha1 = Sha1(s)
-	} else {
-		return fmt.Errorf("Can't convert treeish to commit id")
-	}
-
-	lstree, err := LsTree(c, LsTreeOptions{Recurse: true}, treeish, nil)
+	lstree, err := LsTree(c, LsTreeOptions{Recurse: true}, tree, nil)
 	if err != nil {
 		return err
 	}
 
-	switch format {
-	case archiveTar:
-		return createTarArchive(c, opts, false, sha1, lstree)
-	case archiveTarGzip:
-		return createTarArchive(c, opts, true, sha1, lstree)
-	case archiveZip:
-		return createZipArchive(c, opts, sha1, lstree)
+	switch opts.Format {
+	case ArchiveTar:
+		return createTarArchive(c, opts, false, sha1, mtime, lstree)
+	case ArchiveTarGzip:
+		return createTarArchive(c, opts, true, sha1, mtime, lstree)
+	case ArchiveZip:
+		return createZipArchive(c, opts, sha1, mtime, lstree)
 	}
 	return nil
 }
