@@ -4,43 +4,10 @@ import (
 	"flag"
 	"fmt"
 	"os"
-	"strconv"
 	"strings"
 
 	"github.com/driusan/dgit/git"
 )
-
-func argsParseCompressionLevel(opts *git.ArchiveOptions, args []string) []string {
-	for i, arg := range args {
-		if len(arg) < 2 || arg[0] != '-' {
-			continue
-		}
-		startIndex := 1
-		if arg[1] == '-' {
-			startIndex++
-			if len(arg) == 2 {
-				continue
-			}
-		}
-
-		// slice the dash
-		value := arg[startIndex:]
-
-		// Try to convert to integer
-		if v, err := strconv.Atoi(value); err != nil {
-			// The value is NaN
-			continue
-		} else {
-			// The compression value must be between 0..9
-			if v >= 0 && v <= 9 {
-				opts.CompressionLevel = v
-			}
-			// remove this value from the arg list
-			return append(args[:i], args[i+1:]...)
-		}
-	}
-	return args
-}
 
 func Archive(c *git.Client, args []string) error {
 	flags := flag.NewFlagSet("archive", flag.ExitOnError)
@@ -52,6 +19,9 @@ func Archive(c *git.Client, args []string) error {
 	}
 
 	opts := git.ArchiveOptions{}
+
+	// default compression level in the deflate package.
+	opts.CompressionLevel = -1
 
 	//flags.BoolVar(&opts.Verbose, "verbose", false, "Report archived files on stderr")
 	//flags.BoolVar(&opts.Verbose, "v", false, "Alias for --verbose")
@@ -73,14 +43,18 @@ func Archive(c *git.Client, args []string) error {
 
 	flags.StringVar(&opts.ArchiveFormat, "format", "", "Archive format")
 
-	flags.IntVar(&opts.CompressionLevel, "0", 0, "Store only")
-	flags.IntVar(&opts.CompressionLevel, "9", 9, "Highest compression level")
-
-	// if the args is empty, print usage.
-	if len(args) == 0 {
-		flags.Usage()
-		os.Exit(2)
-	}
+	// FIXME: Find a better way to do this.
+	var cl [10]bool
+	flags.BoolVar(&cl[0], "0", false, "No compression")
+	flags.BoolVar(&cl[1], "1", false, "Compress faster")
+	flags.BoolVar(&cl[2], "2", false, "Compression level")
+	flags.BoolVar(&cl[3], "3", false, "Compression level")
+	flags.BoolVar(&cl[4], "4", false, "Compression level")
+	flags.BoolVar(&cl[5], "5", false, "Compression level")
+	flags.BoolVar(&cl[6], "6", false, "Compression level")
+	flags.BoolVar(&cl[7], "7", false, "Compression level")
+	flags.BoolVar(&cl[8], "8", false, "Compression level")
+	flags.BoolVar(&cl[9], "9", false, "Highest compression level")
 
 	flags.Parse(args)
 
@@ -97,20 +71,27 @@ func Archive(c *git.Client, args []string) error {
 		// The first not parsed arg should be the treeish
 		treeish = args[0]
 
-		// Check if there's a -1..8 compression level flag
-		args = argsParseCompressionLevel(&opts, args[1:])
-
 		// Parse the flags again skipping the first arg
-		flags.Parse(args)
+		flags.Parse(args[1:])
 
 		// After this second parse there should not be any arg left to parse.
 		if flags.NArg() > 0 {
-			flags.Usage()
-			os.Exit(2)
+			return fmt.Errorf("<path> option not implemented")
 		}
 	} else if flags.NArg() == 1 {
 		args := flags.Args()
 		treeish = args[0]
+	} else {
+		flags.Usage()
+		os.Exit(2)
+	}
+
+	// if a compression flag is set change the opts.CompressionLevel value.
+	for i, v := range cl {
+		if v {
+			opts.CompressionLevel = i
+			break
+		}
 	}
 
 	if opts.List {
@@ -123,7 +104,7 @@ func Archive(c *git.Client, args []string) error {
 
 	// Special case for "HEAD:folder/"
 	if h := strings.SplitN(treeish, ":", 2); len(h) == 2 {
-		return fmt.Errorf("<path> option not implemented.")
+		return fmt.Errorf("<path> option not implemented")
 		// TODO: path option not implemented.
 		//treeish = h[0]
 		//opts.IncludePath = h[1]
