@@ -5,6 +5,7 @@ import (
 	"archive/zip"
 	"compress/flate"
 	"compress/gzip"
+	"errors"
 	"fmt"
 	"io"
 	"os"
@@ -25,8 +26,7 @@ type ArchiveOptions struct {
 type ArchiveFormat int
 
 const (
-	archiveUnknow = ArchiveFormat(iota)
-	archiveTar
+	archiveTar = ArchiveFormat(iota)
 	archiveTarGzip
 	archiveZip
 )
@@ -38,19 +38,20 @@ var supportedArchiveFormats = map[string]ArchiveFormat{
 	"zip":    archiveZip,
 }
 
-func findOutputFileFormat(output string) ArchiveFormat {
+func findOutputFileFormat(output string) (ArchiveFormat, error) {
 	// if the output is empty return the default value, a tarball.
 	if output == "" {
-		return archiveTar
+		return archiveTar, nil
 	}
 
 	for k, v := range supportedArchiveFormats {
 		if strings.HasSuffix(strings.ToLower(output), k) {
-			return v
+			return v, nil
 		}
 	}
-	// The archive format is not found, return unknow.
-	return archiveUnknow
+	// The archive format is not found,
+	// return tar by default and an error.
+	return archiveTar, errors.New("Archive format not supported!")
 }
 
 func createTarArchive(c *Client, opts ArchiveOptions, tgz bool, sha Sha1, entries []*IndexEntry) error {
@@ -210,7 +211,7 @@ func ArchiveFormatList() []string {
 }
 
 func Archive(c *Client, opts ArchiveOptions, arg string) error {
-	format := archiveUnknow
+	format := archiveTar
 
 	//
 	treeish, err := RevParseTreeish(c, &RevParseOptions{}, arg)
@@ -218,24 +219,16 @@ func Archive(c *Client, opts ArchiveOptions, arg string) error {
 		return err
 	}
 
-	//
-	if opts.ArchiveFormat == "" {
-		// if the output file is set try to find
-		// the archive format from the file extension.
-		if opts.OutputFile != "" {
-			format = findOutputFileFormat(opts.OutputFile)
-			if format == archiveUnknow {
-				format = archiveTar
-			}
-		} else {
-			// Default is tarball
-			format = archiveTar
-		}
-	} else {
-		format = findOutputFileFormat(opts.ArchiveFormat)
-		if format == archiveUnknow {
+	// find the format output desired
+	if opts.ArchiveFormat != "" {
+		format, err = findOutputFileFormat(opts.ArchiveFormat)
+		if err != nil {
 			return fmt.Errorf("Unknow archive format '%s'", opts.ArchiveFormat)
 		}
+	} else if opts.OutputFile != "" {
+		// if the output file is not empty try to find
+		// the archive format from the file extension.
+		format, _ = findOutputFileFormat(opts.OutputFile)
 	}
 
 	// commit hash
