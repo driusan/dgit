@@ -114,10 +114,6 @@ func createTarArchive(c *Client, opts ArchiveOptions, tgz bool, sha Sha1, entrie
 			hdr.Name = opts.BasePrefix + e.PathName.String()
 			hdr.Size = int64(obj.GetSize())
 			hdr.ModTime = mtime
-			hdr.Uid = 0
-			hdr.Gid = 0
-			hdr.Uname = "root"
-			hdr.Gname = "root"
 
 			// TODO: Mask the mode. by default the mask is 0002 (turn off write bit)
 			// but can be changed using tar.umask config.
