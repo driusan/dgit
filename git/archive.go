@@ -55,7 +55,7 @@ func findOutputFileFormat(output string) (ArchiveFormat, error) {
 }
 
 func createTarArchive(c *Client, opts ArchiveOptions, tgz bool, sha Sha1, entries []*IndexEntry) error {
-	fileOutput := os.Stdout
+	var fileOutput io.Writer = os.Stdout
 
 	// If the output file is not empty use it instead of stdout
 	if opts.OutputFile != "" {
@@ -77,19 +77,16 @@ func createTarArchive(c *Client, opts ArchiveOptions, tgz bool, sha Sha1, entrie
 		}
 	}
 
-	var tw *tar.Writer
-
-	//
+	// If gzip compression is enabled
 	if tgz {
 		gw := gzip.NewWriter(fileOutput)
+		fileOutput = gw
 		defer gw.Close()
-
-		tw = tar.NewWriter(gw)
-		defer tw.Close()
-	} else {
-		tw = tar.NewWriter(fileOutput)
-		defer tw.Close()
 	}
+
+	// Create the tar writer
+	tw := tar.NewWriter(fileOutput)
+	defer tw.Close()
 
 	// Write the pax header
 	hdr := &tar.Header{
