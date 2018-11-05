@@ -4,12 +4,13 @@ import (
 	"errors"
 	"flag"
 	"fmt"
-	"github.com/driusan/dgit/cmd"
-	"github.com/driusan/dgit/git"
 	"io/ioutil"
 	"log"
 	"os"
 	"strings"
+
+	"github.com/driusan/dgit/cmd"
+	"github.com/driusan/dgit/git"
 )
 
 var InvalidArgument error = errors.New("Invalid argument to function")
@@ -423,6 +424,13 @@ func main() {
 			fmt.Fprintln(os.Stderr, err)
 			os.Exit(1)
 		}
+	case "archive":
+		globalOptsInUsage = false
+		subcommandUsage = "<tree-ish> [<path>...]"
+		if err := cmd.Archive(c, args); err != nil {
+			fmt.Fprintln(os.Stderr, err)
+			os.Exit(1)
+		}
 	case "help":
 		flag.CommandLine.SetOutput(os.Stdout)
 		flag.Usage()
@@ -474,6 +482,7 @@ func main() {
    var              Show a Git logical variable
    submodule        Initialize, update or inspect submodules
    showref          List references in a local repository
+   archive
 `)
 
 		os.Exit(0)
