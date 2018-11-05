@@ -173,7 +173,7 @@ func Archive(c *Client, opts ArchiveOptions, tree Treeish, paths []File) error {
 		}
 	}
 
-	lstree, err := LsTree(c, LsTreeOptions{Recurse: true}, tree, paths)
+	lstree, err := LsTree(c, LsTreeOptions{Recurse: true, ShowTrees: true}, tree, paths)
 	if err != nil {
 		return err
 	}
@@ -196,6 +196,12 @@ func Archive(c *Client, opts ArchiveOptions, tree Treeish, paths []File) error {
 					return fmt.Errorf("'%s' did not match any files", path.String())
 				}
 			}
+		}
+	}
+
+	if opts.Verbose {
+		for _, entry := range lstree {
+			fmt.Fprintln(os.Stderr, entry.PathName.String())
 		}
 	}
 

@@ -43,10 +43,8 @@ func Archive(c *git.Client, args []string) error {
 	// Default compression level in the deflate package.
 	opts.CompressionLevel = -1
 
-	//flags.BoolVar(&opts.Verbose, "verbose", false, "Report archived files on stderr")
-	//flags.BoolVar(&opts.Verbose, "v", false, "Alias for --verbose")
-	flags.Var(newNotimplBoolValue(), "verbose", "Not implemented")
-	flags.Var(newNotimplBoolValue(), "v", "Not implemented")
+	flags.BoolVar(&opts.Verbose, "verbose", false, "Report archived files on stderr")
+	flags.BoolVar(&opts.Verbose, "v", false, "Alias for --verbose")
 
 	flags.StringVar(&opts.BasePrefix, "prefix", "", "Prepend prefix to each pathname in the archive")
 	//flags.BoolVar(&opts.WorktreeAttributes, "worktree-attributes", false, "Not implemented")

@@ -13,7 +13,7 @@ Command	Status	Reference git version  Notes
 add            HappyPath     git 2.9.2              (5) Missing --edit, --interactive, --intent-to-add, --ignore-errors, --ignore-missing, and --no-warn-embedded-repo
                                                     (3) Passed to update-index or ls-files, but missing plumbing support: --force, --refresh, --chmod
 am             None
-archive        HappyPath     git 2.9.2              (4) Missing --verbose, --worktree-attributes, --remote, --exec options.
+archive        HappyPath     git 2.9.2              (3) Missing --worktree-attributes, --remote, --exec options.
                                                         Missing options from configuration (tar.umask, tar.<format>.command, tar.<format>.remote).
                                                         Missing symlinks support.
 branch         HappyPath     git 2.9.2
