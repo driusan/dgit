@@ -43,10 +43,8 @@ func Archive(c *git.Client, args []string) error {
 	// Default compression level in the deflate package.
 	opts.CompressionLevel = -1
 
-	//flags.BoolVar(&opts.Verbose, "verbose", false, "Report archived files on stderr")
-	//flags.BoolVar(&opts.Verbose, "v", false, "Alias for --verbose")
-	flags.Var(newNotimplBoolValue(), "verbose", "Not implemented")
-	flags.Var(newNotimplBoolValue(), "v", "Not implemented")
+	flags.BoolVar(&opts.Verbose, "verbose", false, "Report archived files on stderr")
+	flags.BoolVar(&opts.Verbose, "v", false, "Alias for --verbose")
 
 	flags.StringVar(&opts.BasePrefix, "prefix", "", "Prepend prefix to each pathname in the archive")
 	//flags.BoolVar(&opts.WorktreeAttributes, "worktree-attributes", false, "Not implemented")
@@ -79,6 +77,7 @@ func Archive(c *git.Client, args []string) error {
 	flags.Parse(args)
 
 	var treeish string
+	var paths []git.File
 
 	// Since the Flag parsing stops before the first non-flag argument
 	// there can be remaining arguments to parse.
@@ -94,9 +93,9 @@ func Archive(c *git.Client, args []string) error {
 		// Parse the flags again skipping the first arg
 		flags.Parse(args[1:])
 
-		// After this second parse there should not be any arg left to parse.
-		if flags.NArg() > 0 {
-			return fmt.Errorf("<path> option not implemented")
+		// After this second parse the remaining args should be paths.
+		for _, f := range flags.Args() {
+			paths = append(paths, git.File(f))
 		}
 	} else if flags.NArg() == 1 {
 		args := flags.Args()
@@ -154,15 +153,13 @@ func Archive(c *git.Client, args []string) error {
 
 	// Special case for "HEAD:folder/"
 	if h := strings.SplitN(treeish, ":", 2); len(h) == 2 {
-		return fmt.Errorf("<path> option not implemented")
-		// TODO: path option not implemented.
-		//treeish = h[0]
-		//opts.IncludePath = h[1]
+		treeish = h[0]
+		paths = append(paths, git.File(h[1]))
 	}
 
 	if tree, err := git.RevParseTreeish(c, &git.RevParseOptions{}, treeish); err != nil {
 		return err
 	} else {
-		return git.Archive(c, opts, tree)
+		return git.Archive(c, opts, tree, paths)
 	}
 }

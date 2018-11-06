@@ -5,8 +5,10 @@ import (
 	"archive/zip"
 	"compress/flate"
 	"compress/gzip"
+	"fmt"
 	"io"
 	"os"
+	"strings"
 	"time"
 )
 
@@ -150,7 +152,7 @@ func ArchiveFormatList() map[string]ArchiveFormat {
 	return supportedArchiveFormats
 }
 
-func Archive(c *Client, opts ArchiveOptions, tree Treeish) error {
+func Archive(c *Client, opts ArchiveOptions, tree Treeish, paths []File) error {
 	// commit hash
 	var sha1 Sha1
 
@@ -171,9 +173,36 @@ func Archive(c *Client, opts ArchiveOptions, tree Treeish) error {
 		}
 	}
 
-	lstree, err := LsTree(c, LsTreeOptions{Recurse: true}, tree, nil)
+	lstree, err := LsTree(c, LsTreeOptions{Recurse: true, ShowTrees: true}, tree, paths)
 	if err != nil {
 		return err
+	}
+
+	if len(paths) > 0 {
+		// If the tree is empty return error.
+		if len(lstree) == 0 {
+			return fmt.Errorf("'%s' did not match any files", paths[0].String())
+		} else {
+			// Check if all the paths are found.
+			for _, path := range paths {
+				found := false
+				for _, entry := range lstree {
+					if strings.HasPrefix(entry.PathName.String(), path.String()) {
+						found = true
+						break
+					}
+				}
+				if !found {
+					return fmt.Errorf("'%s' did not match any files", path.String())
+				}
+			}
+		}
+	}
+
+	if opts.Verbose {
+		for _, entry := range lstree {
+			fmt.Fprintln(os.Stderr, entry.PathName.String())
+		}
 	}
 
 	switch opts.Format {
