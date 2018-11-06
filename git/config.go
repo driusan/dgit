@@ -216,6 +216,7 @@ func ParseConfig(configFile io.Reader) GitConfig {
 	section := &GitConfigSection{}
 	parsingSectionName := false
 	parsingValues := false
+	var sect *GitConfigSection = nil
 	var sections []GitConfigSection
 	lastBracket := 0
 	lastClosingBracket := 0
@@ -228,19 +229,43 @@ func ParseConfig(configFile io.Reader) GitConfig {
 			if parsingValues == true {
 				section.ParseValues(string(rawdata[lastClosingBracket+1 : idx]))
 				parsingValues = false
-				sections = append(sections, *section)
+
+				if sect != nil {
+					for k, v := range section.values {
+						sect.values[k] = v
+					}
+					sect = nil
+				} else {
+					sections = append(sections, *section)
+				}
 			}
 			section = &GitConfigSection{}
 		}
 		if b == ']' && parsingSectionName == true {
 			section.ParseSectionHeader(string(rawdata[lastBracket+1 : idx]))
+
+			for _, s := range sections {
+				if s.name == section.name && s.subsection == section.subsection {
+					sect = &s
+					break
+				}
+			}
+
 			parsingValues = true
 			parsingSectionName = false
 			lastClosingBracket = idx
 		}
 		if idx == len(rawdata)-1 && parsingValues == true {
 			section.ParseValues(string(rawdata[lastClosingBracket+1 : idx]))
-			sections = append(sections, *section)
+
+			if sect != nil {
+				for k, v := range section.values {
+					sect.values[k] = v
+				}
+				sect = nil
+			} else {
+				sections = append(sections, *section)
+			}
 		}
 	}
 	return GitConfig{sections: sections}
