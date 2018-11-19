@@ -121,7 +121,10 @@ func main() {
 		}
 	case "branch":
 		subcommandUsage = "[branchname]"
-		cmd.Branch(c, args)
+		if err := cmd.Branch(c, args); err != nil {
+			fmt.Fprintf(os.Stderr, "%v\n", err)
+			os.Exit(2)
+		}
 	case "checkout":
 		if err := cmd.Checkout(c, args); err != nil {
 			fmt.Fprintf(os.Stderr, "%v\n", err)

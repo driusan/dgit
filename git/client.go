@@ -239,6 +239,26 @@ func (c *Client) GetBranches() (branches []Branch, err error) {
 	return
 }
 
+// Return valid branches that a Client knows about.
+func (c *Client) GetRemoteBranches() (branches []Branch, err error) {
+	remotes, err := ioutil.ReadDir(c.GitDir.String() + "/refs/remotes")
+	if err != nil {
+		return nil, err
+	}
+	for _, d := range remotes {
+		if d.IsDir() {
+			brs, err := ioutil.ReadDir(c.GitDir.String() + "/refs/remotes/" + d.Name())
+			if err != nil {
+				continue
+			}
+			for _, b := range brs {
+				branches = append(branches, Branch("refs/remotes/"+d.Name()+"/"+b.Name()))
+			}
+		}
+	}
+	return
+}
+
 // Create a new branch in the Client's git repository.
 func (c *Client) CreateBranch(name string, commit Commitish) error {
 	id, err := commit.CommitID(c)

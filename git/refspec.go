@@ -137,5 +137,9 @@ func (b Branch) TreeID(c *Client) (TreeID, error) {
 
 // Returns the branch name, without the refspec portion.
 func (b Branch) BranchName() string {
-	return strings.TrimPrefix(string(b), "refs/heads/")
+	s := string(b)
+	if strings.HasPrefix(s, "refs/heads/") {
+		return strings.TrimPrefix(s, "refs/heads/")
+	}
+	return strings.TrimPrefix(s, "refs/")
 }
