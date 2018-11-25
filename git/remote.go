@@ -34,6 +34,15 @@ func (r Remote) RemoteURL(c *Client) (string, error) {
 	if cfg == "" {
 		return "", fmt.Errorf("Unknown remote")
 	}
+	if File(cfg).Exists() {
+		// The config pointed to a path but we already handled
+		// that case above, so now try it with the config setting
+		abs, err := filepath.Abs(string(cfg))
+		if err != nil {
+			return "", err
+		}
+		return "file://" + abs, nil
+	}
 	return cfg, nil
 }
 
@@ -181,4 +190,36 @@ func (r sharedRemoteConn) Capabilities() map[string]map[string]struct{} {
 
 func (r sharedRemoteConn) ProtocolVersion() uint8 {
 	return r.protocolversion
+}
+
+type RemoteOptions struct {
+	Verbose bool
+}
+type RemoteAddOptions struct {
+	RemoteOptions
+}
+
+func RemoteAdd(c *Client, opts RemoteAddOptions, name, url string) error {
+	if name == "" {
+		return fmt.Errorf("Missing remote name")
+	}
+	if url == "" {
+		return fmt.Errorf("Missing remote URL")
+	}
+
+	configname := fmt.Sprintf("remote.%v.url", name)
+	if c.GetConfig(configname) != "" {
+		return fmt.Errorf("fatal: remote %v already exists.", name)
+	}
+
+	config, err := LoadLocalConfig(c)
+	if err != nil {
+		return err
+	}
+	config.SetConfig(configname, url)
+	config.SetConfig(
+		fmt.Sprintf("remote.%v.fetch", name),
+		fmt.Sprintf("+refs/heads/*:refs/remotes/%v/*", name),
+	)
+	return config.WriteConfig()
 }
