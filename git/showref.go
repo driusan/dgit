@@ -24,6 +24,10 @@ func (r Ref) String() string {
 	return fmt.Sprintf("%v %v", r.Value, r.Name)
 }
 
+func (r Ref) TabString() string {
+	return fmt.Sprintf("%v\t%v", r.Value, r.Name)
+}
+
 func (r Ref) CommitID(c *Client) (CommitID, error) {
 	switch r.Value.Type(c) {
 	case "commit":

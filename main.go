@@ -427,6 +427,11 @@ func main() {
 			fmt.Fprintln(os.Stderr, err)
 			os.Exit(1)
 		}
+	case "remote":
+		if err := cmd.Remote(c, args); err != nil {
+			fmt.Fprintln(os.Stderr, err)
+			os.Exit(1)
+		}
 	case "archive":
 		globalOptsInUsage = false
 		subcommandUsage = "<tree-ish> [<path>...]"

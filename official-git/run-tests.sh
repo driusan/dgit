@@ -29,6 +29,14 @@ cp ../../dgit git
 rm git-init
 cp ../git-init .
 chmod a+x git-init
+rm git-ls-remote
+
+sed s/init/ls-remote/g git-init > git-ls-remote
+chmod a+x git-ls-remote
+
+rm git-remote
+sed s/init/remote/g git-remote > git-remote
+chmod a+x git-remote
 cd t
 
 make "$@"

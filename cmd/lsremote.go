@@ -40,7 +40,8 @@ func LsRemote(c *git.Client, args []string) error {
 	var patterns []string
 	switch len(args) {
 	case 0:
-		repo = "origin"
+		// The LsRemote func in the git package sets it to origin internally
+		repo = ""
 	case 1:
 		repo = git.Remote(args[0])
 	default:
@@ -58,7 +59,7 @@ func LsRemote(c *git.Client, args []string) error {
 	}
 	if !opts.Quiet {
 		for _, ref := range refs {
-			fmt.Println(ref)
+			fmt.Println(ref.TabString())
 		}
 	}
 	return nil
