@@ -35,6 +35,25 @@ func Remote(c *git.Client, args []string) error {
 		}
 		aopts := git.RemoteAddOptions{opts}
 		return git.RemoteAdd(c, aopts, args[1], args[2])
+	case "get-url":
+		uflags := newFlagSet("remote-get-url")
+		urlopts := git.RemoteGetURLOptions{RemoteOptions: opts}
+		uflags.BoolVar(&urlopts.Push, "push", false, "Print push URLs, not fetch URLs")
+		uflags.BoolVar(&urlopts.All, "all", false, "Print all URLs, not just the first")
+		uflags.Parse(args[1:])
+		args = uflags.Args()
+		if len(args) < 1 {
+			uflags.Usage()
+			os.Exit(1)
+		}
+		urls, err := git.RemoteGetURL(c, urlopts, git.Remote(args[0]))
+		if err != nil {
+			return err
+		}
+		for _, u := range urls {
+			fmt.Println(u)
+		}
+		return nil
 	case "show":
 		sflags := newFlagSet("remote-show")
 		sopts := git.RemoteShowOptions{RemoteOptions: opts}
