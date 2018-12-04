@@ -50,6 +50,10 @@ func (r Remote) String() string {
 	return string(r)
 }
 
+func (r Remote) Name() string {
+	return string(r)
+}
+
 func (r Remote) IsStateless(c *Client) (bool, error) {
 	url, err := r.RemoteURL(c)
 	if err != nil {
@@ -195,8 +199,15 @@ func (r sharedRemoteConn) ProtocolVersion() uint8 {
 type RemoteOptions struct {
 	Verbose bool
 }
+
 type RemoteAddOptions struct {
 	RemoteOptions
+}
+type RemoteShowOptions struct {
+	RemoteOptions
+
+	// Do not query the remote with ls-remote, only show the local cache.
+	NoQuery bool
 }
 
 func RemoteAdd(c *Client, opts RemoteAddOptions, name, url string) error {
@@ -222,4 +233,25 @@ func RemoteAdd(c *Client, opts RemoteAddOptions, name, url string) error {
 		fmt.Sprintf("+refs/heads/*:refs/remotes/%v/*", name),
 	)
 	return config.WriteConfig()
+}
+
+// Retrieves a list of remotes set up in the local git repository
+// for Client c.
+func RemoteList(c *Client, opts RemoteOptions) ([]Remote, error) {
+	config, err := LoadLocalConfig(c)
+	if err != nil {
+		return nil, err
+	}
+	configs := config.GetConfigSections("remote", "")
+	remotes := make([]Remote, 0, len(configs))
+	for _, cfg := range configs {
+		remotes = append(remotes, Remote(cfg.subsection))
+	}
+	return remotes, nil
+}
+
+// Prints the remote named r in the format of "git remote show r" to destination
+// w.
+func RemoteShow(c *Client, opts RemoteShowOptions, r Remote, w io.Writer) error {
+	return fmt.Errorf("Show not implemented")
 }
