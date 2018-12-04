@@ -151,6 +151,22 @@ func (g *GitConfig) GetConfigList() []string {
 	return list
 }
 
+// Gets all config sections that match name and subsection. The empty
+// string matches all names/subsections.
+func (g *GitConfig) GetConfigSections(name, subsection string) []GitConfigSection {
+	matches := make([]GitConfigSection, 0, len(g.sections))
+	for _, sect := range g.sections {
+		if name != "" && sect.name != name {
+			continue
+		}
+		if subsection != "" && subsection != sect.subsection {
+			continue
+		}
+		matches = append(matches, sect)
+	}
+	return matches
+}
+
 func (g GitConfig) WriteFile(w io.Writer) {
 	for _, section := range g.sections {
 		if section.subsection == "" {
