@@ -210,6 +210,12 @@ type RemoteShowOptions struct {
 	NoQuery bool
 }
 
+type RemoteGetURLOptions struct {
+	RemoteOptions
+	Push bool
+	All  bool
+}
+
 func RemoteAdd(c *Client, opts RemoteAddOptions, name, url string) error {
 	if name == "" {
 		return fmt.Errorf("Missing remote name")
@@ -253,5 +259,22 @@ func RemoteList(c *Client, opts RemoteOptions) ([]Remote, error) {
 // Prints the remote named r in the format of "git remote show r" to destination
 // w.
 func RemoteShow(c *Client, opts RemoteShowOptions, r Remote, w io.Writer) error {
+	if !opts.NoQuery {
+		return fmt.Errorf("Only show -n is implemented")
+	}
 	return fmt.Errorf("Show not implemented")
+}
+
+// Implements the "git remote get-url" command.
+//
+// BUG(driusan): Note that specifying the Push option to RemoteGetURL currently
+// always reports the same value as not specifying the Push option because the
+// rest of dgit doesn't implement things in a way that differentiates them either.
+// Also note that All is not implemented.
+func RemoteGetURL(c *Client, opts RemoteGetURLOptions, r Remote) ([]string, error) {
+	u, err := r.RemoteURL(c)
+	if err != nil {
+		return nil, err
+	}
+	return []string{u}, nil
 }
