@@ -46,6 +46,18 @@ func (r Remote) RemoteURL(c *Client) (string, error) {
 	return cfg, nil
 }
 
+// Returns the URL used to fetch from remote.
+func (r Remote) FetchURL(c *Client) (string, error) {
+	// FIXME: Handle fetch url config settings if they don't match url
+	return r.RemoteURL(c)
+}
+
+// Returns the URL used to push to a remote.
+func (r Remote) PushURL(c *Client) (string, error) {
+	// FIXME: Handle push url config settings if they don't match url
+	return r.RemoteURL(c)
+}
+
 func (r Remote) String() string {
 	return string(r)
 }
@@ -260,19 +272,93 @@ func RemoteList(c *Client, opts RemoteOptions) ([]Remote, error) {
 // w.
 func RemoteShow(c *Client, opts RemoteShowOptions, r Remote, w io.Writer) error {
 	if !opts.NoQuery {
-		return fmt.Errorf("Only show -n is implemented")
+		return fmt.Errorf("NoQuery is currently required")
 	}
-	return fmt.Errorf("Show not implemented")
+	fetchurl, err := r.FetchURL(c)
+	if err != nil {
+		return err
+	}
+	pushurl, err := r.PushURL(c)
+	if err != nil {
+		return err
+	}
+	headref := "(not queried)"
+	if !opts.NoQuery {
+		// FIXME: ls-remote needs to parse this properly
+		headref = "(not implemented)"
+	}
+	fmt.Fprintf(w,
+		`* remote %v
+  Fetch URL: %v
+  Push  URL: %v
+  HEAD branch: %v
+  Remote branches:`, r, fetchurl, pushurl, headref)
+	if opts.NoQuery {
+		fmt.Fprintf(w, " (status not queried)\n")
+	} else {
+		fmt.Fprintf(w, "\n")
+	}
+	refbase := fmt.Sprintf("refs/remotes/%v/", r.Name())
+	ForEachRefCallback(c, refbase, func(c *Client, ref Ref) error {
+		if opts.NoQuery {
+			fmt.Fprintf(w, "\t%v\n", strings.TrimPrefix(string(ref.Name), refbase))
+		} else {
+			// FIXME: Implement this.
+			// This needs to add a status after the ref name and
+			// merge with ls-remote too to print new ones
+		}
+		return nil
+	})
+
+	config, err := LoadLocalConfig(c)
+	if err != nil {
+		return err
+	}
+	fmt.Fprintln(w, `Local branches configured for 'git pull':`)
+	// We go through all branches in the local config file, then print them.
+	// We need to know what the longest name is in order to format the
+	// printing.
+	branchconfigs := config.GetConfigSections("branch", "")
+
+	var branches []struct {
+		local, remote string
+	}
+	var longest int
+	for _, branch := range branchconfigs {
+		if branch.values["remote"] == r.Name() {
+			bname := struct {
+				local, remote string
+			}{local: branch.subsection}
+			if remote, ok := branch.values["merge"]; ok {
+				bname.remote = branch.subsection
+			} else {
+				bname.remote = strings.TrimPrefix(remote, "refs/heads/")
+			}
+			branches = append(branches, bname)
+			if lname := len(bname.local); lname > longest {
+				longest = lname
+			}
+		}
+	}
+	for _, branch := range branches {
+		fmt.Fprintf(w, "\t%-*s\tmerges with remote %s\n", longest, branch.local, branch.remote)
+	}
+	// FIXME: Figure out where the "Local ref configured for git push" line
+	// comes from and add it here.
+	return nil
+
 }
 
 // Implements the "git remote get-url" command.
-//
-// BUG(driusan): Note that specifying the Push option to RemoteGetURL currently
-// always reports the same value as not specifying the Push option because the
-// rest of dgit doesn't implement things in a way that differentiates them either.
-// Also note that All is not implemented.
 func RemoteGetURL(c *Client, opts RemoteGetURLOptions, r Remote) ([]string, error) {
-	u, err := r.RemoteURL(c)
+	if opts.Push {
+		u, err := r.PushURL(c)
+		if err != nil {
+			return nil, err
+		}
+		return []string{u}, nil
+	}
+	u, err := r.FetchURL(c)
 	if err != nil {
 		return nil, err
 	}
