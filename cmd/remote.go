@@ -39,7 +39,7 @@ func Remote(c *git.Client, args []string) error {
 		uflags := newFlagSet("remote-get-url")
 		urlopts := git.RemoteGetURLOptions{RemoteOptions: opts}
 		uflags.BoolVar(&urlopts.Push, "push", false, "Print push URLs, not fetch URLs")
-		uflags.BoolVar(&urlopts.All, "all", false, "Print all URLs, not just the first")
+		uflags.BoolVar(&urlopts.All, "all", false, "Print all URLs, not just the first (not implemented)")
 		uflags.Parse(args[1:])
 		args = uflags.Args()
 		if len(args) < 1 {
