@@ -109,7 +109,10 @@ func ShowRef(c *Client, opts ShowRefOptions, patterns []string) ([]Ref, error) {
 				}
 				refname := strings.TrimPrefix(path, c.GitDir.String())
 				ref, err := parseRef(c, refname)
-				if err != nil {
+				if err != nil && err != InvalidCommit {
+					// Invalid commit can just mean we don't
+					// have a local copy of the commit, so
+					// we don't care for the purpose of show-ref
 					return err
 				}
 				if len(patterns) == 0 {
