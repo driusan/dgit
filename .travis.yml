@@ -12,7 +12,7 @@ script:
     - GOOS=plan9 go build
     - GOOS=windows go build
     - pwd
-    - diff -u <(echo -n) <(gofmt -d ./)
+    - diff -u <(echo -n) <(gofmt -d cmd git *.go)
     - go test -v ./...
     - chmod u+x ./go-get-tests.sh
     - ./go-get-tests.sh
