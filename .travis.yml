@@ -8,6 +8,7 @@ go_import_path: github.com/driusan/dgit
 
 script:
     - GOOS=darwin go build
+    - GOOS=netbsd go build
     - GOOS=plan9 go get ./...
     - GOOS=plan9 go build
     - GOOS=windows go build
