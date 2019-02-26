@@ -138,7 +138,7 @@ func (idx PackfileIndexV2) getObjectAtOffset(r io.ReaderAt, offset int64, metaOn
 	// read before returning an EOF.
 	//
 	// There is still overhead if the underlying ReaderAt reads more data
-	// than it needs to then discards it, so we assume that it won't
+	// than it needs to and then discards it, so we assume that it won't
 	// compress to more than double its original size, and then add a floor
 	// of at least 1 disk sector since small objects are more likely to hit
 	// degenerate cases for compression, but also less affected by the
