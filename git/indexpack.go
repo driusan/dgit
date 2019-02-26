@@ -131,13 +131,25 @@ func (idx PackfileIndexV2) getObjectAtOffset(r io.ReaderAt, offset int64, metaOn
 	metareader := io.NewSectionReader(r, offset, 4096)
 	t, sz, ref, refoffset, rawheader := p.ReadHeaderSize(metareader)
 	var rawdata []byte
-	// sz is the uncompressed size, so the total size should be less than
-	// sz for the compressed data. It might theoretically be a little more,
-	// but we're very generous here since this doesn't allocate anything but
-	// just determines how much data the SectionReader will read before
-	// returning an EOF.
+	// sz is the uncompressed size, so the total size should usually be
+	// less than sz for the compressed data. It might theoretically be a
+	// little more, but we're generous here since this doesn't allocate
+	// anything but just determines how much data the SectionReader will
+	// read before returning an EOF.
+	//
+	// There is still overhead if the underlying ReaderAt reads more data
+	// than it needs to and then discards it, so we assume that it won't
+	// compress to more than double its original size, and then add a floor
+	// of at least 1 disk sector since small objects are more likely to hit
+	// degenerate cases for compression, but also less affected by the
+	// multplication fudge factor, while a floor of 1 disk sector shouldn't
+	// have much effect on disk IO (hopefully.)
 	if sz != 0 {
-		datareader := io.NewSectionReader(r, offset+int64(len(rawheader)), int64(sz*3))
+		worstdsize := sz * 2
+		if worstdsize < 512 {
+			worstdsize = 512
+		}
+		datareader := io.NewSectionReader(r, offset+int64(len(rawheader)), int64(worstdsize))
 		if !metaOnly || t == OBJ_OFS_DELTA || t == OBJ_REF_DELTA {
 			rawdata = p.readEntryDataStream1(datareader)
 		}
