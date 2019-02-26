@@ -2,6 +2,7 @@
 // +build !darwin
 // +build !linux
 // +build !openbsd
+// +build !netbsd
 
 package git
 
