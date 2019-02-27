@@ -3,6 +3,7 @@ package cmd
 import (
 	"flag"
 	"fmt"
+	"strings"
 
 	"github.com/driusan/dgit/git"
 )
@@ -24,12 +25,21 @@ func DiffTree(c *git.Client, args []string) error {
 	nopatch := flags.Bool("no-patch", false, "Suppress patch generation")
 	s := flags.Bool("s", false, "Alias of --no-patch")
 
-	//unified := flags.Int("unified", 3, "Generate <n> lines of context")
-	//U := flags.Int("U", 3, "Alias of --unified")
+	unified := flags.Int("unified", 3, "Generate <n> lines of context")
+	U := flags.Int("U", 3, "Alias of --unified")
 	flags.BoolVar(&options.Raw, "raw", true, "Generate the diff in raw format")
 	flags.BoolVar(&options.Recurse, "r", false, "Recurse into subtrees")
 
-	flags.Parse(args)
+	adjustedArgs := []string{}
+	for _, a := range args {
+		if strings.HasPrefix(a, "-U") && a != "-U" {
+			adjustedArgs = append(adjustedArgs, "-U", a[2:])
+			continue
+		}
+		adjustedArgs = append(adjustedArgs, a)
+	}
+
+	flags.Parse(adjustedArgs)
 	args = flags.Args()
 
 	if *patch || *p || *u {
@@ -39,15 +49,14 @@ func DiffTree(c *git.Client, args []string) error {
 		options.Patch = false
 	}
 
-	/*
-		if unified != nil && U != nil {
-			return fmt.Errorf("Can not specify both --unified and -U")
-		} else if unified != nil {
-			options.NumContextLines = *unified
-		} else if U != nil {
-			options.NumContextLines = *U
-		} else {
-	*/
+	if unified != nil && U != nil && *unified != *U {
+		return fmt.Errorf("Can not specify both --unified and -U %+v", adjustedArgs)
+	} else if unified != nil {
+		options.NumContextLines = *unified
+	} else if U != nil {
+		options.NumContextLines = *U
+	}
+
 	options.NumContextLines = 3
 
 	if len(args) < 2 {

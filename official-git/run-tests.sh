@@ -22,7 +22,6 @@ cd $d
 git clone https://github.com/git/git.git git || echo "Using existing official git"
 cd git
 git checkout "$TAG"
-patch -p1 -N < "$d/fix-ignores-test.patch" || echo "Fix ignores tests patch already applied"
 patch -p1 -N < "$d/fix-checkout-branch.patch" || echo "Fix checkout branch tests patch already applied"
 make
 rm git
