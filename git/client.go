@@ -270,7 +270,7 @@ func (c *Client) CreateBranch(name string, commit Commitish) error {
 		return fmt.Errorf("fatal: 'HEAD' is not a valid branch name.")
 	}
 
-	// Create the file so that any parent directories are created
+	// Create the file using File.Create first to ensure any parent directories are created.
 	if err := c.GitDir.File(File("refs/heads/" + name)).Create(); err != nil {
 		return err
 	}
