@@ -68,7 +68,17 @@ func Commit(c *git.Client, args []string) (string, error) {
 	flags.BoolVar(&opts.All, "all", false, "")
 	flags.BoolVar(&opts.All, "a", false, "Alias for --all")
 
-	flags.Parse(args)
+	adjustedArgs := []string{}
+	for _, a := range args {
+		// Unglue any glued -m arguments
+		if strings.HasPrefix(a, "-m") && a != "-m" {
+			adjustedArgs = append(adjustedArgs, "-m", a[2:])
+			continue
+		}
+		adjustedArgs = append(adjustedArgs, a)
+	}
+
+	flags.Parse(adjustedArgs)
 
 	opts.NoEdit = true
 
