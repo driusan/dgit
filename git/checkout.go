@@ -130,7 +130,7 @@ func CheckoutCommit(c *Client, opts CheckoutOptions, commit Commitish) error {
 		newRefspec = RefSpec("refs/heads/" + opts.Branch)
 		refspecfile := newRefspec.File(c)
 		if refspecfile.Exists() && !opts.ForceBranch {
-			return fmt.Errorf("Branch %s already exists.", opts.Branch)
+			return fmt.Errorf("fatal: A branch named '%v' already exists.", opts.Branch)
 		}
 	}
 	// Get the original HEAD for the reflog
