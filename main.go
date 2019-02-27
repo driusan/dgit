@@ -120,7 +120,7 @@ func main() {
 			os.Exit(4)
 		}
 	case "branch":
-		subcommandUsage = "[branchname]"
+		subcommandUsage = "[ <branchname> [startpoint] ]"
 		if err := cmd.Branch(c, args); err != nil {
 			fmt.Fprintf(os.Stderr, "%v\n", err)
 			os.Exit(2)

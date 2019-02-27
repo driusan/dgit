@@ -143,3 +143,13 @@ func (b Branch) BranchName() string {
 	}
 	return strings.TrimPrefix(s, "refs/")
 }
+
+// Delete a branch
+func (b Branch) DeleteBranch(c *Client) error {
+	location := c.GitDir.File(File(b))
+	err := location.Remove()
+	if err != nil {
+		return err
+	}
+	return nil
+}
