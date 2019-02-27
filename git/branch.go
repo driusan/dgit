@@ -6,8 +6,10 @@ import (
 )
 
 type BranchOptions struct {
-	All   bool
-	Quiet bool
+	All    bool
+	Quiet  bool
+	Move   bool
+	Delete bool
 }
 
 func BranchList(c *Client, stdout io.Writer, opts BranchOptions, patterns []string) ([]Branch, error) {

@@ -22,10 +22,9 @@ type CheckoutOptions struct {
 	// Not implemented
 	Stage Stage
 
-	Branch string // -b
+	Branch      string // -b
+	ForceBranch bool   // use branch as -B
 
-	// Not implemented
-	ForceBranch bool // use branch as -B
 	// Not implemented
 	OrphanBranch bool // use branch as --orphan
 
@@ -247,6 +246,7 @@ func CheckoutCommit(c *Client, opts CheckoutOptions, commit Commitish) error {
 	}
 
 	if opts.Branch != "" {
+		// In the case of -B (ForceBranch) this will slam in the new branch based on the provided commit ID
 		if err := c.CreateBranch(opts.Branch, cid); err != nil {
 			return err
 		}
