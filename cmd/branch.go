@@ -14,6 +14,7 @@ func Branch(c *git.Client, args []string) error {
 		flag.Usage()
 		fmt.Fprintf(flag.CommandLine.Output(), "\n\nOptions:\n")
 		flags.PrintDefaults()
+		os.Exit(129) // Official tests require a 129 exit code when showing branch usage
 	}
 
 	opts := git.BranchOptions{}
@@ -34,7 +35,10 @@ func Branch(c *git.Client, args []string) error {
 	flags.BoolVar(&opts.Move, "move", false, "Alias of -m")
 	flags.BoolVar(&opts.Delete, "d", false, "Delete a branch")
 	flags.BoolVar(&opts.Delete, "delete", false, "Alias of -d")
-	flags.BoolVar(&opts.Delete, "D", false, "Alias of -d") // This wil no longer be a simple alias once we have --force
+	flags.BoolVar(&opts.Delete, "D", false, "Alias of -d") // This will no longer be a simple alias once we have --force
+	list := false
+	flags.BoolVar(&list, "l", false, "List branches")
+	flags.BoolVar(&list, "list", false, "Alias of -l")
 	flags.Parse(args)
 
 	if opts.Delete {
@@ -48,6 +52,11 @@ func Branch(c *git.Client, args []string) error {
 			}
 		}
 		return nil
+	}
+
+	if list {
+		_, err := git.BranchList(c, os.Stdout, opts, nil)
+		return err
 	}
 
 	switch flags.NArg() {
