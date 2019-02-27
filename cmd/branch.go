@@ -43,8 +43,7 @@ func Branch(c *git.Client, args []string) error {
 			if err != nil {
 				return err
 			}
-			err = branch.DeleteBranch(c)
-			if err != nil {
+			if err = branch.DeleteBranch(c); err != nil {
 				return err
 			}
 		}
@@ -72,13 +71,11 @@ func Branch(c *git.Client, args []string) error {
 				return err
 			}
 			refmsg := fmt.Sprintf("Branch: renamed %s to %s", b.String(), flags.Arg(0))
-			err = git.SymbolicRefUpdate(c, git.SymbolicRefOptions{}, "HEAD", git.RefSpec(newbranch), refmsg)
-			if err != nil {
+			if err = git.SymbolicRefUpdate(c, git.SymbolicRefOptions{}, "HEAD", git.RefSpec(newbranch), refmsg); err != nil {
 				fmt.Fprintf(os.Stderr, "Could not update symbolic ref to branch (%v): %v\n", flags.Arg(0), err)
 				return err
 			}
-			err = b.DeleteBranch(c)
-			if err != nil {
+			if err = b.DeleteBranch(c); err != nil {
 				fmt.Fprintf(os.Stderr, "Could not delete original branch (%v): %v\n", b, err)
 				return err
 			}
