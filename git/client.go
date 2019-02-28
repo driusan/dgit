@@ -147,6 +147,24 @@ func findGitDir() GitDir {
 			return GitDir(dir) + "/.git"
 		}
 	}
+
+	// This could be a bare repository, let's check the configuration
+	configFileName := filepath.Join(startPath, "config")
+
+	configFile, err := os.Open(configFileName)
+	if err != nil {
+		return ""
+	}
+	config := ParseConfig(configFile)
+	if err := configFile.Close(); err != nil {
+		return ""
+	}
+
+	bareVar, _ := config.GetConfig("core.bare")
+	if bareVar == "true" {
+		return GitDir(startPath)
+	}
+
 	return ""
 }
 
@@ -168,11 +186,9 @@ func NewClient(gitDir, workDir string) (*Client, error) {
 	workdir := WorkDir(workDir)
 	if workdir == "" {
 		workdir = WorkDir(os.Getenv("GIT_WORK_TREE"))
-		if workdir == "" {
+		if workdir == "" && strings.HasSuffix(gitdir.String(), "/.git") {
 			workdir = WorkDir(strings.TrimSuffix(gitdir.String(), "/.git"))
 		}
-		// TODO: Check the GIT_WORK_TREE os environment, then strip .git
-		// from the gitdir if it doesn't exist.
 	}
 	m := make(map[Sha1]objectLocation)
 	return &Client{GitDir(gitdir), WorkDir(workdir), "", m, make(map[shaRef]GitObject), nil, nil, nil}, nil
