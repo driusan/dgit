@@ -48,19 +48,19 @@ func Status(c *git.Client, args []string) error {
 
 	nocolumn := flags.Bool("no-column", false, "Equivalent to --column=never")
 
-        adjustedArgs := []string{}
-        for _, a := range args {
-                if a == "--porcelain" {
-                        a = "--porcelain=1"
-                }
-                if a == "--ignore-submodules" {
-                        a = "--ignore-submodules=all"
-                }
-                if a == "--column" {
-                        a = "--column=always"
-                }
-                adjustedArgs = append(adjustedArgs, a)
-        }
+	adjustedArgs := []string{}
+	for _, a := range args {
+		if a == "--porcelain" {
+			a = "--porcelain=1"
+		}
+		if a == "--ignore-submodules" {
+			a = "--ignore-submodules=all"
+		}
+		if a == "--column" {
+			a = "--column=always"
+		}
+		adjustedArgs = append(adjustedArgs, a)
+	}
 
 	flags.Parse(adjustedArgs)
 
