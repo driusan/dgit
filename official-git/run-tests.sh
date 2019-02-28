@@ -48,6 +48,7 @@ cd t
 GIT_SKIP_TESTS="t0008.321 t0008.323 t0008.37[0-9] t0008.38[0-7] t0008.39[1-2]"
 GIT_SKIP_TESTS="$GIT_SKIP_TESTS t1004.1[6-7]"
 GIT_SKIP_TESTS="$GIT_SKIP_TESTS t1014.26"
+GIT_SKIP_TESTS="$GIT_SKIP_TESTS t1308.2[6-7]" # No support for line ending handling or GIT_CEILING_DIRECTORIES
 GIT_SKIP_TESTS="$GIT_SKIP_TESTS t3000.7"
 GIT_SKIP_TESTS="$GIT_SKIP_TESTS t2018.[6-7] t2018.[9] t2018.1[5-8]"
 export GIT_SKIP_TESTS
@@ -73,6 +74,7 @@ make t0000-basic.sh \
         t1014-read-tree-confusing.sh \
         t1100-commit-tree-options.sh \
         t1304-default-acl.sh \
+        t1308-config-set.sh \
         t1403-show-ref.sh \
         t2000-checkout-cache-clash.sh \
         t2001-checkout-cache-clash.sh \
