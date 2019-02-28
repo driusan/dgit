@@ -38,19 +38,31 @@ func Status(c *git.Client, args []string) error {
 	unormal := flags.Bool("unormal", false, "Show untracked files and directories (default)")
 	uall := flags.Bool("uall", false, "Show untracked files and files inside of directories")
 
-	// FIXME: This should handle both --ignore-submodules and --ignore-submodules=<when>
 	ignoresubmodules := flags.String("ignore-submodules", "", "When to ignore submodules")
 
 	flags.BoolVar(&opts.Ignored, "ignored", false, "Show ignored files as well")
 
 	flags.BoolVar(&opts.NullTerminate, "z", false, "Terminate entries with NULL, not LF. Implies --porcelain=v1 if not specified")
 
-	// FIXME: This should handle both --column and --column=<options>
 	column := flags.String("column", "default", "Show status in columns (not implemented)")
 
 	nocolumn := flags.Bool("no-column", false, "Equivalent to --column=never")
 
-	flags.Parse(args)
+        adjustedArgs := []string{}
+        for _, a := range args {
+                if a == "--porcelain" {
+                        a = "--porcelain=1"
+                }
+                if a == "--ignore-submodules" {
+                        a = "--ignore-submodules=all"
+                }
+                if a == "--column" {
+                        a = "--column=always"
+                }
+                adjustedArgs = append(adjustedArgs, a)
+        }
+
+	flags.Parse(adjustedArgs)
 
 	switch *porcelain {
 	case 0, 1, 2:
