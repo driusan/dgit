@@ -33,7 +33,7 @@ func TestAliasedStringValue(t *testing.T) {
 func TestMultiStringValue(t *testing.T) {
 	flags := flag.NewFlagSet("test2", flag.ContinueOnError)
 	var v []string // Start as a zero value
-	flags.Var(newMultiStringValue(&v), "foo", "")
+	flags.Var(NewMultiStringValue(&v), "foo", "")
 
 	err := flags.Parse([]string{"--foo=one", "--foo=two"})
 	if err != nil {
