@@ -67,9 +67,9 @@ func Log(c *git.Client, args []string) error {
 	flags.Var(newNotimplBoolValue(), "full-diff", "Not implemented")
 	flags.Var(newNotimplStringValue(), "log-size", "Not implemented")
 	flags.Var(newNotimplStringValue(), "L", "Not implemented")
-	maxNumCommits := -1
-	flags.IntVar(&maxNumCommits, "n", -1, "Limit the number of commits.")
-	flags.IntVar(&maxNumCommits, "max-count", -1, "Alias for -n")
+	maxCount := -1
+	flags.IntVar(&maxCount, "n", -1, "Limit the number of commits.")
+	flags.IntVar(&maxCount, "max-count", -1, "Alias for -n")
 
 	adjustedArgs := []string{}
 	for _, a := range args {
@@ -106,8 +106,9 @@ func Log(c *git.Client, args []string) error {
 	}
 
 	opts := git.RevListOptions{Quiet: true}
-	if maxNumCommits != -1 {
-		opts.MaxNumCommits = &maxNumCommits
+	if maxCount >= 0 {
+		mc := uint(maxCount)
+		opts.MaxCount = &mc
 	}
 
 	err = git.RevListCallback(c, opts, []git.Commitish{commit}, nil, func(s git.Sha1) error {

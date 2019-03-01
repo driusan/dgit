@@ -8,10 +8,10 @@ import (
 // List of command line options that may be passed to RevList
 type RevListOptions struct {
 	Quiet, Objects bool
-	MaxNumCommits  *int
+	MaxCount       *uint
 }
 
-var maxCommitError = fmt.Errorf("Maximum number of commits has been reached")
+var maxCountError = fmt.Errorf("Maximum number of objects has been reached")
 
 func RevList(c *Client, opt RevListOptions, w io.Writer, includes, excludes []Commitish) ([]Sha1, error) {
 	var vals []Sha1
@@ -68,18 +68,18 @@ func RevListCallback(c *Client, opt RevListOptions, includes, excludes []Commiti
 		cIDs = append(cIDs, cmt)
 	}
 
-	callbackCount := 0
+	callbackCount := uint(0)
 	callbackCountWrapper := func(s Sha1) error {
 		callbackCount++
-		if opt.MaxNumCommits != nil && callbackCount > *opt.MaxNumCommits {
-			return maxCommitError
+		if opt.MaxCount != nil && callbackCount > *opt.MaxCount {
+			return maxCountError
 		}
 
 		return callback(s)
 	}
 
 	err := revListCallback(c, opt, cIDs, excludeList, callbackCountWrapper)
-	if err == maxCommitError {
+	if err == maxCountError {
 		return nil
 	}
 	return err
