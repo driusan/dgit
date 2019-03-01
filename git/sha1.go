@@ -301,6 +301,33 @@ func (cmt CommitID) GetAuthor(c *Client) (Person, error) {
 
 }
 
+// Returns the committer of the commit.
+func (cmt CommitID) GetCommitter(c *Client) (Person, error) {
+	obj, err := c.GetCommitObject(cmt)
+	if err != nil {
+		return Person{}, err
+	}
+	committerStr := obj.GetHeader("committer")
+
+	if committerStr == "" {
+		return Person{}, fmt.Errorf("Could not parse committer %s from commit %s", committerStr, cmt)
+	}
+
+	// committerStr is in the format:
+	//    John Smith <jsmith@example.com> unixtime timezone
+	committerPieces := strings.Split(committerStr, " ")
+	if len(committerPieces) < 3 {
+		return Person{}, fmt.Errorf("Commit %s does not have a committer", cmt)
+	}
+
+	// FIXME: This should use
+	email := committerPieces[len(committerPieces)-3]
+	email = email[1 : len(email)-1] // strip off the < >
+	committer := strings.Join(committerPieces[:len(committerPieces)-3], " ")
+	return Person{committer, email, nil}, nil
+
+}
+
 func (s CommitID) Ancestors(c *Client) ([]CommitID, error) {
 	ancestors, err := s.ancestors(c)
 	if err != nil {
