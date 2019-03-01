@@ -51,13 +51,13 @@ func LsFiles(c *git.Client, args []string) error {
 	flags.BoolVar(&options.NoEmptyDirectory, "no-empty-directory", false, "Do not show empty untracked directories in output")
 
 	var excludefiles, excludeperdirectory []string
-	flags.Var(newMultiStringValue(&options.ExcludePatterns), "exclude", "Skip untracked files matching pattern.")
-	flags.Var(newMultiStringValue(&options.ExcludePatterns), "x", "Alias for --exclude")
+	flags.Var(NewMultiStringValue(&options.ExcludePatterns), "exclude", "Skip untracked files matching pattern.")
+	flags.Var(NewMultiStringValue(&options.ExcludePatterns), "x", "Alias for --exclude")
 
-	flags.Var(newMultiStringValue(&excludefiles), "exclude-from", "Read exclude patterns from a file.")
-	flags.Var(newMultiStringValue(&excludefiles), "X", "Alias for --exclude-from")
+	flags.Var(NewMultiStringValue(&excludefiles), "exclude-from", "Read exclude patterns from a file.")
+	flags.Var(NewMultiStringValue(&excludefiles), "X", "Alias for --exclude-from")
 
-	flags.Var(newMultiStringValue(&excludeperdirectory), "exclude-per-directory", "Read additional exclude patterns for each directory.")
+	flags.Var(NewMultiStringValue(&excludeperdirectory), "exclude-per-directory", "Read additional exclude patterns for each directory.")
 
 	flags.BoolVar(&options.ErrorUnmatch, "error-unmatch", false, "Exit with an error if any unmatched paths are specified on the command line")
 

@@ -533,6 +533,27 @@ func (c *Client) HaveObject(id Sha1) (found bool, packedfile File, err error) {
 	return false, "", nil
 }
 
+// Sets a cached config for this session only. None of these configs
+// will be persisted into the local or global configuration. Once the
+// client is closed or is garbage collected the configuration is lost.
+func (c *Client) SetCachedConfig(varname string, value string) {
+	if c.configCache == nil {
+		c.configCache = make(map[string]string)
+	}
+
+	c.configCache[varname] = value
+}
+
+// Gets a cached config variable if it is there. Otherwise, it returns
+//  and empty string.
+func (c *Client) GetCachedConfig(varname string) string {
+	if c.configCache == nil {
+		return ""
+	}
+
+	return c.configCache[varname]
+}
+
 // Loads a config variable for the git repo hosted by c.
 // If the local variable exists, it will be used, otherwise
 // it will use the global variable.

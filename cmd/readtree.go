@@ -34,7 +34,7 @@ func ReadTree(c *git.Client, args []string) error {
 	// You can only set --exclude-per-directory once for read-tree (the git test suite enforces
 	// this), but we need to treat it as a multi-string var in order to return the correct error
 	var epd []string
-	flags.Var(newMultiStringValue(&epd), "exclude-per-directory", "Allow overwriting .gitignored files")
+	flags.Var(NewMultiStringValue(&epd), "exclude-per-directory", "Allow overwriting .gitignored files")
 	////flags.StringVar(&options.ExcludePerDirectory, "exclude-per-directory", "", "Allow overwriting .gitignored files")
 
 	flags.StringVar(&options.IndexOutput, "index-output", "index", "Name of the file to read the tree into")

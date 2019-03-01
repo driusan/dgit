@@ -37,8 +37,8 @@ func Tag(c *git.Client, args []string) error {
 	flags.BoolVar(&options.Annotated, "a", false, "Alias of --annotated")
 
 	var message []string
-	flags.Var(newMultiStringValue(&message), "message", "Use the given message for the annotated tag")
-	flags.Var(newMultiStringValue(&message), "m", "Alias of --message")
+	flags.Var(NewMultiStringValue(&message), "message", "Use the given message for the annotated tag")
+	flags.Var(NewMultiStringValue(&message), "m", "Alias of --message")
 
 	var messageFile string
 	flags.Var(newAliasedStringValue(&messageFile, ""), "file", "Use the contents of file for the annotated tag message")

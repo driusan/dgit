@@ -20,9 +20,9 @@ func CommitTree(c *git.Client, args []string) (git.CommitID, error) {
 	}
 
 	var p []string
-	flags.Var(newMultiStringValue(&p), "p", "Each -p indicates the id of a parent commit object")
+	flags.Var(NewMultiStringValue(&p), "p", "Each -p indicates the id of a parent commit object")
 	var m []string
-	flags.Var(newMultiStringValue(&m), "m", "A paragraph in the commit log messages. This can be given more than once.")
+	flags.Var(NewMultiStringValue(&m), "m", "A paragraph in the commit log messages. This can be given more than once.")
 	messageFile := ""
 	flags.StringVar(&messageFile, "F", "", "Read the commit log message from the given file.")
 

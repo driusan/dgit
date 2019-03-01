@@ -30,8 +30,8 @@ func Clean(c *git.Client, args []string) error {
 	flags.BoolVar(&opts.Quiet, "quiet", false, "Do not print file names as they are deleted")
 	flags.BoolVar(&opts.Quiet, "q", false, "Alias of --quiet")
 
-	flags.Var(newMultiStringValue(&opts.ExcludePatterns), "exclude", "Add pattern to standard exclude patterns")
-	flags.Var(newMultiStringValue(&opts.ExcludePatterns), "e", "Alias of --exclude")
+	flags.Var(NewMultiStringValue(&opts.ExcludePatterns), "exclude", "Add pattern to standard exclude patterns")
+	flags.Var(NewMultiStringValue(&opts.ExcludePatterns), "e", "Alias of --exclude")
 	flags.BoolVar(&opts.NoStandardExclude, "x", false, "Do not use standard .gitignore and .git/info/exclude patterns")
 	flags.BoolVar(&opts.OnlyExcluded, "X", false, "Only remove files ignored by git")
 
