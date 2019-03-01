@@ -11,8 +11,6 @@ import (
 	"github.com/driusan/dgit/git"
 )
 
-var commitLimitHitErr = fmt.Errorf("Max number of commits hit")
-
 // Since libgit is somewhat out of our control and we can't implement
 // a fmt.Stringer interface there, we use this helper.
 func printCommit(c *git.Client, cmt git.CommitID) error {
@@ -107,18 +105,13 @@ func Log(c *git.Client, args []string) error {
 		return err
 	}
 
-	var numCommits = 0
+	opts := git.RevListOptions{Quiet: true}
+	if maxNumCommits != -1 {
+		opts.MaxNumCommits = &maxNumCommits
+	}
 
-	err = git.RevListCallback(c, git.RevListOptions{Quiet: true}, []git.Commitish{commit}, nil, func(s git.Sha1) error {
-		numCommits++
-		if maxNumCommits != -1 && numCommits > maxNumCommits {
-			return commitLimitHitErr
-		}
-
+	err = git.RevListCallback(c, opts, []git.Commitish{commit}, nil, func(s git.Sha1) error {
 		return printCommit(c, git.CommitID(s))
 	})
-	if err == commitLimitHitErr {
-		return nil
-	}
 	return err
 }
