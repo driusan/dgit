@@ -5,10 +5,13 @@ import (
 	"fmt"
 	"log"
 	"os"
+	"strconv"
 	"strings"
 
 	"github.com/driusan/dgit/git"
 )
+
+var commitLimitHitErr = fmt.Errorf("Max number of commits hit")
 
 // Since libgit is somewhat out of our control and we can't implement
 // a fmt.Stringer interface there, we use this helper.
@@ -66,8 +69,26 @@ func Log(c *git.Client, args []string) error {
 	flags.Var(newNotimplBoolValue(), "full-diff", "Not implemented")
 	flags.Var(newNotimplStringValue(), "log-size", "Not implemented")
 	flags.Var(newNotimplStringValue(), "L", "Not implemented")
+	maxNumCommits := -1
+	flags.IntVar(&maxNumCommits, "n", -1, "Limit the number of commits.")
+	flags.IntVar(&maxNumCommits, "max-count", -1, "Alias for -n")
 
-	flags.Parse(args)
+	adjustedArgs := []string{}
+	for _, a := range args {
+		if strings.HasPrefix(a, "-n") && a != "-n" {
+			adjustedArgs = append(adjustedArgs, "-n", a[2:])
+			continue
+		}
+		if strings.HasPrefix(a, "-") && len(a) > 1 {
+			if _, err := strconv.Atoi(a[1:]); err == nil {
+				adjustedArgs = append(adjustedArgs, "-n", a[1:])
+				continue
+			}
+		}
+		adjustedArgs = append(adjustedArgs, a)
+	}
+
+	flags.Parse(adjustedArgs)
 
 	if flags.NArg() > 1 {
 		fmt.Fprintf(flag.CommandLine.Output(), "Paths are not yet implemented, just the revision")
@@ -85,8 +106,19 @@ func Log(c *git.Client, args []string) error {
 	if err != nil {
 		return err
 	}
-	return git.RevListCallback(c, git.RevListOptions{Quiet: true}, []git.Commitish{commit}, nil, func(s git.Sha1) error {
+
+	var numCommits = 0
+
+	err = git.RevListCallback(c, git.RevListOptions{Quiet: true}, []git.Commitish{commit}, nil, func(s git.Sha1) error {
+		numCommits++
+		if maxNumCommits != -1 && numCommits > maxNumCommits {
+			return commitLimitHitErr
+		}
+
 		return printCommit(c, git.CommitID(s))
 	})
-
+	if err == commitLimitHitErr {
+		return nil
+	}
+	return err
 }
