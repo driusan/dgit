@@ -57,10 +57,8 @@ func LsRemote(c *git.Client, args []string) error {
 	if opts.ExitCode && len(refs) == 0 {
 		os.Exit(2)
 	}
-	if !opts.Quiet {
-		for _, ref := range refs {
-			fmt.Println(ref.TabString())
-		}
+	for _, ref := range refs {
+		fmt.Println(ref.TabString())
 	}
 	return nil
 }

@@ -88,6 +88,11 @@ func Init(c *Client, opts InitOptions, dir string) (*Client, error) {
 		return nil, err
 	}
 
+	bareConf := "bare = false"
+	if opts.Bare {
+		bareConf = "bare = true"
+	}
+
 	if c.GitDir.File("HEAD").Exists() {
 		reinit = true
 	} else if err := c.GitDir.WriteFile("HEAD", []byte("ref: refs/heads/master\n"), 0644); err != nil {
@@ -96,7 +101,7 @@ func Init(c *Client, opts InitOptions, dir string) (*Client, error) {
 
 	if c.GitDir.File("config").Exists() {
 		reinit = true
-	} else if err := c.GitDir.WriteFile("config", []byte("[core]\n\trepositoryformatversion = 0\n\tbare = false\n"), 0644); err != nil {
+	} else if err := c.GitDir.WriteFile("config", []byte("[core]\n\trepositoryformatversion = 0\n\t"+bareConf+"\n"), 0644); err != nil {
 		return nil, err
 	}
 	if c.GitDir.File("description").Exists() {
@@ -118,18 +123,20 @@ func Init(c *Client, opts InitOptions, dir string) (*Client, error) {
 
 	// Now go into the directory and adjust workdir and gitdir so that
 	// tests are in the right place.
-	if err := os.Chdir(c.WorkDir.String()); err != nil {
-		return c, err
+	if !opts.Bare {
+		if err := os.Chdir(c.WorkDir.String()); err != nil {
+			return c, err
+		}
+		wd, err := os.Getwd()
+		if err != nil {
+			return c, err
+		}
+		c.WorkDir = WorkDir(wd)
+		c.GitDir = GitDir(wd + "/.git")
 	}
-	wd, err := os.Getwd()
-	if err != nil {
-		return c, err
-	}
-	c.WorkDir = WorkDir(wd)
-	c.GitDir = GitDir(wd + "/.git")
 
 	if opts.Template != "" {
-		err = filepath.Walk(opts.Template.String(), func(path string, info os.FileInfo, err error) error {
+		err := filepath.Walk(opts.Template.String(), func(path string, info os.FileInfo, err error) error {
 			if err != nil {
 				return err
 			}
