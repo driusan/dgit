@@ -31,8 +31,8 @@ func LsRemote(c *git.Client, args []string) error {
 	flags.BoolVar(&opts.SymRef, "symref", false, "Show the underlying ref when showing a symbolic ref")
 	flags.StringVar(&opts.Sort, "sort", "", "Sort based on the given key pattern")
 
-	flags.Var(newMultiStringValue(&opts.ServerOptions), "server-option", "Transmit the option when using protocol versoin 2.")
-	flags.Var(newMultiStringValue(&opts.ServerOptions), "o", "Alias of --server-option")
+	flags.Var(NewMultiStringValue(&opts.ServerOptions), "server-option", "Transmit the option when using protocol versoin 2.")
+	flags.Var(NewMultiStringValue(&opts.ServerOptions), "o", "Alias of --server-option")
 
 	flags.Parse(args)
 	args = flags.Args()

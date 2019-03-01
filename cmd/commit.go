@@ -42,8 +42,8 @@ func Commit(c *git.Client, args []string) (string, error) {
 	}
 
 	var message []string
-	flags.Var(newMultiStringValue(&message), "message", "Use the given message as the commit message")
-	flags.Var(newMultiStringValue(&message), "m", "Alias for --message")
+	flags.Var(NewMultiStringValue(&message), "message", "Use the given message as the commit message")
+	flags.Var(NewMultiStringValue(&message), "m", "Alias for --message")
 
 	var messageFile string
 	flags.Var(newAliasedStringValue(&messageFile, ""), "file", "Take the commit message from the given file.")

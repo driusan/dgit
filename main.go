@@ -66,6 +66,8 @@ func main() {
 	gitdir := flag.String("git-dir", "", "specify the repository of git")
 	dir := flag.String("C", "", "chdir before starting git")
 	superprefix := flag.String("super-prefix", "", "useless option used internally by git test suite")
+	configs := []string{}
+	flag.Var(cmd.NewMultiStringValue(&configs), "c", "configuration parameter var.name=value")
 
 	flag.Usage = func() {
 		if subcommand == "" {
@@ -95,6 +97,17 @@ func main() {
 		}
 	}
 	c, err := git.NewClient(*gitdir, *workdir)
+	// Pass any local configuration values to the client
+	for _, config := range configs {
+		parts := strings.Split(config, "=")
+		varname := parts[0]
+		value := "true"
+		if len(parts) > 1 {
+			value = parts[1]
+		}
+		c.SetCachedConfig(varname, value)
+	}
+
 	subcommand = args[0]
 	args = args[1:]
 

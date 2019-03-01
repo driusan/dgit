@@ -34,7 +34,7 @@ func (s *aliasedStringValue) String() string { return string(*s) }
 //  to the same string value as a string slice.
 type multiStringValue []string
 
-func newMultiStringValue(p *[]string) *multiStringValue {
+func NewMultiStringValue(p *[]string) *multiStringValue {
 	return (*multiStringValue)(p)
 }
 

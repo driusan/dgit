@@ -68,6 +68,11 @@ func Config(c *git.Client, args []string) error {
 			flags.Usage()
 			os.Exit(2)
 		}
+		val := c.GetCachedConfig(flags.Arg(0))
+		if val != "" {
+			fmt.Printf("%s\n", val)
+			return nil
+		}
 		val, code := config.GetConfig(flags.Arg(0))
 		if code != 0 {
 			os.Exit(code)
