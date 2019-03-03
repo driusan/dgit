@@ -9,6 +9,8 @@ import (
 
 type FetchOptions struct {
 	FetchPackOptions
+
+	Force bool
 }
 
 func Fetch(c *Client, opts FetchOptions, rmt Remote) error {

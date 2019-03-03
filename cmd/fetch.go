@@ -11,7 +11,7 @@ import (
 // These options can be shared with other subcommands that fetch, such as pull
 func addSharedFetchFlags(flags *flag.FlagSet, options *git.FetchOptions) {
 	// These flags can be moved out of these lists and below as proper flags as they are implemented
-	for _, bf := range []string{"all", "a", "append", "unshallow", "update-shallow", "dry-run", "f", "force", "k", "keep", "multiple", "p", "prune", "P", "prune-tags", "n", "no-tags", "t", "tags", "no-recurse-submodules", "u", "update-head-ok", "q", "quiet", "v", "verbose", "progress", "4", "ipv4", "ipv6"} {
+	for _, bf := range []string{"all", "a", "append", "unshallow", "update-shallow", "dry-run", "k", "keep", "multiple", "p", "prune", "P", "prune-tags", "n", "no-tags", "t", "tags", "no-recurse-submodules", "u", "update-head-ok", "q", "quiet", "v", "verbose", "progress", "4", "ipv4", "ipv6"} {
 		flags.Var(newNotimplBoolValue(), bf, "Not implemented")
 	}
 	for _, sf := range []string{"depth", "deepend", "shallow-since", "shallow-exclude", "refmap", "recurse-submodules", "j", "jobs", "submodule-prefix", "recurse-submodules-default", "upload-pack", "o", "server-option"} {
@@ -30,6 +30,8 @@ func Fetch(c *git.Client, args []string) error {
 
 	opts := git.FetchOptions{}
 	addSharedFetchFlags(flags, &opts)
+	flags.BoolVar(&opts.Force, "force", false, "Do not verify if refs exist before overwriting")
+	flags.BoolVar(&opts.Force, "f", false, "Alias of --force")
 	flags.Parse(args)
 
 	var repository git.Remote
