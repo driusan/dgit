@@ -2,7 +2,9 @@ package git
 
 import (
 	"fmt"
+	"io/ioutil"
 	"os"
+	"path/filepath"
 	"strings"
 	"time"
 )
@@ -270,7 +272,74 @@ func RevParseCommitish(c *Client, opt *RevParseOptions, arg string) (cmt Commiti
 	if b, err := GetBranch(c, cmtbase); err == nil {
 		return b, nil
 	}
-	return nil, fmt.Errorf("Could not parse %v", arg)
+
+	// Try seeing if it's an abbreviation of a commit as a last
+	// resort. We require a length of at least 3, so that we only
+	// need to search one directory of the objects directory.
+	if len(cmtbase) > 2 && len(cmtbase) < 40 {
+		dir := cmtbase[:2]
+		var candidates []CommitID
+
+		fulldir := filepath.Join(c.GitDir.String(), "objects", dir)
+		files, err := ioutil.ReadDir(fulldir)
+		if err == nil {
+			for _, f := range files {
+				cand := dir + f.Name()
+				if strings.HasPrefix(cand, cmtbase) {
+					cid, err := Sha1FromString(cand)
+					if err != nil {
+						continue
+					}
+					candidates = append(candidates, CommitID(cid))
+				}
+			}
+		}
+
+		// We need to check the pack file indexes even
+		// if we already found something in order to
+		// ensure that it's not an ambiguous reference.
+		packdir := filepath.Join(c.GitDir.String(), "objects", "pack")
+		packs, err := ioutil.ReadDir(packdir)
+		if err != nil {
+			// There was an error getting the packfiles,
+			// so assume there aren't any.
+			goto donecommit
+		}
+
+		for _, fi := range packs {
+			if filepath.Ext(fi.Name()) != ".idx" {
+				continue
+			}
+			packfile := filepath.Join(
+				c.GitDir.String(),
+				"objects",
+				"pack",
+				filepath.Base(fi.Name()),
+			)
+			f, err := os.Open(packfile)
+			if err != nil {
+				fmt.Println(err)
+				continue
+			}
+			defer f.Close()
+
+			objects := v2PackObjectListFromIndex(f)
+			for _, obj := range objects {
+				cand := obj.String()
+				if strings.HasPrefix(cand, cmtbase) {
+					candidates = append(candidates, CommitID(obj))
+				}
+			}
+		}
+
+	donecommit:
+		if len(candidates) == 1 {
+			return candidates[0], nil
+		} else if len(candidates) > 1 {
+			return nil, fmt.Errorf("Ambiguous reference: '%v'", arg)
+		}
+	}
+	return nil, fmt.Errorf("Could not find %v", arg)
 }
 
 // RevParse will parse a single revision into a Commit object.

@@ -73,6 +73,25 @@ type PackfileIndexV2 struct {
 	Packfile, IdxFile Sha1
 }
 
+// Gets a list of objects in a pack file according to the index.
+func v2PackObjectListFromIndex(idx io.Reader) []Sha1 {
+	var pack PackfileIndexV2
+	binary.Read(idx, binary.BigEndian, &pack.magic)
+	binary.Read(idx, binary.BigEndian, &pack.Version)
+	binary.Read(idx, binary.BigEndian, &pack.Fanout)
+	pack.Sha1Table = make([]Sha1, pack.Fanout[255])
+	// Load the tables. The first three are based on the number of
+	// objects in the packfile (stored in Fanout[255]), the last
+	// table is dynamicly sized.
+
+	for i := 0; i < len(pack.Sha1Table); i++ {
+		if err := binary.Read(idx, binary.BigEndian, &pack.Sha1Table[i]); err != nil {
+			panic(err)
+		}
+	}
+	return pack.Sha1Table
+}
+
 // reads a v2 pack file from r and tells if it has object inside it.
 func v2PackIndexHasSha1(c *Client, pfile File, r io.Reader, obj Sha1) bool {
 	var pack PackfileIndexV2
