@@ -16,8 +16,34 @@ type Ref struct {
 	Value Sha1
 }
 
+// Matches determines whether a Ref matches a pattern according
+// to the rules of ShowRef
 func (r Ref) Matches(pattern string) bool {
 	return r.Name == pattern || strings.HasSuffix(r.Name, "/"+pattern)
+}
+
+// MatchesRSSrc determines whether the ref matches the src of
+// a refspec.
+// If it matches the src, it also returns the destination
+func (r Ref) MatchesRefSpecSrc(spec RefSpec) (match bool, dst Refname) {
+	srcs := string(spec.Src())
+	if srcs == r.Name {
+		return true, spec.Dst()
+	}
+	if strings.HasSuffix(srcs, "/*") {
+		prefix := strings.TrimSuffix(srcs, "/*")
+		if strings.HasPrefix(r.Name, prefix) {
+			dst := string(spec.Dst())
+			if !strings.HasSuffix(dst, "/*") {
+				// Src ended in glob but dst didn't
+				panic("Invalid destination for refspec")
+			}
+			newprefix := strings.TrimSuffix(dst, "/*")
+			base := strings.TrimPrefix(r.Name, prefix)
+			return true, Refname(newprefix + base)
+		}
+	}
+	return false, ""
 }
 
 func (r Ref) String() string {

@@ -3,7 +3,6 @@ package cmd
 import (
 	"flag"
 	"fmt"
-	"os"
 
 	"github.com/driusan/dgit/git"
 )
@@ -35,15 +34,14 @@ func Fetch(c *git.Client, args []string) error {
 	flags.Parse(args)
 
 	var repository git.Remote
+	var refspecs []git.RefSpec
 	if flags.NArg() < 1 {
 		repository = "origin" // FIXME origin is the default unless the current branch unless there is an upstream branch configured for the current branch
-	} else if flags.NArg() == 1 {
+	} else if flags.NArg() >= 1 {
 		repository = git.Remote(flags.Arg(0))
-	} else {
-		fmt.Fprintf(os.Stderr, "Group and multiple repositories is not currently implemented\n")
-		flags.Usage()
-		os.Exit(1)
+		for _, ref := range flags.Args()[1:] {
+			refspecs = append(refspecs, git.RefSpec(ref))
+		}
 	}
-
-	return git.Fetch(c, opts, repository)
+	return git.Fetch(c, opts, repository, refspecs)
 }

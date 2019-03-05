@@ -440,12 +440,18 @@ func buildLsRefsCmdV2(opts LsRemoteOptions, patterns []string) (string, error) {
 		prefixes := []string{"", "refs/", "refs/heads/", "refs/tags/", "refs/remotes/"}
 		// FIXME: Do better
 		for _, p := range patterns {
+			// If there was a * at the end it's a wildcard.
+			if p[len(p)-1] == '*' {
+				p = p[:len(p)-2]
+			}
 			for _, prefix := range prefixes {
 				penc, err := PktLineEncode([]byte("ref-prefix " + prefix + p))
 				if err != nil {
 					return "", err
 				}
+				log.Println(penc)
 				cmd += penc
+
 			}
 		}
 	}
