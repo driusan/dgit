@@ -130,6 +130,11 @@ func (c *Client) Close() error {
 	return nil
 }
 
+// Returns true if the repo is a bare repo.
+func (c *Client) IsBare() bool {
+	return c.GetConfig("core.bare") == "true"
+}
+
 // Walks from the current directory to find a .git directory
 func findGitDir() GitDir {
 	startPath, err := os.Getwd()

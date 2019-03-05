@@ -57,7 +57,7 @@ func LsTree(c *git.Client, args []string) error {
 	for _, entry := range tree {
 		var lineend string
 		var name string
-		if opts.FullName || opts.FullTree {
+		if opts.FullName || opts.FullTree || c.IsBare() {
 			name = entry.PathName.String()
 		} else {
 			rname, err := entry.PathName.FilePath(c)
