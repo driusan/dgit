@@ -17,8 +17,6 @@ func addSharedFetchFlags(flags *flag.FlagSet, options *git.FetchOptions) {
 		flags.Var(newNotimplStringValue(), sf, "Not implemented")
 	}
 
-	flags.BoolVar(&options.Force, "f", false, "Force update of local refs")
-	flags.BoolVar(&options.Force, "force", false, "Alias for -f")
 	flags.IntVar(&options.Depth, "depth", 0, "Limit fetching to the specified number of commits")
 }
 
