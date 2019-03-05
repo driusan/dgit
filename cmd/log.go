@@ -75,13 +75,29 @@ func Log(c *git.Client, args []string) error {
 		opts.MaxCount = &mc
 	}
 
-	printCommit, err := git.GetCommitPrinter(c, format)
-	if err != nil {
-		return err
+	var commitPrinter func(s git.Sha1) error
+
+	if format == "medium" {
+		commitPrinter = func(s git.Sha1) error {
+			output, err := git.CommitID(s).FormatMedium(c)
+			if err != nil {
+				return err
+			}
+			fmt.Printf("%s", output)
+			return nil
+		}
+	} else if strings.HasPrefix(format, "format:") {
+		commitPrinter = func(s git.Sha1) error {
+			output, err := git.CommitID(s).Format(c, format[7:])
+			if err != nil {
+				return err
+			}
+			fmt.Printf("%s\n", output)
+			return nil
+		}
+	} else {
+		return fmt.Errorf("Format %s is not supported\n", format)
 	}
 
-	err = git.RevListCallback(c, opts, []git.Commitish{commit}, nil, func(s git.Sha1) error {
-		return printCommit(c, git.CommitID(s), format)
-	})
-	return err
+	return git.RevListCallback(c, opts, []git.Commitish{commit}, nil, commitPrinter)
 }

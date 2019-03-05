@@ -199,6 +199,47 @@ func (s CommitID) AncestorMap(c *Client) (map[CommitID]struct{}, error) {
 
 }
 
+func (cmt CommitID) GetCommitterDate(c *Client) (time.Time, error) {
+	obj, err := c.GetCommitObject(cmt)
+	if err != nil {
+		return time.Time{}, err
+	}
+	committerStr := obj.GetHeader("committer")
+
+	if committerStr == "" {
+		return time.Time{}, fmt.Errorf("Commit %s does not have a committer", cmt)
+	}
+
+	committerPieces := strings.Split(committerStr, " ")
+	if len(committerPieces) < 3 {
+		return time.Time{}, fmt.Errorf("Could not parse committer %s", committerStr)
+
+	}
+
+	unixTime, err := strconv.ParseInt(committerPieces[len(committerPieces)-2], 10, 64)
+	if err != nil {
+		return time.Time{}, err
+	}
+	t := time.Unix(unixTime, 0)
+	timeZone := committerPieces[len(committerPieces)-1]
+	if loc, ok := tzCache[timeZone]; ok {
+		return t.In(loc), nil
+	}
+	tzHours, err := strconv.ParseInt(timeZone[:len(timeZone)-2], 10, 64)
+	if err != nil {
+		panic(err)
+	}
+	loc := time.FixedZone(timeZone, int(tzHours*60*60))
+	if tzCache == nil {
+		tzCache = make(map[string]*time.Location)
+
+	}
+	tzCache[timeZone] = loc
+	date := t.In(loc)
+
+	return date, nil
+}
+
 var tzCache map[string]*time.Location
 
 func (cmt CommitID) GetDate(c *Client) (time.Time, error) {
@@ -455,6 +496,109 @@ func (c CommitID) GetAllObjectsExcept(cl *Client, excludeList map[Sha1]struct{})
 	excludeList[Sha1(c)] = struct{}{}
 	return objects, nil
 
+}
+
+func (c CommitID) FormatMedium(cl *Client) (string, error) {
+	output := ""
+
+	author, err := c.GetAuthor(cl)
+	if err != nil {
+		return "", err
+	}
+	output = output + fmt.Sprintf("commit %s\n", c)
+	if parents, err := c.Parents(cl); len(parents) > 1 && err == nil {
+		output = output + "Merge: "
+		for i, p := range parents {
+			output = output + fmt.Sprintf("%s", p)
+			if i != len(parents)-1 {
+				output = output + " "
+			}
+		}
+		output = output + "\n"
+	}
+	date, err := c.GetDate(cl)
+	if err != nil {
+		return "", err
+	}
+	output = output + fmt.Sprintf("Author: %v\nDate:   %v\n\n", author, date.Format("Mon Jan 2 15:04:05 2006 -0700"))
+
+	msg, err := c.GetCommitMessage(cl)
+	if err != nil {
+		return "", err
+	}
+	lines := strings.Split(strings.TrimSpace(msg.String()), "\n")
+	for _, l := range lines {
+		output = output + fmt.Sprintf("    %v\n", l)
+	}
+	output = output + "\n"
+	return output, nil
+}
+
+func (c CommitID) Format(cl *Client, format string) (string, error) {
+	output := format
+
+	// Newline
+	if strings.Contains(output, "%n") {
+		output = strings.Replace(output, "%n", "\n", -1)
+	}
+
+	// Full commit hash
+	if strings.Contains(output, "%H") {
+		output = strings.Replace(output, "%H", c.String(), -1)
+	}
+
+	// Committer date as unix timestamp
+	if strings.Contains(output, "%ct") {
+		date, err := c.GetCommitterDate(cl)
+		if err != nil {
+			return "", err
+		}
+		output = strings.Replace(output, "%ct", strconv.FormatInt(date.Unix(), 10), -1)
+	}
+
+	// Author date as unix timestamp
+	if strings.Contains(output, "%at") {
+		date, err := c.GetDate(cl)
+		if err != nil {
+			return "", err
+		}
+		output = strings.Replace(output, "%ct", strconv.FormatInt(date.Unix(), 10), -1)
+	}
+
+	// Show the non-stylized ref names beside any relevant commit
+	if strings.Contains(output, "%D") {
+		// FIXME this needs to include other refs that aren't heads or tags
+		refs, err := ShowRef(cl, ShowRefOptions{Heads: true, Tags: true}, []string{})
+		if err != nil {
+			return "", err
+		}
+
+		headRefSpec, err := SymbolicRefGet(cl, SymbolicRefOptions{}, "HEAD")
+		if err != nil {
+			return "", err
+		}
+
+		refsForCommit := ""
+		for _, ref := range refs {
+			if len(refsForCommit) != 0 {
+				refsForCommit = refsForCommit + ", "
+			}
+
+			if ref.Value == Sha1(c) {
+
+				// TODO relate any other top-level refs to their linked ref, not just HEAD
+				if headRefSpec.String() == ref.Name {
+					refsForCommit = refsForCommit + "HEAD -> "
+				}
+				refsForCommit = refsForCommit + ref.RefName()
+			}
+		}
+		output = strings.Replace(output, "%D", refsForCommit, -1)
+	}
+
+	// TODO Add more formatting options (there are many)
+
+	return output, nil
 }
 
 // A TreeEntry represents an entry inside of a Treeish.

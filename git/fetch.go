@@ -8,6 +8,7 @@ import (
 )
 
 type FetchOptions struct {
+	Force bool
 	FetchPackOptions
 }
 

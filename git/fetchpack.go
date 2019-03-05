@@ -21,7 +21,7 @@ type FetchPackOptions struct {
 	Thin                           bool
 	IncludeTag                     bool
 	UploadPack                     string
-	Depth                          int32
+	Depth                          int
 	DeepenRelative                 bool
 	NoProgress                     bool
 	CheckSelfContainedAndConnected bool
