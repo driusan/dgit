@@ -17,7 +17,7 @@ func addSharedFetchFlags(flags *flag.FlagSet, options *git.FetchOptions) {
 		flags.Var(newNotimplStringValue(), sf, "Not implemented")
 	}
 
-	options.Depth = int32(flags.Int("depth", 0, "Limit fetching to the specified number of commits. This is current a no-op."))
+	options.Depth = int32(*flags.Int("depth", 0, "Limit fetching to the specified number of commits. This is current a no-op."))
 }
 
 func Fetch(c *git.Client, args []string) error {

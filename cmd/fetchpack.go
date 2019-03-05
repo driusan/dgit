@@ -27,7 +27,7 @@ func FetchPack(c *git.Client, args []string) error {
 	flags.BoolVar(&opts.Verbose, "verbose", false, "Be more verbose")
 	flags.Parse(args)
 	args = flags.Args()
-	opts.Depth = int(*depth)
+	opts.Depth = int32(*depth)
 	if len(args) < 1 {
 		flags.Usage()
 		return fmt.Errorf("Invalid flag usage")
