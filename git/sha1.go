@@ -498,6 +498,37 @@ func (c CommitID) GetAllObjectsExcept(cl *Client, excludeList map[Sha1]struct{})
 
 }
 
+func (c CommitID) getRefNamesList(cl *Client) (string, error) {
+	// FIXME this needs to include other refs that aren't heads or tags
+	refs, err := ShowRef(cl, ShowRefOptions{Heads: true, Tags: true}, []string{})
+	if err != nil {
+		return "", err
+	}
+
+	headRefSpec, err := SymbolicRefGet(cl, SymbolicRefOptions{}, "HEAD")
+	if err != nil {
+		return "", err
+	}
+
+	refsForCommit := ""
+	for _, ref := range refs {
+		if len(refsForCommit) != 0 {
+			refsForCommit = refsForCommit + ", "
+		}
+
+		if ref.Value == Sha1(c) {
+
+			// TODO relate any other top-level refs to their linked ref, not just HEAD
+			if headRefSpec.String() == ref.Name {
+				refsForCommit = refsForCommit + "HEAD -> "
+			}
+			refsForCommit = refsForCommit + ref.RefName()
+		}
+	}
+
+	return refsForCommit, nil
+}
+
 func (c CommitID) FormatMedium(cl *Client) (string, error) {
 	output := ""
 
@@ -505,7 +536,12 @@ func (c CommitID) FormatMedium(cl *Client) (string, error) {
 	if err != nil {
 		return "", err
 	}
-	output = output + fmt.Sprintf("commit %s\n", c)
+	output = output + fmt.Sprintf("commit %s", c)
+	refNameList, _ := c.getRefNamesList(cl)
+	if refNameList != "" {
+		output = output + fmt.Sprintf(" (%s)", refNameList)
+	}
+	output = output + "\n"
 	if parents, err := c.Parents(cl); len(parents) > 1 && err == nil {
 		output = output + "Merge: "
 		for i, p := range parents {
@@ -567,33 +603,8 @@ func (c CommitID) Format(cl *Client, format string) (string, error) {
 
 	// Show the non-stylized ref names beside any relevant commit
 	if strings.Contains(output, "%D") {
-		// FIXME this needs to include other refs that aren't heads or tags
-		refs, err := ShowRef(cl, ShowRefOptions{Heads: true, Tags: true}, []string{})
-		if err != nil {
-			return "", err
-		}
-
-		headRefSpec, err := SymbolicRefGet(cl, SymbolicRefOptions{}, "HEAD")
-		if err != nil {
-			return "", err
-		}
-
-		refsForCommit := ""
-		for _, ref := range refs {
-			if len(refsForCommit) != 0 {
-				refsForCommit = refsForCommit + ", "
-			}
-
-			if ref.Value == Sha1(c) {
-
-				// TODO relate any other top-level refs to their linked ref, not just HEAD
-				if headRefSpec.String() == ref.Name {
-					refsForCommit = refsForCommit + "HEAD -> "
-				}
-				refsForCommit = refsForCommit + ref.RefName()
-			}
-		}
-		output = strings.Replace(output, "%D", refsForCommit, -1)
+		refNameList, _ := c.getRefNamesList(cl)
+		output = strings.Replace(output, "%D", refNameList, -1)
 	}
 
 	// TODO Add more formatting options (there are many)
