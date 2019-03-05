@@ -41,7 +41,7 @@ func LsTree(c *Client, opts LsTreeOptions, tree Treeish, paths []File) ([]*Index
 	// which match the directories of paths, but first check if we're
 	// in the root of the workgir (or using FullTree), in which case we
 	// can just use the tree passed.
-	if c.GetConfig("core.bare") == "true" {
+	if c.IsBare() {
 		opts.FullTree = true
 	}
 	if opts.FullTree {
