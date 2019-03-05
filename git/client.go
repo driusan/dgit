@@ -215,7 +215,14 @@ func (gd GitDir) Open(f File) (*os.File, error) {
 // Creates a file relative to GitDir. There should not be
 // a leading slash.
 func (gd GitDir) Create(f File) (*os.File, error) {
-	return os.Create(gd.String() + "/" + f.String())
+	fpath := filepath.Join(gd.String(), f.String())
+	dir := File(filepath.Dir(fpath))
+	if !dir.Exists() {
+		if err := os.MkdirAll(dir.String(), 0755); err != nil {
+			return nil, err
+		}
+	}
+	return os.Create(fpath)
 }
 
 // ResetWorkTree will replace all objects in c.WorkDir with the content from

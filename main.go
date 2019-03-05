@@ -97,6 +97,10 @@ func main() {
 		}
 	}
 	c, err := git.NewClient(*gitdir, *workdir)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "fatal: %v\n", err)
+		os.Exit(1)
+	}
 	// Pass any local configuration values to the client
 	for _, config := range configs {
 		parts := strings.Split(config, "=")
