@@ -562,7 +562,7 @@ func (c CommitID) Format(cl *Client, format string) (string, error) {
 		if err != nil {
 			return "", err
 		}
-		output = strings.Replace(output, "%ct", strconv.FormatInt(date.Unix(), 10), -1)
+		output = strings.Replace(output, "%at", strconv.FormatInt(date.Unix(), 10), -1)
 	}
 
 	// Show the non-stylized ref names beside any relevant commit
