@@ -12,6 +12,11 @@ import (
 
 type Refname string
 
+// returns true if the reference name exists under the client's GitDir.
+func (rn Refname) Exists(c *Client) bool {
+	return c.GitDir.File(File(rn)).Exists()
+}
+
 type FetchPackOptions struct {
 	All                            bool
 	Stdin                          io.Reader

@@ -19,6 +19,45 @@ func (r RefSpec) String() string {
 	return strings.TrimSpace(strings.TrimSuffix(string(r), "\000"))
 }
 
+// Src represents the ref name of the ref at the remote location for a refspec.
+// for instance, in the refspec "refs/heads/foo:refs/remotes/origin/foo",
+// src refers to refs/heads/foo, the name of the remote reference, while dst
+// refers to refs/remotes/origin/master, the location that we store our cache
+// of what that remote reference is.
+func (r RefSpec) Src() Refname {
+	if len(r) < 1 {
+		return ""
+	}
+
+	if r[0] == '+' {
+		r = r[1:]
+	}
+	if pos := strings.Index(string(r), ":"); pos >= 0 {
+		return Refname(r[:pos])
+	}
+
+	// There was no ":", so we just take the name.
+	return Refname(r)
+}
+
+// Dst represents the local destination of a remote ref in a refspec.
+// For instance, in the refspec "refs/heads/foo:refs/remotes/origin/foo",
+// Dst refers to "refs/remotes/origin/foo". If the refspec does not have an
+// explicit Dst specified, Dst returns an empty refname.
+func (r RefSpec) Dst() Refname {
+	if len(r) < 1 {
+		return ""
+	}
+
+	if r[0] == '+' {
+		r = r[1:]
+	}
+	if pos := strings.Index(string(r), ":"); pos >= 0 {
+		return Refname(r[pos+1:])
+	}
+	return ""
+}
+
 func (r RefSpec) HasPrefix(s string) bool {
 	return strings.HasPrefix(r.String(), s)
 }
