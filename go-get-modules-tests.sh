@@ -23,7 +23,7 @@ export GO111MODULE=on # Force Go 1.11 to use the go modules
 
 mkdir -p $GOPATH/src/foo
 cd $GOPATH/src/foo
-go mod init
+go mod init || (echo "This version of go doesn't seem to support modules. Skipping the tests."; exit 0)
 
 echo "Go get a package without semver"
 go get "github.com/shurcooL/vfsgen" || (echo "Go get failed"; exit 1)
