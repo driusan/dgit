@@ -499,8 +499,7 @@ func (c CommitID) GetAllObjectsExcept(cl *Client, excludeList map[Sha1]struct{})
 }
 
 func (c CommitID) getRefNamesList(cl *Client) (string, error) {
-	// FIXME this needs to include other refs that aren't heads or tags
-	refs, err := ShowRef(cl, ShowRefOptions{Heads: true, Tags: true}, []string{})
+	refs, err := ShowRef(cl, ShowRefOptions{}, []string{})
 	if err != nil {
 		return "", err
 	}
