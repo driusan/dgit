@@ -54,6 +54,18 @@ func (r Ref) TabString() string {
 	return fmt.Sprintf("%v\t%v", r.Value, r.Name)
 }
 
+// Gets the "ref name" of the ref suitable for showing in places
+//  like git log and git rev-list.
+func (r Ref) RefName() string {
+	if strings.HasPrefix(r.Name, "refs/heads/") {
+		return r.Name[11:]
+	}
+	if strings.HasPrefix(r.Name, "refs/tags/") {
+		return fmt.Sprintf("tag: %s", r.Name[10:])
+	}
+	return r.Name
+}
+
 func (r Ref) CommitID(c *Client) (CommitID, error) {
 	switch r.Value.Type(c) {
 	case "commit":

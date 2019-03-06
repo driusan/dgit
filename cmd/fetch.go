@@ -13,9 +13,11 @@ func addSharedFetchFlags(flags *flag.FlagSet, options *git.FetchOptions) {
 	for _, bf := range []string{"all", "a", "append", "unshallow", "update-shallow", "dry-run", "k", "keep", "multiple", "p", "prune", "P", "prune-tags", "n", "no-tags", "t", "tags", "no-recurse-submodules", "u", "update-head-ok", "q", "quiet", "v", "verbose", "progress", "4", "ipv4", "ipv6"} {
 		flags.Var(newNotimplBoolValue(), bf, "Not implemented")
 	}
-	for _, sf := range []string{"depth", "deepend", "shallow-since", "shallow-exclude", "refmap", "recurse-submodules", "j", "jobs", "submodule-prefix", "recurse-submodules-default", "upload-pack", "o", "server-option"} {
+	for _, sf := range []string{"deepend", "shallow-since", "shallow-exclude", "refmap", "recurse-submodules", "j", "jobs", "submodule-prefix", "recurse-submodules-default", "upload-pack", "o", "server-option"} {
 		flags.Var(newNotimplStringValue(), sf, "Not implemented")
 	}
+
+	options.Depth = int32(*flags.Int("depth", 0, "Limit fetching to the specified number of commits. This is current a no-op."))
 }
 
 func Fetch(c *git.Client, args []string) error {

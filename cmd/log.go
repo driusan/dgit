@@ -3,50 +3,12 @@ package cmd
 import (
 	"flag"
 	"fmt"
-	"log"
 	"os"
 	"strconv"
 	"strings"
 
 	"github.com/driusan/dgit/git"
 )
-
-// Since libgit is somewhat out of our control and we can't implement
-// a fmt.Stringer interface there, we use this helper.
-func printCommit(c *git.Client, cmt git.CommitID) error {
-	author, err := cmt.GetAuthor(c)
-	if err != nil {
-		return err
-	}
-	fmt.Printf("commit %s\n", cmt)
-	if parents, err := cmt.Parents(c); len(parents) > 1 && err == nil {
-		fmt.Printf("Merge: ")
-		for i, p := range parents {
-			fmt.Printf("%s", p)
-			if i != len(parents)-1 {
-				fmt.Printf(" ")
-			}
-		}
-		fmt.Println()
-	}
-	date, err := cmt.GetDate(c)
-	if err != nil {
-		return err
-	}
-	fmt.Printf("Author: %v\nDate:   %v\n\n", author, date.Format("Mon Jan 2 15:04:05 2006 -0700"))
-	log.Printf("Commit %v\n", cmt)
-
-	msg, err := cmt.GetCommitMessage(c)
-	if err != nil {
-		return err
-	}
-	lines := strings.Split(strings.TrimSpace(msg.String()), "\n")
-	for _, l := range lines {
-		fmt.Printf("    %v\n", l)
-	}
-	fmt.Printf("\n")
-	return nil
-}
 
 func Log(c *git.Client, args []string) error {
 	flags := flag.NewFlagSet("log", flag.ExitOnError)
@@ -70,6 +32,8 @@ func Log(c *git.Client, args []string) error {
 	maxCount := -1
 	flags.IntVar(&maxCount, "n", -1, "Limit the number of commits.")
 	flags.IntVar(&maxCount, "max-count", -1, "Alias for -n")
+	format := "medium" // The default
+	flags.StringVar(&format, "format", "medium", "Pretty print the commit logs")
 
 	adjustedArgs := []string{}
 	for _, a := range args {
@@ -111,8 +75,29 @@ func Log(c *git.Client, args []string) error {
 		opts.MaxCount = &mc
 	}
 
-	err = git.RevListCallback(c, opts, []git.Commitish{commit}, nil, func(s git.Sha1) error {
-		return printCommit(c, git.CommitID(s))
-	})
-	return err
+	var commitPrinter func(s git.Sha1) error
+
+	if format == "medium" {
+		commitPrinter = func(s git.Sha1) error {
+			output, err := git.CommitID(s).FormatMedium(c)
+			if err != nil {
+				return err
+			}
+			fmt.Printf("%s", output)
+			return nil
+		}
+	} else if strings.HasPrefix(format, "format:") {
+		commitPrinter = func(s git.Sha1) error {
+			output, err := git.CommitID(s).Format(c, format[7:])
+			if err != nil {
+				return err
+			}
+			fmt.Printf("%s\n", output)
+			return nil
+		}
+	} else {
+		return fmt.Errorf("Format %s is not supported\n", format)
+	}
+
+	return git.RevListCallback(c, opts, []git.Commitish{commit}, nil, commitPrinter)
 }

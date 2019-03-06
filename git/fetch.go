@@ -5,9 +5,8 @@ import (
 )
 
 type FetchOptions struct {
-	FetchPackOptions
-
 	Force bool
+	FetchPackOptions
 }
 
 // Fetch implements the "git fetch" command, fetching  refs from rmt.
