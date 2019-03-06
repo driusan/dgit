@@ -108,6 +108,19 @@ func fetchPackDone(c *Client, opts FetchPackOptions, conn RemoteConn, wants []Re
 		if err != nil {
 			return nil, err
 		}
+
+		objects := make(map[Sha1]bool)
+		// Sometimes we are given commit ID's directly from the command-line in
+		//  which case we fetch them directly.
+		for _, refname := range wants {
+			if sha, err := Sha1FromString(string(refname)); err == nil {
+				objects[sha] = true
+			}
+		}
+		for _, ref := range rmtrefs {
+			objects[ref.Value] = true
+		}
+		log.Printf("Fetching these objects: %+v\n", objects)
 		refs = rmtrefs
 
 		// Now we perform the fetch itself.
@@ -120,13 +133,13 @@ func fetchPackDone(c *Client, opts FetchPackOptions, conn RemoteConn, wants []Re
 			fmt.Fprintf(conn, "no-progress\n")
 		}
 		wanted := false
-		for _, ref := range refs {
-			have, _, err := c.HaveObject(ref.Value)
+		for object, _ := range objects {
+			have, _, err := c.HaveObject(object)
 			if err != nil {
 				return nil, err
 			}
 			if !have {
-				fmt.Fprintf(conn, "want %v\n", ref.Value)
+				fmt.Fprintf(conn, "want %v\n", object)
 				wanted = true
 			}
 		}

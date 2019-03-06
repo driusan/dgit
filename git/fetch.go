@@ -2,6 +2,7 @@ package git
 
 import (
 	"fmt"
+	"log"
 )
 
 type FetchOptions struct {
@@ -34,7 +35,9 @@ func Fetch(c *Client, opts FetchOptions, rmt Remote, refs []RefSpec) error {
 			RefSpec(fmt.Sprintf("refs/heads/*:refs/remotes/%s/*", rmt)),
 		)
 	}
+	log.Printf("fetch: refspecs are %+v\n", refs)
 	if c.GitDir != "" {
+		log.Printf("fetch: newrefs is %+v\n", newrefs)
 		for _, ref := range newrefs {
 			for _, spec := range refs {
 				if match, dst := ref.MatchesRefSpecSrc(spec); match {
