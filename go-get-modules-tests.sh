@@ -21,9 +21,9 @@ mkdir /tmp/gopath.$$
 export GOPATH=/tmp/gopath.$$
 export GO111MODULE=on # Force Go 1.11 to use the go modules
 
-mkdir -p $GOPATH/src/foo
-cd $GOPATH/src/foo
-go mod init || exit 0
+mkdir -p /tmp/foo.$$
+cd /tmp/foo.$$
+go mod init somesite.com/foo || exit 0
 
 echo "Go get a package without semver"
 go get "github.com/shurcooL/vfsgen" || (echo "Go get failed"; exit 1)
