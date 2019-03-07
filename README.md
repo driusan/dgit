@@ -1,20 +1,19 @@
 ![travis ci](https://api.travis-ci.org/driusan/dgit.svg?branch=master) (Note: Travis currently runs dgit against (a subset of) the git 2.10.0 test suite)
 
 This repo contains a pure Go implementation of the command
-line git client that I've been working on so that I can
-try doing some of my Go development on Plan 9.
+line git client.
 
-It's primary purpose is to enable users of operating systems
+Its primary purpose is to enable users of operating systems
 where Go is supported but the canonical git implementation
-isn't (ie. Plan 9) to use git.
+is not (ie. Plan 9) to use git.
 
 *IT IS NOWHERE NEAR READY*
 
 ## Roadmap
 
 The main goal is to enable `go get` to work by doing a real
-checkout and without any hacks such as downloading a .zip from
-GitHub and pretending it's a checkout. (This should be done, 
+checkout without any hacks such as downloading a .zip from
+GitHub and pretending it is a checkout. (This should be done, 
 and any breakages with `go get` if you rename the binary from
 `dgit` to `git` and put it on your path should be reported
 as an issue.)
