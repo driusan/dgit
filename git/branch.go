@@ -10,6 +10,7 @@ type BranchOptions struct {
 	Quiet  bool
 	Move   bool
 	Delete bool
+	Force  bool
 }
 
 func BranchList(c *Client, stdout io.Writer, opts BranchOptions, patterns []string) ([]Branch, error) {
