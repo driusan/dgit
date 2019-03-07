@@ -2,6 +2,8 @@ language: go
 
 go:
   - "1.10.x"
+  - "1.11.x"
+  - "1.12.x"
   - master
 
 go_import_path: github.com/driusan/dgit
@@ -17,6 +19,7 @@ script:
     - go test -v ./...
     - chmod u+x ./go-get-tests.sh
     - ./go-get-tests.sh
+    - ./go-get-modules-tests.sh
     - chmod u+x ./official-git/run-tests.sh
     - ./official-git/run-tests.sh
 
