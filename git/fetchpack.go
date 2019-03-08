@@ -446,7 +446,7 @@ func (p *packProtocolReader) Read(buf []byte) (int, error) {
 				}
 				goto sidebandRead
 			case sidebandErrChannel:
-				msgbuf := make([]byte, size)
+				msgbuf := make([]byte, size-5)
 				n, err := io.ReadFull(p.conn, msgbuf)
 				if err != nil {
 					return 0, err
