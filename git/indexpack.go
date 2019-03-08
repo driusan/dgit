@@ -523,9 +523,12 @@ func IndexPack(c *Client, opts IndexPackOptions, r io.Reader) (idx PackfileIndex
 			}
 		}()
 	}
-	binary.Read(r, binary.BigEndian, &p)
+	if err := binary.Read(r, binary.BigEndian, &p); err != nil {
+		return nil, err
+	}
+
 	if p.Signature != [4]byte{'P', 'A', 'C', 'K'} {
-		return nil, fmt.Errorf("Invalid packfile. %s", p.Signature[:])
+		return nil, fmt.Errorf("Invalid packfile: %+v", p.Signature)
 	}
 	if p.Version != 2 {
 		return nil, fmt.Errorf("Unsupported packfile version: %d", p.Version)
