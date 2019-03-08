@@ -75,6 +75,11 @@ func (r Remote) IsStateless(c *Client) (bool, error) {
 	return strings.HasPrefix(url, "http://") || strings.HasPrefix(url, "https://"), nil
 }
 
+// Returns true if the remote points to a local filesystem path.
+func (r Remote) IsFile() bool {
+	return strings.HasPrefix(r.String(), "file://") || File(r.String()).Exists()
+}
+
 // Gets a list of local references cached for this Remote
 func (r Remote) GetLocalRefs(c *Client) ([]Ref, error) {
 	allrefs, err := ShowRef(c, ShowRefOptions{}, nil)

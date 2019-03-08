@@ -2,6 +2,7 @@ package git
 
 import (
 	"fmt"
+	"os"
 	"path/filepath"
 	"strings"
 )
@@ -65,7 +66,7 @@ func Clone(opts CloneOptions, rmt Remote, dst File) error {
 	if err != nil {
 		return err
 	}
-	config.SetConfig("remote.origin.url", rmt.String())
+
 	br := opts.Branch
 	if br == "" {
 		br = "master"
@@ -74,7 +75,17 @@ func Clone(opts CloneOptions, rmt Remote, dst File) error {
 	if opts.Origin == "" {
 		org = "origin"
 	}
-	config.SetConfig(fmt.Sprintf("remote.%v.url", org), rmt.String())
+	if rmt.IsFile() {
+		// the url in the config must point to an absolute path if
+		// passed on the command line as a relative one.
+		absurl, err := filepath.Abs(rmt.String())
+		if err != nil {
+			return err
+		}
+		config.SetConfig(fmt.Sprintf("remote.%v.url", org), absurl)
+	} else {
+		config.SetConfig(fmt.Sprintf("remote.%v.url", org), rmt.String())
+	}
 	config.SetConfig(fmt.Sprintf("branch.%v.remote", br), org)
 	// This should be smarter and get the HEAD symref from the connection.
 	// It isn't necessarily named refs/heads/master
@@ -132,5 +143,30 @@ func Clone(opts CloneOptions, rmt Remote, dst File) error {
 	// Finally, checkout the files. Since it's an initial clone, we just
 	// do a hard reset and don't try to be intelligent about what readtree
 	// does.
+	//
+	// We need to be sure we're within the repo, so that ReadTree and
+	// CheckoutIndexUncommitted don't have problems making paths relative,
+	// but then we restore the environment and c when we're done.
+	gwd := c.WorkDir
+	ggd := c.GitDir
+	pwd, err := os.Getwd()
+	defer func() {
+		os.Chdir(pwd)
+		c.WorkDir = gwd
+		c.GitDir = ggd
+	}()
+	if err != nil {
+		return err
+	}
+	if err := os.Chdir(c.WorkDir.String()); err != nil {
+		return err
+	}
+	// filepath.Rel can if workdir is ".", so use the absolute path
+	absdir, err := filepath.Abs(".")
+	if err != nil {
+		return err
+	}
+	c.WorkDir = WorkDir(absdir)
+	c.GitDir = GitDir(filepath.Join(c.WorkDir.String(), ".git"))
 	return Reset(c, ResetOptions{Hard: true}, nil)
 }

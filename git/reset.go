@@ -121,7 +121,10 @@ func ResetMode(c *Client, opts ResetOptions, cmt Commitish) error {
 		return err
 	}
 	if opts.Mixed || opts.Hard {
-		idx, err := ReadTree(c, ReadTreeOptions{Reset: true, Update: true}, comm)
+		// If it's a hard reset, don't bother with -reset or -u, because
+		// it'll be handled by the CheckoutIndexUncommited below and
+		// we don't want to checkout twice.
+		idx, err := ReadTree(c, ReadTreeOptions{Reset: !opts.Hard, Update: !opts.Hard}, comm)
 		if err != nil {
 			return err
 		}
