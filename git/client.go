@@ -256,15 +256,28 @@ func (c *Client) ResetWorkTree() error {
 }
 
 // Return valid branches that a Client knows about.
-func (c *Client) GetBranches() (branches []Branch, err error) {
-	files, err := ioutil.ReadDir(c.GitDir.String() + "/refs/heads")
+func (c *Client) GetBranches() ([]Branch, error) {
+	files := []string{}
+
+	err := filepath.Walk(filepath.Join(c.GitDir.String(), "refs", "heads"),
+		func(path string, info os.FileInfo, err error) error {
+			if err != nil {
+				return err
+			}
+			if !info.IsDir() {
+				files = append(files, path)
+			}
+			return nil
+		})
 	if err != nil {
 		return nil, err
 	}
+
+	branches := []Branch{}
 	for _, f := range files {
-		branches = append(branches, Branch("refs/heads/"+f.Name()))
+		branches = append(branches, Branch(f[len(c.GitDir.String())+1:]))
 	}
-	return
+	return branches, nil
 }
 
 // Return valid branches that a Client knows about.

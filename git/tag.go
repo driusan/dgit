@@ -2,7 +2,7 @@ package git
 
 import (
 	"fmt"
-	"io/ioutil"
+	"os"
 	"path/filepath"
 	"sort"
 	"strings"
@@ -28,14 +28,25 @@ func TagList(c *Client, opts TagOptions, patterns []string) ([]string, error) {
 		return nil, fmt.Errorf("Tag list with patterns not implemented")
 	}
 
-	files, err := ioutil.ReadDir(filepath.Join(c.GitDir.String(), "refs", "tags"))
+	files := []string{}
+
+	err := filepath.Walk(filepath.Join(c.GitDir.String(), "refs", "tags"),
+		func(path string, info os.FileInfo, err error) error {
+			if err != nil {
+				return err
+			}
+			if !info.IsDir() {
+				files = append(files, path)
+			}
+			return nil
+		})
 	if err != nil {
 		return nil, err
 	}
 
 	var tags []string
 	for _, f := range files {
-		tags = append(tags, f.Name())
+		tags = append(tags, f[len(c.GitDir.String())+len("/refs/tags/"):])
 	}
 	sort.Slice(tags, func(i, j int) bool {
 		if opts.IgnoreCase {
