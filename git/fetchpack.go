@@ -446,11 +446,13 @@ func (p *packProtocolReader) Read(buf []byte) (int, error) {
 				}
 				goto sidebandRead
 			case sidebandErrChannel:
-				n, err := io.ReadFull(p.conn, buf[:size-5])
+				msgbuf := make([]byte, size)
+				n, err := io.ReadFull(p.conn, msgbuf)
 				if err != nil {
-					return n, err
+					return 0, err
 				}
-				return n, fmt.Errorf("remote err: %s", buf[:n])
+				log.Printf("Remote error: %s\n", msgbuf[:n])
+				return 0, fmt.Errorf("remote err: %s", msgbuf[:n])
 			default:
 				return 0, fmt.Errorf("Invalid sideband channel: %d", buf[0])
 			}
