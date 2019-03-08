@@ -270,7 +270,7 @@ func (c *Client) GetBranches() ([]Branch, error) {
 			return nil
 		})
 	if err != nil {
-		return []Branch{}, nil
+		return nil, err
 	}
 
 	branches := []Branch{}
