@@ -32,7 +32,7 @@ func UnpackObjects(c *Client, opts UnpackObjectsOptions, r io.ReadSeeker) ([]Sha
 	var p PackfileHeader
 	binary.Read(r, binary.BigEndian, &p)
 	if p.Signature != [4]byte{'P', 'A', 'C', 'K'} {
-		return nil, fmt.Errorf("Invalid packfile.")
+		return nil, fmt.Errorf("Invalid packfile: %+v", p.Signature)
 	}
 	if p.Version != 2 {
 		return nil, fmt.Errorf("Unsupported packfile version: %d", p.Version)
