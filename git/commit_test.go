@@ -130,9 +130,6 @@ func TestUnmergedCommit(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if err := os.Chdir(gitdir); err != nil {
-		t.Fatal(err)
-	}
 	idx := NewIndex()
 	idx.Objects = []*IndexEntry{
 		&IndexEntry{
