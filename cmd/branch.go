@@ -20,13 +20,15 @@ func Branch(c *git.Client, args []string) error {
 	opts := git.BranchOptions{}
 
 	// These flags can be moved out of these lists and below as proper flags as they are implemented
-	for _, bf := range []string{"create-reflog", "f", "force", "M", "c", "copy", "C", "no-color", "i", "ignore-case", "no-column", "r", "remotes", "v", "vv", "verbose", "no-abbrev", "no-track", "unset-upstream", "edit-description"} {
+	for _, bf := range []string{"create-reflog", "M", "c", "copy", "C", "no-color", "i", "ignore-case", "no-column", "r", "remotes", "v", "vv", "verbose", "no-abbrev", "no-track", "unset-upstream", "edit-description"} {
 		flags.Var(newNotimplBoolValue(), bf, "Not implemented")
 	}
 	for _, sf := range []string{"color", "abbrev", "column", "sort", "no-merged", "contains", "no-contains", "points-at", "format", "set-upstream-to", "u"} {
 		flags.Var(newNotimplStringValue(), sf, "Not implemented")
 	}
 
+	flags.BoolVar(&opts.Force, "f", false, "Force branch creation or update. Currently all branch operations are forceful")
+	flags.BoolVar(&opts.Force, "force", false, "Alias of -f")
 	flags.BoolVar(&opts.All, "all", false, "Show remote branches too")
 	flags.BoolVar(&opts.All, "a", false, "Alias of --all")
 	flags.BoolVar(&opts.Quiet, "quiet", false, "Do not print branches")

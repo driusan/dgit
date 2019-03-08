@@ -20,6 +20,7 @@ func Config(c *git.Client, args []string) error {
 
 	get := flags.Bool("get", false, "Get the value for a given key")
 	unset := flags.Bool("unset", false, "Remove the line matching the key")
+	unsetall := flags.Bool("unset-all", false, "Remove all lines matching the key")
 	list := flags.Bool("list", false, "List all variables along with their values")
 	global := flags.Bool("global", false, "For writing options: write to global file rather than respository")
 
@@ -53,6 +54,8 @@ func Config(c *git.Client, args []string) error {
 		action = "get"
 	} else if *unset {
 		action = "unset"
+	} else if *unsetall {
+		action = "unsetall"
 	} else if *list {
 		action = "list"
 	} else if flags.NArg() == 1 {
@@ -97,6 +100,27 @@ func Config(c *git.Client, args []string) error {
 		code := config.Unset(flags.Arg(0))
 		if code != 0 {
 			os.Exit(code)
+		}
+		return config.WriteConfig()
+	case "unsetall":
+		if flags.NArg() < 1 {
+			fmt.Fprintf(flag.CommandLine.Output(), "Missing value to unset all\n")
+			flags.Usage()
+			os.Exit(2)
+		}
+		found := false
+		for {
+			code := config.Unset(flags.Arg(0))
+			if code == 5 {
+				break
+			}
+			found = true
+			if code != 0 {
+				os.Exit(code)
+			}
+		}
+		if !found {
+			os.Exit(5)
 		}
 		return config.WriteConfig()
 	case "list":
