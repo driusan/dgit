@@ -41,7 +41,7 @@ func TagList(c *Client, opts TagOptions, patterns []string) ([]string, error) {
 			return nil
 		})
 	if err != nil {
-		return []string{}, nil
+		return nil, err
 	}
 
 	var tags []string
