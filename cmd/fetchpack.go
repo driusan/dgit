@@ -25,6 +25,7 @@ func FetchPack(c *git.Client, args []string) error {
 	flags.BoolVar(&opts.DeepenRelative, "deepen-relative", false, "Not implemented")
 	flags.BoolVar(&opts.CheckSelfContainedAndConnected, "check-self-contained-and-connected", false, "Not implemented")
 	flags.BoolVar(&opts.Verbose, "verbose", false, "Be more verbose")
+	flags.BoolVar(&opts.Verbose, "v", false, "Alias of verbose")
 	flags.Parse(args)
 	args = flags.Args()
 	opts.Depth = int32(*depth)
