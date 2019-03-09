@@ -87,17 +87,11 @@ type RevParseOptions struct {
 	// Options for Files
 	// BUG(driusan): These should be handled as part of "args", not in RevParseOptions.
 	// They're included here so that I don't forget about them.
-	GitDir           GitDir
-	GitCommonDir     GitDir
-	IsInsideGitDir   bool
-	IsInsideWorkTree bool
-	IsBareRepository bool
-	ResolveGitDir    File // path
-	GitPath          GitDir
-	ShowCDup         bool
-	ShowPrefix       bool
-	ShowToplevel     bool
-	SharedIndexPath  bool
+	GitCommonDir    GitDir
+	ResolveGitDir   File // path
+	GitPath         GitDir
+	ShowCDup        bool
+	SharedIndexPath bool
 
 	// Other options
 	After, Before time.Time
@@ -363,6 +357,47 @@ func RevParse(c *Client, opt RevParseOptions, args []string) (commits []ParsedRe
 			} else {
 				fmt.Printf("%s\n", c.GitDir)
 			}
+		case "--is-inside-git-dir":
+			if c.IsInsideGitDir(".") {
+				fmt.Printf("true\n")
+			} else {
+				fmt.Printf("false\n")
+			}
+		case "--is-inside-work-tree":
+			if c.IsInsideWorkTree(".") {
+				fmt.Printf("true\n")
+			} else {
+				fmt.Printf("false\n")
+			}
+		case "--is-bare-repository":
+			if c.IsBare() {
+				fmt.Printf("true\n")
+			} else {
+				fmt.Printf("false\n")
+			}
+		case "--show-toplevel":
+			absgd, err := filepath.Abs(c.WorkDir.String())
+			if err != nil {
+				fmt.Fprintln(os.Stderr, err)
+				continue
+			}
+			fmt.Println(absgd)
+		case "--show-prefix":
+			if c.IsBare() {
+				fmt.Println("")
+				continue
+			}
+			absgd, err := filepath.Abs(c.WorkDir.String())
+			if err != nil {
+				fmt.Fprintln(os.Stderr, err)
+				continue
+			}
+			pwd, err := os.Getwd()
+			if err != nil {
+				fmt.Fprintln(os.Stderr, err)
+				continue
+			}
+			fmt.Println(strings.TrimPrefix(pwd, absgd+"/") + "/")
 		case "--verify":
 			// FIXME: Implement this properly. This is just to prevent default
 			// from outputing the string '--verify'

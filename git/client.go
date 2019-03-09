@@ -135,6 +135,37 @@ func (c *Client) IsBare() bool {
 	return c.GetConfig("core.bare") == "true"
 }
 
+// Returns true if the path is under the client's GitDir.
+func (c *Client) IsInsideGitDir(path File) bool {
+	abs, err := filepath.Abs(path.String())
+	if err != nil {
+		panic(err)
+	}
+	absgd, err := filepath.Abs(c.GitDir.String())
+	if err != nil {
+		panic(err)
+	}
+	return strings.HasPrefix(abs, absgd)
+}
+
+// Returns true if path is inside of the client's work tree.
+func (c *Client) IsInsideWorkTree(path File) bool {
+	if c.IsBare() || c.IsInsideGitDir(path) {
+		return false
+	}
+
+	abs, err := filepath.Abs(path.String())
+	if err != nil {
+		panic(err)
+	}
+	abswt, err := filepath.Abs(c.WorkDir.String())
+	if err != nil {
+		panic(err)
+	}
+	return strings.HasPrefix(abs, abswt)
+
+}
+
 // Walks from the current directory to find a .git directory
 func findGitDir() GitDir {
 	startPath, err := os.Getwd()
