@@ -17,7 +17,10 @@ func WriteTree(c *Client, opts WriteTreeOptions) (TreeID, error) {
 	if err != nil {
 		return TreeID{}, err
 	}
+	return WriteTreeFromIndex(c, idx, opts)
+}
 
+func WriteTreeFromIndex(c *Client, idx *Index, opts WriteTreeOptions) (TreeID, error) {
 	objs := idx.Objects
 	if opts.Prefix != "" {
 		opts.Prefix = strings.TrimRight(opts.Prefix, "/")

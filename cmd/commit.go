@@ -118,7 +118,12 @@ func Commit(c *git.Client, args []string) (string, error) {
 		finalMessage = string(m2)
 	}
 
-	cmt, err := git.Commit(c, opts, git.CommitMessage(finalMessage), nil)
+	filesStr := flags.Args()
+	var files []git.File
+	for _, f := range filesStr {
+		files = append(files, git.File(f))
+	}
+	cmt, err := git.Commit(c, opts, git.CommitMessage(finalMessage), files)
 	switch err {
 	case git.NoGlobalConfig:
 		committer, _ := c.GetCommitter(nil)
