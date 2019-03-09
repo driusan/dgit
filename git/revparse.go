@@ -353,9 +353,17 @@ func RevParse(c *Client, opt RevParseOptions, args []string) (commits []ParsedRe
 		case "--git-dir":
 			wd, err := os.Getwd()
 			if err == nil {
-				fmt.Printf("%s\n", strings.TrimPrefix(c.GitDir.String(), wd+"/"))
+				if c.GitDir.String() == wd {
+					// FIXME: It's not very clear when git uses the
+					// absolute path and when it uses the relative path,
+					// but in this case the rev-parse test suite depends
+					// on "."
+					fmt.Println(".")
+				} else {
+					fmt.Println(strings.TrimPrefix(c.GitDir.String(), wd+"/"))
+				}
 			} else {
-				fmt.Printf("%s\n", c.GitDir)
+				fmt.Println(c.GitDir)
 			}
 		case "--is-inside-git-dir":
 			if c.IsInsideGitDir(".") {
@@ -383,7 +391,11 @@ func RevParse(c *Client, opt RevParseOptions, args []string) (commits []ParsedRe
 			}
 			fmt.Println(absgd)
 		case "--show-prefix":
-			if c.IsBare() {
+			// I don't know why, but the git test suite tests that
+			// prefix prints "" when GIT_DIR is set, even when it's
+			// set to the same .git directory that would be evaluated
+			// without it.
+			if c.IsBare() || c.IsInsideGitDir(".") || os.Getenv("GIT_DIR") != "" {
 				fmt.Println("")
 				continue
 			}
@@ -397,7 +409,11 @@ func RevParse(c *Client, opt RevParseOptions, args []string) (commits []ParsedRe
 				fmt.Fprintln(os.Stderr, err)
 				continue
 			}
-			fmt.Println(strings.TrimPrefix(pwd, absgd+"/") + "/")
+			if pwd == absgd {
+				fmt.Println("")
+			} else {
+				fmt.Println(strings.TrimPrefix(pwd, absgd+"/") + "/")
+			}
 		case "--verify":
 			// FIXME: Implement this properly. This is just to prevent default
 			// from outputing the string '--verify'

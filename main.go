@@ -63,7 +63,7 @@ func main() {
 	}
 
 	workdir := flag.String("work-tree", "", "specify the working directory of git")
-	gitdir := flag.String("git-dir", "", "specify the repository of git")
+	gitdir := flag.String("git-dir", os.Getenv("GIT_DIR"), "specify the repository of git")
 	dir := flag.String("C", "", "chdir before starting git")
 	superprefix := flag.String("super-prefix", "", "useless option used internally by git test suite")
 	configs := []string{}
