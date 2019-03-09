@@ -70,9 +70,9 @@ func Commit(c *Client, opts CommitOptions, message CommitMessage, files []File) 
 	if opts.Patch {
 		return CommitID{}, fmt.Errorf("Commit --patch not implemented")
 	}
-	if len(files) != 0 {
-		return CommitID{}, fmt.Errorf("Commit files not implemented")
-	}
+
+	var idx *Index
+
 	if opts.All {
 		var tostage []File
 		if opts.Include {
@@ -85,8 +85,31 @@ func Commit(c *Client, opts CommitOptions, message CommitMessage, files []File) 
 		}
 	}
 
+	if !opts.All && len(files) != 0 {
+		var idx1 *Index
+		head, err := c.GetHeadCommit()
+		if err != nil {
+			idx1 = NewIndex()
+		} else {
+			idx1, err = ReadTree(c, ReadTreeOptions{DryRun: true}, head)
+			if err != nil {
+				return CommitID{}, err
+			}
+		}
+		idx2, err := UpdateIndex(c, idx1, UpdateIndexOptions{Add: true, Remove: true}, files)
+		if err != nil {
+			return CommitID{}, err
+		}
+		idx = idx2
+	} else {
+		idx1, err := c.GitDir.ReadIndex()
+		if err != nil {
+			return CommitID{}, err
+		}
+		idx = idx1
+	}
 	// Happy path: write the tree
-	treeid, err := WriteTree(c, WriteTreeOptions{})
+	treeid, err := WriteTreeFromIndex(c, idx, WriteTreeOptions{})
 	if err != nil {
 		return CommitID{}, err
 	}
