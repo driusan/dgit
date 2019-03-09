@@ -452,6 +452,11 @@ func main() {
 			fmt.Fprintln(os.Stderr, err)
 			os.Exit(1)
 		}
+	case "reflog":
+		if err := cmd.Reflog(c, args); err != nil {
+			fmt.Fprintln(os.Stderr, err)
+			os.Exit(1)
+		}
 	case "help":
 		flag.CommandLine.SetOutput(os.Stdout)
 		flag.Usage()
