@@ -41,8 +41,18 @@ func Init(c *Client, opts InitOptions, dir string) (*Client, error) {
 			return nil, err
 		}
 		if c != nil {
-			c.GitDir = GitDir(dir + "/.git")
-			c.WorkDir = WorkDir(dir)
+			// These must be absolute to be sure that filepath.Rel
+			// will work when cloning.
+			gd, err := filepath.Abs(filepath.Join(dir, ".git"))
+			if err != nil {
+				return nil, err
+			}
+			wd, err := filepath.Abs(dir)
+			if err != nil {
+				return nil, err
+			}
+			c.GitDir = GitDir(gd)
+			c.WorkDir = WorkDir(wd)
 		} else {
 			c2, err := NewClient(dir+"/.git", dir)
 			if err != nil {
@@ -119,20 +129,6 @@ func Init(c *Client, opts InitOptions, dir string) (*Client, error) {
 		} else {
 			fmt.Printf("Initialized empty Git repository in %v/\n", dir)
 		}
-	}
-
-	// Now go into the directory and adjust workdir and gitdir so that
-	// tests are in the right place.
-	if !opts.Bare {
-		if err := os.Chdir(c.WorkDir.String()); err != nil {
-			return c, err
-		}
-		wd, err := os.Getwd()
-		if err != nil {
-			return c, err
-		}
-		c.WorkDir = WorkDir(wd)
-		c.GitDir = GitDir(wd + "/.git")
 	}
 
 	if opts.Template != "" {
