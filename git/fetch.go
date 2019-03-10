@@ -16,6 +16,16 @@ func Fetch(c *Client, opts FetchOptions, rmt Remote, refs []RefSpec) error {
 	opts.FetchPackOptions.All = (refs == nil)
 	opts.FetchPackOptions.Verbose = true
 
+	// If none were provided then we check to see if there are any
+	//  configured refspecs for this remote
+	if refs == nil {
+		// FIXME this only handles one value for the configuration while there can be many with different refspecs for this operation
+		cfg := c.GetConfig(fmt.Sprintf("remote.%s.fetch", rmt))
+		if cfg != "" {
+			refs = []RefSpec{RefSpec(cfg)}
+		}
+	}
+
 	var wants []Refname
 	for _, ref := range refs {
 		wants = append(wants, ref.Src())
