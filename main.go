@@ -96,6 +96,9 @@ func main() {
 			os.Exit(1)
 		}
 	}
+	if *gitdir != "" {
+		os.Setenv("GIT_DIR", *gitdir)
+	}
 	c, err := git.NewClient(*gitdir, *workdir)
 	// Pass any local configuration values to the client
 	for _, config := range configs {
@@ -449,6 +452,11 @@ func main() {
 		globalOptsInUsage = false
 		subcommandUsage = "<tree-ish> [<path>...]"
 		if err := cmd.Archive(c, args); err != nil {
+			fmt.Fprintln(os.Stderr, err)
+			os.Exit(1)
+		}
+	case "reflog":
+		if err := cmd.Reflog(c, args); err != nil {
 			fmt.Fprintln(os.Stderr, err)
 			os.Exit(1)
 		}
