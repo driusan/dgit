@@ -17,6 +17,10 @@ func (rn Refname) Exists(c *Client) bool {
 	return c.GitDir.File(File(rn)).Exists()
 }
 
+func (rn Refname) String() string {
+	return string(rn)
+}
+
 type FetchPackOptions struct {
 	All                            bool
 	Stdin                          io.Reader
