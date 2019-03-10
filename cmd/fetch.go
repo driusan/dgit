@@ -38,7 +38,13 @@ func Fetch(c *git.Client, args []string) error {
 	var repository git.Remote
 	var refspecs []git.RefSpec
 	if flags.NArg() < 1 {
-		repository = "origin" // FIXME origin is the default unless the current branch unless there is an upstream branch configured for the current branch
+		// Find the repository we should be fetching
+		headbranch := c.GetHeadBranch()
+		reponame := c.GetConfig(fmt.Sprintf("branch.%s.remote", headbranch.BranchName()))
+		if reponame == "" {
+			reponame = "origin"
+		}
+		repository = git.Remote(reponame)
 	} else if flags.NArg() >= 1 {
 		repository = git.Remote(flags.Arg(0))
 		for _, ref := range flags.Args()[1:] {
