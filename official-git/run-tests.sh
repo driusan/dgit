@@ -23,7 +23,9 @@ git clone https://github.com/git/git.git git || echo "Using existing official gi
 cd git
 git checkout "$TAG"
 patch -p1 -N < "$d/fix-checkout-branch.patch" || echo "Fix checkout branch tests patch already applied"
+git apply ../force-official-git-pack-objects.patch || echo "Force official git pack objects patch already applied"
 make
+test -f git.official || cp git git.official
 rm git
 cp ../../dgit git
 rm git-init
@@ -52,6 +54,7 @@ GIT_SKIP_TESTS="$GIT_SKIP_TESTS t1308.2[6-7]" # No support for line ending handl
 GIT_SKIP_TESTS="$GIT_SKIP_TESTS t1503.[5-7] 1503.10" # No support for @{suffix} (looking up based on reflog) in rev-parse
 GIT_SKIP_TESTS="$GIT_SKIP_TESTS t2018.[6-7] t2018.[9] t2018.1[5-8]"
 GIT_SKIP_TESTS="$GIT_SKIP_TESTS t3000.7"
+GIT_SKIP_TESTS="$GIT_SKIP_TESTS t5510.[4-9] t5510.[1-7][0-9]" # Just the basic fetch tests are working for now
 export GIT_SKIP_TESTS
 
 make t0000-basic.sh \
@@ -93,6 +96,7 @@ make t0000-basic.sh \
         t3800-mktag.sh \
         t4113-apply-ending.sh \
         t4123-apply-shrink.sh \
+        t5510-fetch.sh \
         t7062-wtstatus-ignorecase.sh \
         t7511-status-index.sh
 
