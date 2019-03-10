@@ -36,6 +36,8 @@ func Tag(c *git.Client, args []string) error {
 	flags.BoolVar(&options.Annotated, "annotated", false, "Create an annotated tag")
 	flags.BoolVar(&options.Annotated, "a", false, "Alias of --annotated")
 
+	flags.BoolVar(&options.Delete, "d", false, "Delete the given tag")
+
 	var message []string
 	flags.Var(NewMultiStringValue(&message), "message", "Use the given message for the annotated tag")
 	flags.Var(NewMultiStringValue(&message), "m", "Alias of --message")
@@ -45,6 +47,15 @@ func Tag(c *git.Client, args []string) error {
 	flags.Var(newAliasedStringValue(&messageFile, ""), "F", "Alias of --file")
 
 	flags.Parse(args)
+	tagnames := flags.Args()
+
+	if options.Delete {
+		var tagrefs []git.Refname
+		for _, tag := range tagnames {
+			tagrefs = append(tagrefs, git.Refname(tag))
+		}
+		return git.TagDelete(c, options, tagrefs)
+	}
 	if messageFile != "" {
 		f, err := ioutil.ReadFile(messageFile)
 		if err != nil {
@@ -55,7 +66,6 @@ func Tag(c *git.Client, args []string) error {
 	if len(message) > 0 || messageFile != "" {
 		options.Annotated = true
 	}
-	tagnames := flags.Args()
 	var finalMessage string
 	if options.Annotated {
 		finalMessage = strings.Join(message, "\n\n") + "\n"

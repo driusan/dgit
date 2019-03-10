@@ -19,6 +19,9 @@ type TagOptions struct {
 	IgnoreCase bool
 
 	Annotated bool
+
+	// Delete the given tag
+	Delete bool
 }
 
 // List tags, if tagnames is specified only list tags which match one
@@ -93,4 +96,36 @@ tagger %v
 		comm = CommitID(tagid)
 	}
 	return UpdateRefSpec(c, UpdateRefOptions{}, refspec, comm, "")
+}
+
+func TagDelete(c *Client, opts TagOptions, tagnames []Refname) error {
+	if !opts.Delete {
+		return fmt.Errorf("Must pass Delete option")
+	}
+
+	if len(tagnames) == 0 {
+		return fmt.Errorf("No tags provided to delete")
+	}
+	// Convert the given tags to the full ref name
+	var tagpatterns []string
+	for _, tag := range tagnames {
+		tagpatterns = append(tagpatterns, tag.String())
+	}
+	tags, err := ShowRef(c, ShowRefOptions{Tags: true}, tagpatterns)
+	if err != nil {
+		return err
+	}
+	if len(tags) == 0 {
+		return fmt.Errorf("No matching tags found")
+	}
+	for _, tag := range tags {
+		if !strings.HasPrefix(tag.Name, "refs/tags") {
+			return fmt.Errorf("Invalid tag: %v", tag.Name)
+		}
+		file := c.GitDir.File(File(tag.Name))
+		if err := os.Remove(file.String()); err != nil {
+			return err
+		}
+	}
+	return nil
 }
