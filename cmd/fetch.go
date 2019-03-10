@@ -44,7 +44,6 @@ func Fetch(c *git.Client, args []string) error {
 		if reponame == "" {
 			reponame = "origin"
 		}
-		fmt.Printf("Udpating %s\n", reponame)
 		repository = git.Remote(reponame)
 	} else if flags.NArg() >= 1 {
 		repository = git.Remote(flags.Arg(0))
