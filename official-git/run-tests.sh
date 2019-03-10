@@ -76,6 +76,7 @@ make t0000-basic.sh \
         t1304-default-acl.sh \
         t1308-config-set.sh \
         t1403-show-ref.sh \
+        t1500-rev-parse.sh \
         t2000-checkout-cache-clash.sh \
         t2001-checkout-cache-clash.sh \
         t2002-checkout-cache-u.sh \

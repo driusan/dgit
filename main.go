@@ -96,6 +96,9 @@ func main() {
 			os.Exit(1)
 		}
 	}
+	if *gitdir != "" {
+		os.Setenv("GIT_DIR", *gitdir)
+	}
 	c, err := git.NewClient(*gitdir, *workdir)
 	// Pass any local configuration values to the client
 	for _, config := range configs {
