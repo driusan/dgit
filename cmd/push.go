@@ -81,7 +81,7 @@ To push and set the upstream to the remote named "origin" use:
 		return err
 	}
 
-	localSha, err := RevParse(c, []string{flags.Arg(0)})
+	localSha, _, err := RevParse(c, []string{flags.Arg(0)})
 	if err != nil {
 		return err
 	}

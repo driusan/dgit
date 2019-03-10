@@ -271,9 +271,11 @@ func main() {
 		}
 	case "rev-parse":
 		subcommandUsage = "<args>..."
-		commits, err := cmd.RevParse(c, args)
+		commits, opts, err := cmd.RevParse(c, args)
 		if err != nil {
-			fmt.Fprintf(os.Stderr, "%v\n", err)
+			if (opts.Verify && !opts.Quiet) || !opts.Verify {
+				fmt.Fprintf(os.Stderr, "%v\n", err)
+			}
 			os.Exit(4)
 		}
 		for _, sha := range commits {

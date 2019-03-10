@@ -348,6 +348,14 @@ func RevParseCommit(c *Client, opt *RevParseOptions, arg string) (CommitID, erro
 // Implements "git rev-parse". This should be refactored in terms of RevParseCommit and cleaned up.
 // (clean up a lot.)
 func RevParse(c *Client, opt RevParseOptions, args []string) (commits []ParsedRevision, err2 error) {
+	if opt.Default != "" && len(args) == 0 {
+		args = []string{opt.Default}
+	}
+	if opt.Verify {
+		if len(args) != 1 {
+			return nil, fmt.Errorf("fatal: need a single revision")
+		}
+	}
 	for _, arg := range args {
 		switch arg {
 		case "--git-dir":
@@ -414,10 +422,6 @@ func RevParse(c *Client, opt RevParseOptions, args []string) (commits []ParsedRe
 			} else {
 				fmt.Println(strings.TrimPrefix(pwd, absgd+"/") + "/")
 			}
-		case "--verify":
-			// FIXME: Implement this properly. This is just to prevent default
-			// from outputing the string '--verify'
-			continue
 		default:
 			if len(arg) > 0 && arg[0] == '-' {
 				fmt.Printf("%s\n", arg)
@@ -477,6 +481,13 @@ func RevParse(c *Client, opt RevParseOptions, args []string) (commits []ParsedRe
 				}
 			}
 		}
+	}
+	if opt.Verify && err2 != nil {
+		if strings.HasPrefix(err2.Error(), "Could not find") {
+			return nil, fmt.Errorf("fatal: need a single revision")
+
+		}
+		return nil, err2
 	}
 	return
 }
