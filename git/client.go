@@ -418,7 +418,8 @@ func (c *Client) GetAuthor(t *time.Time) Person {
 }
 
 // Returns the author that should be used for a commit message.
-// If time t is provided,
+// If time t is provided, it will return a person with the time
+// part populated to t.
 func (c *Client) GetCommitter(t *time.Time) (Person, error) {
 	person := Person{}
 	name := os.Getenv("GIT_COMMITTER_NAME")
@@ -658,4 +659,12 @@ func (c *Client) GetConfig(varname string) string {
 		return val
 	}
 	return ""
+}
+
+// Returns the .git/objects directory.
+func (c *Client) GetObjectsDir() File {
+	if objdir := os.Getenv("GIT_OBJECT_DIRECTORY"); objdir != "" {
+		return File(objdir)
+	}
+	return c.GitDir.File("objects")
 }

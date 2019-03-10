@@ -235,6 +235,5 @@ func UpdateIndexRefresh(c *Client, idx *Index, opts UpdateIndexOptions) (*Index,
 
 func UpdateIndexCacheInfo(c *Client, idx *Index, opts UpdateIndexOptions) (*Index, error) {
 	err := idx.AddStage(c, opts.CacheInfo.Path, opts.CacheInfo.Mode, opts.CacheInfo.Sha1, Stage0, 0, 0, opts)
-	fmt.Printf("%v err %v idx", err, idx)
 	return idx, err
 }
