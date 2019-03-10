@@ -139,6 +139,9 @@ func Clone(opts CloneOptions, rmt Remote, dst File) error {
 	if err := c.GitDir.WriteFile("logs/HEAD", reflog, 0755); err != nil {
 		return err
 	}
+	if opts.Bare {
+		return nil
+	}
 
 	// Finally, checkout the files. Since it's an initial clone, we just
 	// do a hard reset and don't try to be intelligent about what readtree
