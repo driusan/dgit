@@ -32,7 +32,7 @@ func MergeBase(c *git.Client, args []string) (git.CommitID, error) {
 		os.Exit(2)
 	}
 	if *ancestor {
-		commits, err := RevParse(c, args)
+		commits, _, err := RevParse(c, args)
 		if err != nil {
 			return git.CommitID{}, err
 		}
@@ -42,7 +42,7 @@ func MergeBase(c *git.Client, args []string) (git.CommitID, error) {
 		return git.CommitID{}, NonAncestor
 	}
 
-	commits, err := RevParse(c, args)
+	commits, _, err := RevParse(c, args)
 	if err != nil {
 		return git.CommitID{}, err
 	}

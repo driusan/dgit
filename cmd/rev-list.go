@@ -30,7 +30,7 @@ func RevList(c *git.Client, args []string) error {
 			continue
 		}
 		if rev[0] == '^' && len(rev) > 1 {
-			commits, err := RevParse(c, []string{rev[1:]})
+			commits, _, err := RevParse(c, []string{rev[1:]})
 			if err != nil {
 				return fmt.Errorf("%s:%v", rev, err)
 			}
@@ -38,7 +38,7 @@ func RevList(c *git.Client, args []string) error {
 				excludes = append(excludes, cmt)
 			}
 		} else {
-			commits, err := RevParse(c, []string{rev})
+			commits, _, err := RevParse(c, []string{rev})
 			if err != nil {
 				return fmt.Errorf("%s:%v", rev, err)
 			}
