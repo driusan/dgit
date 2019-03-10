@@ -8,7 +8,17 @@ import (
 )
 
 func RevParse(c *git.Client, args []string) ([]git.ParsedRevision, git.RevParseOptions, error) {
-	flags := newFlagSet("rev-parse")
+	// We can't use newFlagSet because some flags are handled internally
+	// to RevParse and are context-sensitive, so we can't ExitOnError
+	// when there's an invalid flag.
+	flags := flag.NewFlagSet("rev-parse", flag.ContinueOnError)
+	flags.SetOutput(flag.CommandLine.Output())
+	flags.Usage = func() {
+		flag.Usage()
+		fmt.Fprintf(flag.CommandLine.Output(), "\n\nOptions:\n")
+		flags.PrintDefaults()
+	}
+
 	opts := git.RevParseOptions{}
 
 	flags.BoolVar(&opts.Verify, "verify", false, "Verify a single object")
