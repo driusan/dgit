@@ -556,15 +556,9 @@ func (c *Client) HaveObject(id Sha1) (found bool, packedfile File, err error) {
 		return true, val.packfile, nil
 	}
 
-	gitdirsnapshot := ""
-	filepath.Walk(string(c.GitDir), func(path string, info os.FileInfo, err error) error {
-		gitdirsnapshot = gitdirsnapshot + fmt.Sprintf(" %s:%d ", path, info.Size())
-		return nil
-	})
-
 	// First the easy case
 	if f := c.GitDir.File(File(fmt.Sprintf("objects/%02x/%018x", id[0], id[1:]))); f.Exists() {
-		log.Printf("Object %s was found in the objects directory\nSnapshot: %s\n", id, gitdirsnapshot)
+		log.Printf("Object %s was found in the objects directory\n", id)
 		c.objectCache[id] = objectLocation{true, "", nil, 0}
 		return true, "", nil
 	}
@@ -574,7 +568,7 @@ func (c *Client) HaveObject(id Sha1) (found bool, packedfile File, err error) {
 	if err != nil {
 		// The pack directory doesn't exist. It's not an error, but it definitely
 		// doesn't have the file..
-		log.Printf("No pack directories to search for object %s\nSnapshot: %s\n", id, gitdirsnapshot)
+		log.Printf("No pack directories to search for object %s\n", id)
 		return false, "", nil
 	}
 	for _, fi := range files {
@@ -592,12 +586,19 @@ func (c *Client) HaveObject(id Sha1) (found bool, packedfile File, err error) {
 			if v2PackIndexHasSha1(c, pfile, buf, id) {
 				// We want to return the pack file, not the index.
 				f.Close()
-				log.Printf("Found object %s in pack file %s\nSnapshot: %s\n", id, fi.Name(), gitdirsnapshot)
+				log.Printf("Found object %s in pack file %s\n", id, fi.Name())
 				return true, pfile, nil
 			}
 			f.Close()
 		}
 	}
+
+	gitdirsnapshot := ""
+	filepath.Walk(string(c.GitDir), func(path string, info os.FileInfo, err error) error {
+		gitdirsnapshot = gitdirsnapshot + fmt.Sprintf(" %s:%d ", path, info.Size())
+		return nil
+	})
+
 	log.Printf("None of the pack files has object %s\nSnapshot: %s\n", id, gitdirsnapshot)
 	return false, "", nil
 }
