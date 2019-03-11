@@ -139,6 +139,7 @@ echo t5510-fetch.sh
 export DGIT_TRACE=/tmp/dgit-trace.txt
 rm -f $DGIT_TRACE
 ./t5510-fetch.sh -d -v || cat $DGIT_TRACE
+cat $DGIT_TRACE
 rm -f $DGIT_TRACE
 echo t7062-wtstatus-ignorecase
 ./t7062-wtstatus-ignorecase.sh

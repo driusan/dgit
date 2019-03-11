@@ -550,11 +550,13 @@ func (c *Client) GetHeadCommit() (CommitID, error) {
 func (c *Client) HaveObject(id Sha1) (found bool, packedfile File, err error) {
 	// If it's cached, avoid the overhead
 	if val, ok := c.objectCache[id]; ok {
+		log.Printf("Object %s was found in the cache\n")
 		return true, val.packfile, nil
 	}
 
 	// First the easy case
 	if f := c.GitDir.File(File(fmt.Sprintf("objects/%02x/%018x", id[0], id[1:]))); f.Exists() {
+		log.Printf("Object %s was found in the objects directory\n")
 		c.objectCache[id] = objectLocation{true, "", nil, 0}
 		return true, "", nil
 	}
@@ -564,7 +566,7 @@ func (c *Client) HaveObject(id Sha1) (found bool, packedfile File, err error) {
 	if err != nil {
 		// The pack directory doesn't exist. It's not an error, but it definitely
 		// doesn't have the file..
-		log.Printf("No pack directory for object %s\n", id)
+		log.Printf("No pack directories to search for object %s\n", id)
 		return false, "", nil
 	}
 	for _, fi := range files {
