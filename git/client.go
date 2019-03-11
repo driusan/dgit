@@ -548,15 +548,23 @@ func (c *Client) GetHeadCommit() (CommitID, error) {
 // zero value if it's stored loosely in the repo), and possibly an error
 // if anything went wrong.
 func (c *Client) HaveObject(id Sha1) (found bool, packedfile File, err error) {
+	log.Printf("Object cache contents: %+v\n", c.objectCache)
+
 	// If it's cached, avoid the overhead
 	if val, ok := c.objectCache[id]; ok {
-		log.Printf("Object %s was found in the cache\n")
+		log.Printf("Object %s was found in the cache\n", id)
 		return true, val.packfile, nil
 	}
 
+	gitdirsnapshot := ""
+	filepath.Walk(string(c.GitDir), func(path string, info os.FileInfo, err error) error {
+		gitdirsnapshot = gitdirsnapshot + fmt.Sprintf(" %s:%d ", path, info.Size())
+		return nil
+	})
+
 	// First the easy case
 	if f := c.GitDir.File(File(fmt.Sprintf("objects/%02x/%018x", id[0], id[1:]))); f.Exists() {
-		log.Printf("Object %s was found in the objects directory\n")
+		log.Printf("Object %s was found in the objects directory\nSnapshot: %s\n", id, gitdirsnapshot)
 		c.objectCache[id] = objectLocation{true, "", nil, 0}
 		return true, "", nil
 	}
@@ -566,7 +574,7 @@ func (c *Client) HaveObject(id Sha1) (found bool, packedfile File, err error) {
 	if err != nil {
 		// The pack directory doesn't exist. It's not an error, but it definitely
 		// doesn't have the file..
-		log.Printf("No pack directories to search for object %s\n", id)
+		log.Printf("No pack directories to search for object %s\nSnapshot: %s\n", id, gitdirsnapshot)
 		return false, "", nil
 	}
 	for _, fi := range files {
@@ -584,12 +592,13 @@ func (c *Client) HaveObject(id Sha1) (found bool, packedfile File, err error) {
 			if v2PackIndexHasSha1(c, pfile, buf, id) {
 				// We want to return the pack file, not the index.
 				f.Close()
+				log.Printf("Found object %s in pack file %s\nSnapshot: %s\n", id, fi.Name(), gitdirsnapshot)
 				return true, pfile, nil
 			}
 			f.Close()
 		}
 	}
-	log.Printf("None of the pack files has object %s\n", id)
+	log.Printf("None of the pack files has object %s\nSnapshot: %s\n", id, gitdirsnapshot)
 	return false, "", nil
 }
 
