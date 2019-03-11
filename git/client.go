@@ -600,6 +600,8 @@ func (c *Client) HaveObject(id Sha1) (found bool, packedfile File, err error) {
 	})
 
 	log.Printf("None of the pack files has object %s\nSnapshot: %s\n", id, gitdirsnapshot)
+	branches, _ := c.GetBranches()
+	log.Printf("Branches: %+v\n", branches)
 	return false, "", nil
 }
 
