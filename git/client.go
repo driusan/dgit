@@ -564,6 +564,7 @@ func (c *Client) HaveObject(id Sha1) (found bool, packedfile File, err error) {
 	if err != nil {
 		// The pack directory doesn't exist. It's not an error, but it definitely
 		// doesn't have the file..
+		log.Printf("No pack directory for object %s\n", id)
 		return false, "", nil
 	}
 	for _, fi := range files {
@@ -586,6 +587,7 @@ func (c *Client) HaveObject(id Sha1) (found bool, packedfile File, err error) {
 			f.Close()
 		}
 	}
+	log.Printf("None of the pack files has object %s\n", id)
 	return false, "", nil
 }
 
