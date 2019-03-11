@@ -212,11 +212,11 @@ func (c *Client) GetObject(sha1 Sha1) (GitObject, error) {
 }
 
 func (c *Client) getObject(sha1 Sha1, metaOnly bool) (GitObject, error) {
-	if gobj, ok := c.objcache[shaRef{sha1, metaOnly}]; ok {
+	//if gobj, ok := c.objcache[shaRef{sha1, metaOnly}]; ok {
 		// FIXME: We should determine why this is attempting to retrieve the
 		// same things multiple times and fix the source.
-		return gobj, nil
-	}
+		//return gobj, nil
+	//}
 	found, packfile, err := c.HaveObject(sha1)
 	if err != nil {
 		return nil, err
