@@ -136,7 +136,7 @@ echo t4113-apply-ending
 echo t4123-apply-shrink
 ./t4123-apply-shrink.sh
 echo t5510-fetch.sh
-./t5510-fetch.sh
+./t5510-fetch.sh -d -v
 echo t7062-wtstatus-ignorecase
 ./t7062-wtstatus-ignorecase.sh
 echo t7511-status-index
