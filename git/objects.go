@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"io/ioutil"
 	"os"
+	"runtime/debug"
 	"strconv"
 	"strings"
 )
@@ -195,6 +196,7 @@ func (c *Client) GetCommitObject(commit CommitID) (GitCommitObject, error) {
 	if ok {
 		return gco, nil
 	}
+	debug.PrintStack()
 	return gco, fmt.Errorf("Could not convert object %v to commit object: %v", o, err)
 }
 func (c *Client) GetObjectMetadata(sha1 Sha1) (string, uint64, error) {
