@@ -197,7 +197,7 @@ func (c *Client) GetCommitObject(commit CommitID) (GitCommitObject, error) {
 		return gco, nil
 	}
 	dbg.PrintStack()
-	return gco, fmt.Errorf("Could not convert object %v to commit object: %v", o, err)
+	return gco, fmt.Errorf("Could not convert commit ID %v to commit object: %v", commit, err)
 }
 func (c *Client) GetObjectMetadata(sha1 Sha1) (string, uint64, error) {
 	obj, err := c.getObject(sha1, true)
