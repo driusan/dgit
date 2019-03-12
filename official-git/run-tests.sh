@@ -141,8 +141,8 @@ rm -f $DGIT_TRACE
 ./t5510-fetch.sh -d -v || cat $DGIT_TRACE
 cat $DGIT_TRACE
 rm -f $DGIT_TRACE
-zip gitdir-t5510-fetch.zip .zip trash\ directory.t5510-fetch
-cat gitdir-t5510-fetch.zip | uuencode gitdir-t5510-fetch.zip
+zip -r gitdir-t5510-fetch.zip .zip trash\ directory.t5510-fetch
+cat gitdir-t5510-fetch.zip | base64
 echo t7062-wtstatus-ignorecase
 ./t7062-wtstatus-ignorecase.sh
 echo t7511-status-index
