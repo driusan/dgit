@@ -136,13 +136,7 @@ echo t4113-apply-ending
 echo t4123-apply-shrink
 ./t4123-apply-shrink.sh
 echo t5510-fetch.sh
-export DGIT_TRACE=/tmp/dgit-trace.txt
-rm -f $DGIT_TRACE
-./t5510-fetch.sh -d -v || cat $DGIT_TRACE
-cat $DGIT_TRACE
-rm -f $DGIT_TRACE
-zip -r gitdir-t5510-fetch.zip .zip trash\ directory.t5510-fetch
-cat gitdir-t5510-fetch.zip | base64
+./t5510-fetch.sh
 echo t7062-wtstatus-ignorecase
 ./t7062-wtstatus-ignorecase.sh
 echo t7511-status-index
