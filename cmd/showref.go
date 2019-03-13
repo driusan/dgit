@@ -41,7 +41,11 @@ func ShowRef(c *git.Client, args []string) error {
 	}
 	if !opts.Quiet {
 		for _, ref := range refs {
-			fmt.Println(ref)
+			if !opts.Sha1Only {
+				fmt.Println(ref)
+			} else {
+				fmt.Println(ref.Value)
+			}
 		}
 	}
 	if len(refs) == 0 {
