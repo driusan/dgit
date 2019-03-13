@@ -1,0 +1,21 @@
+diff --git a/upload-pack.c b/upload-pack.c
+index ca7f941780..1900c89350 100644
+--- a/upload-pack.c
++++ b/upload-pack.c
+@@ -99,11 +99,13 @@ static void create_pack_file(void)
+ 	int i;
+ 	FILE *pipe_fd;
+ 
+-	if (!pack_objects_hook)
+-		pack_objects.git_cmd = 1;
++	if (!pack_objects_hook) {
++		argv_array_push(&pack_objects.args, "git.official");
++		pack_objects.use_shell = 1;
++        }
+ 	else {
+ 		argv_array_push(&pack_objects.args, pack_objects_hook);
+-		argv_array_push(&pack_objects.args, "git");
++		argv_array_push(&pack_objects.args, "git.official");
+ 		pack_objects.use_shell = 1;
+ 	}
+ 
