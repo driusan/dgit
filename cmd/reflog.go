@@ -36,7 +36,8 @@ func Reflog(c *git.Client, args []string) error {
 	case "show", "delete":
 		return fmt.Errorf("reflog subcommand %v not implemented", subcmd)
 	case "expire":
-		return fmt.Errorf("reflog subcommand %v not implemented", subcmd)
+		// FIXME: parse and pass params
+		return git.ReflogExpire(c, git.ReflogExpireOptions{Expire: "now", All: true}, nil)
 	case "exists":
 		if len(args) != 2 {
 			return fmt.Errorf("usage: %v reflog exists <ref>", os.Args[0])
