@@ -548,8 +548,6 @@ func (c *Client) GetHeadCommit() (CommitID, error) {
 // zero value if it's stored loosely in the repo), and possibly an error
 // if anything went wrong.
 func (c *Client) HaveObject(id Sha1) (found bool, packedfile File, err error) {
-	log.Printf("Object cache contents: %+v\n", c.objectCache)
-
 	// If it's cached, avoid the overhead
 	if val, ok := c.objectCache[id]; ok {
 		log.Printf("Object %s was found in the cache\n", id)
@@ -593,18 +591,7 @@ func (c *Client) HaveObject(id Sha1) (found bool, packedfile File, err error) {
 		}
 	}
 
-	gitdirsnapshot := ""
-	filepath.Walk(string(c.GitDir), func(path string, info os.FileInfo, err error) error {
-		gitdirsnapshot = gitdirsnapshot + fmt.Sprintf(" %s:%d ", path, info.Size())
-		return nil
-	})
-
-	log.Printf("None of the pack files has object %s\nSnapshot: %s\n", id, gitdirsnapshot)
-	branches, _ := c.GetBranches()
-	for _, branch := range branches {
-		cmt1, _ := branch.CommitID(c)
-		log.Printf("Branch: %s -> %s\n", branch.String(), cmt1)
-	}
+	log.Printf("None of the pack files has object %s\n", id)
 	return false, "", nil
 }
 
