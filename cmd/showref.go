@@ -26,9 +26,11 @@ func ShowRef(c *git.Client, args []string) error {
 	flags.BoolVar(&opts.Verify, "verify", false, "verify the existence of an exact ref")
 	flags.BoolVar(&opts.Dereference, "dereference", false, "dereference annotated tags")
 	flags.BoolVar(&opts.Dereference, "d", false, "alias of -d")
+	flags.BoolVar(&opts.Sha1Only, "hash", false, "Only show the SHA-1 hash.")
+	flags.BoolVar(&opts.Sha1Only, "s", false, "Alias of --hash.")
 
 	// These flags can be moved out of these lists and below as proper flags as they are implemented
-	for _, sf := range []string{"s", "hash", "abbrev"} {
+	for _, sf := range []string{"abbrev"} {
 		flags.Var(newNotimplStringValue(), sf, "Not implemented")
 	}
 
