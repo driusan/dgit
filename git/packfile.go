@@ -46,7 +46,7 @@ func (t PackEntryType) String() string {
 	case OBJ_REF_DELTA:
 		return "ref_delta"
 	default:
-		return fmt.Sprintf("unknown: %x", uint8(t))
+		return fmt.Sprintf("unknown: 0x%x", uint8(t))
 	}
 }
 
