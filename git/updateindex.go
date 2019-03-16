@@ -72,6 +72,9 @@ func UpdateIndex(c *Client, idx *Index, opts UpdateIndexOptions, files []File) (
 	if opts.Refresh {
 		return UpdateIndexRefresh(c, idx, opts)
 	}
+	if opts.CacheInfo != (CacheInfo{}) {
+		return UpdateIndexCacheInfo(c, idx, opts)
+	}
 	for _, file := range files {
 		ipath, err := file.IndexPath(c)
 		if err != nil {
@@ -228,4 +231,10 @@ func UpdateIndexRefresh(c *Client, idx *Index, opts UpdateIndexOptions) (*Index,
 		}
 	}
 	return idx, nil
+}
+
+func UpdateIndexCacheInfo(c *Client, idx *Index, opts UpdateIndexOptions) (*Index, error) {
+	err := idx.AddStage(c, opts.CacheInfo.Path, opts.CacheInfo.Mode, opts.CacheInfo.Sha1, Stage0, 0, 0, opts)
+	fmt.Printf("%v err %v idx", err, idx)
+	return idx, err
 }
