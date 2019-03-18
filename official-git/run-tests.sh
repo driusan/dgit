@@ -54,6 +54,7 @@ GIT_SKIP_TESTS="$GIT_SKIP_TESTS t1308.2[6-7]" # No support for line ending handl
 GIT_SKIP_TESTS="$GIT_SKIP_TESTS t1503.[5-7] t1503.10" # No support for @{suffix} (looking up based on reflog) in rev-parse
 GIT_SKIP_TESTS="$GIT_SKIP_TESTS t2018.[6-7] t2018.[9] t2018.1[5-8]"
 GIT_SKIP_TESTS="$GIT_SKIP_TESTS t3000.7"
+GIT_SKIP_TESTS="$GIT_SKIP_TESTS t5512.1[1234] t5512.1[079] t5512.9 t5512.2[01234]" # 1[234] seem to get stuck in an infinite loop. The rest fail and need investigation.
 GIT_SKIP_TESTS="$GIT_SKIP_TESTS t5510.[4-9] t5510.[1-7][0-9]" # Just the basic fetch tests are working for now
 export GIT_SKIP_TESTS
 
@@ -139,6 +140,8 @@ echo t4123-apply-shrink
 ./t4123-apply-shrink.sh
 echo t5510-fetch.sh
 ./t5510-fetch.sh
+echo t5512-ls-remote.sh
+./t5512-ls-remote.sh
 echo t7062-wtstatus-ignorecase
 ./t7062-wtstatus-ignorecase.sh
 echo t7511-status-index
