@@ -189,12 +189,17 @@ func UpdateIndex(c *git.Client, args []string) error {
 		return err
 	}
 
-loop:
+	doneOpts := false
 	for _, val := range vals {
+		if doneOpts {
+			files = append(files, git.File(val))
+			continue
+		}
 		// This is a hack to handle commands like "git update-index --add foo bar --force-remove baz"
 		switch val {
 		case "--":
-			break loop
+			doneOpts = true
+			continue
 		case "-force-remove", "--force-remove":
 			if len(files) > 0 {
 				idx, err = git.UpdateIndex(c, idx, opts, files)
