@@ -84,7 +84,35 @@ func UpdateIndex(c *git.Client, args []string) error {
 	testuntrackedcache := flags.Bool("test-untracked-cache", false, "Perform test to check if untracked cache can be used")
 	forceuntrackedcache := flags.Bool("force-untracked-cache", false, "Same as --untracked-cache")
 
-	flags.Parse(args)
+	// Convert deprecated --cacheinfo mode sha1 path to --cacheinfo mode,sha1,path
+	var adjustedArgs []string
+	for i := 0; i < len(args); i++ {
+		val := args[i]
+		switch val {
+		case "-cacheinfo", "--cacheinfo":
+			adjustedArgs = append(adjustedArgs, val)
+			if i == len(args)-1 {
+				return fmt.Errorf("%v requires argument", val)
+			}
+			arg := args[i+1]
+			if strings.Count(arg, ",") >= 2 {
+				// it's the mode,sha1,path form, so let it get
+				// handled normally.
+				adjustedArgs = append(adjustedArgs, arg)
+				continue
+			}
+			// It's the mode sha1 path form, so add commas.
+			if len(args) < i+4 {
+				return fmt.Errorf("not enough arguments for %v", val)
+			}
+			adjustedArgs = append(adjustedArgs, strings.Join(args[i+1:i+4], ","))
+			i += 3
+		default:
+			adjustedArgs = append(adjustedArgs, val)
+		}
+	}
+
+	flags.Parse(adjustedArgs)
 	if *stdin {
 		opts.Stdin = os.Stdin
 	}
@@ -161,11 +189,17 @@ func UpdateIndex(c *git.Client, args []string) error {
 		return err
 	}
 
+	doneOpts := false
 	for _, val := range vals {
+		if doneOpts {
+			files = append(files, git.File(val))
+			continue
+		}
 		// This is a hack to handle commands like "git update-index --add foo bar --force-remove baz"
-		// FIXME: Need to handle dashpaths. ie. "git update-index -- --force-remove" should apply
-		// to the file named "--force-remove"
 		switch val {
+		case "--":
+			doneOpts = true
+			continue
 		case "-force-remove", "--force-remove":
 			if len(files) > 0 {
 				idx, err = git.UpdateIndex(c, idx, opts, files)
@@ -200,7 +234,7 @@ func UpdateIndex(c *git.Client, args []string) error {
 		}
 	}
 
-	if len(files) > 0 || opts.Refresh || opts.ReallyRefresh || opts.IndexInfo != nil {
+	if len(files) > 0 || opts.Refresh || opts.ReallyRefresh || opts.IndexInfo != nil || opts.CacheInfo != (git.CacheInfo{}) {
 		idx, err = git.UpdateIndex(c, idx, opts, files)
 		if err != nil {
 			return err
