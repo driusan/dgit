@@ -126,7 +126,14 @@ func Add(c *Client, opts AddOptions, files []File) (*Index, error) {
 	}
 
 	if !opts.DryRun {
-		f, err := c.GitDir.Create(File("index"))
+		var f *os.File
+		var err error
+		if ifile := os.Getenv("GIT_INDEX_FILE"); ifile != "" {
+			f, err = os.Create(ifile)
+		} else {
+			f, err = c.GitDir.Create("index")
+		}
+
 		if err != nil {
 			return nil, err
 		}

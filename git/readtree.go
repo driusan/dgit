@@ -597,7 +597,10 @@ func checkReadtreePrereqs(c *Client, opt ReadTreeOptions, idx *Index) ([]File, e
 // Reads a tree into the index. If DryRun is not false, it will also be written
 // to disk.
 func ReadTree(c *Client, opt ReadTreeOptions, tree Treeish) (*Index, error) {
-	idx, _ := c.GitDir.ReadIndex()
+	idx, err := c.GitDir.ReadIndex()
+	if err != nil {
+		idx = NewIndex()
+	}
 	origMap := idx.GetMap()
 
 	resetremovals, err := checkReadtreePrereqs(c, opt, idx)

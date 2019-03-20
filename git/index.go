@@ -189,7 +189,16 @@ func (ie *IndexEntry) RefreshStat(c *Client) error {
 // Reads the index file from the GitDir and returns a Index object.
 // If the index file does not exist, it will return a new empty Index.
 func (d GitDir) ReadIndex() (*Index, error) {
-	file, err := d.Open("index")
+	var file *os.File
+	var err error
+	if ifile := os.Getenv("GIT_INDEX_FILE"); ifile != "" {
+		log.Println("Using index file", ifile)
+		file, err = os.Open(ifile)
+	} else {
+
+		file, err = d.Open("index")
+	}
+
 	if err != nil {
 		if os.IsNotExist(err) {
 			// Is the file doesn't exist, treat it
@@ -220,7 +229,11 @@ func (d GitDir) ReadIndex() (*Index, error) {
 	var idx uint32
 	indexes := make([]*IndexEntry, i.NumberIndexEntries, i.NumberIndexEntries)
 	for idx = 0; idx < i.NumberIndexEntries; idx += 1 {
-		if index, err := ReadIndexEntry(file, i.Version); err == nil {
+		index, err := ReadIndexEntry(file, i.Version)
+		if err != nil {
+			log.Println(err)
+		} else {
+			log.Println("Read entry for ", index.PathName)
 			indexes[idx] = index
 		}
 	}
