@@ -269,7 +269,7 @@ func verifyCommit(c *Client, opts FsckOptions, cmt CommitID) error {
 		timestampRe := regexp.MustCompile(`^ (\d+) (\+|\-)(\d+)$`)
 		timepieces := timestampRe.FindStringSubmatch(pieces[3])
 		if len(timepieces) == 0 {
-			return fmt.Errorf("invalidateDate: invalid %v line - timestamp is not a valid date")
+			return fmt.Errorf("invalidateDate: invalid %v line - timestamp is not a valid date", typ)
 		}
 		// check for overflow of uint64
 		bignum, ok := new(big.Int).SetString(timepieces[1], 10)
