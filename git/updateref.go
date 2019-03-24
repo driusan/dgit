@@ -108,6 +108,9 @@ func UpdateRef(c *Client, opts UpdateRefOptions, ref string, cmt CommitID, reaso
 		// FIXME: This is more of a hack to ensure that the fsck passes
 		// than a real implementation.
 		f := c.GitDir.File(File(ref))
+		if !f.Exists() {
+			return nil
+		}
 		return f.Remove()
 	}
 
