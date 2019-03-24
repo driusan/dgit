@@ -119,6 +119,9 @@ func Fsck(c *Client, stderr io.Writer, opts FsckOptions, objects []string) (errs
 							return fmt.Errorf("error in tree %v: %v", oid, err)
 						}
 					case "tag":
+						if err := verifyTag(c, opts, oid); err != nil {
+							return fmt.Errorf("error in tag %v: %v", oid, err)
+						}
 						// Tags aren't verified yet.
 					case "blob":
 						// There's not much to verify for a blob, but it's
@@ -334,3 +337,16 @@ func verifyTree(c *Client, opts FsckOptions, tid TreeID) error {
 	}
 	return nil
 }
+
+// Verifies a tag object for fsck.
+func verifyTag(c *Client, opts FsckOptions, tid Sha1) error {
+	obj, err := c.GetObject(tid)
+	if err != nil {
+		return err
+	}
+	if obj.GetType() != "tag" {
+		return fmt.Errorf("Not a tag")
+	}
+	return nil
+}
+
