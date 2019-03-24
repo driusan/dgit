@@ -261,7 +261,6 @@ func verifyCommit(c *Client, opts FsckOptions, cmt CommitID) error {
 		if strings.Count(pieces[1], ">") > 0 {
 			return fmt.Errorf("badName: invalid %v line - bad name", typ)
 		}
-		//fmt.Printf(`"%v" "%v" "%v"`+"\n", pieces[1], pieces[2], pieces[3])
 		if !strings.HasPrefix(pieces[3], " ") {
 			return fmt.Errorf("missingSpaceBeforeDate: invalid %v line - missing space before date", typ)
 		}
