@@ -462,6 +462,11 @@ func main() {
 			fmt.Fprintln(os.Stderr, err)
 			os.Exit(1)
 		}
+	case "fsck":
+		if err := cmd.Fsck(c, args); err != nil {
+			fmt.Fprintln(os.Stderr, err)
+			os.Exit(1)
+		}
 	case "help":
 		flag.CommandLine.SetOutput(os.Stdout)
 		flag.Usage()

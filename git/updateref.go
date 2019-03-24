@@ -8,7 +8,6 @@ import (
 )
 
 type UpdateRefOptions struct {
-	// Not implemented
 	Delete bool
 
 	NoDeref      bool
@@ -103,6 +102,13 @@ func UpdateRefSpec(c *Client, opts UpdateRefOptions, ref RefSpec, cmt CommitID, 
 func UpdateRef(c *Client, opts UpdateRefOptions, ref string, cmt CommitID, reason string) error {
 	if opts.Stdin != nil {
 		return fmt.Errorf("UpdateRef batch mode not implemented")
+	}
+
+	if opts.Delete {
+		// FIXME: This is more of a hack to ensure that the fsck passes
+		// than a real implementation.
+		f := c.GitDir.File(File(ref))
+		return f.Remove()
 	}
 
 	// It's not a symbolic ref, it's a real ref. Just directly call UpdateRefSpec
