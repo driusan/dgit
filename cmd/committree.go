@@ -100,5 +100,5 @@ func CommitTree(c *git.Client, args []string) (git.CommitID, error) {
 		finalMessage = "\n" + string(m)
 	}
 
-	return git.CommitTree(c, git.CommitTreeOptions{}, tree, parents, strings.TrimSpace(finalMessage))
+	return git.CommitTree(c, git.CommitTreeOptions{}, tree, parents, strings.TrimSpace(finalMessage)+"\n")
 }
