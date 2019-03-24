@@ -109,6 +109,24 @@ func Fsck(c *Client, stderr io.Writer, opts FsckOptions, objects []string) (errs
 						corrupted[oid] = struct{}{}
 						return fmt.Errorf("hash mismatch for %v (expected %v)", filename, oid)
 					}
+					switch ty := oid.Type(c); ty {
+					case "commit":
+						if err := verifyCommit(c, opts, CommitID(oid)); err != nil {
+							return fmt.Errorf("error in commit %v: %v", oid, err)
+						}
+					case "tree":
+						if err := verifyTree(c, opts, TreeID(oid)); err != nil {
+							return fmt.Errorf("error in tree %v: %v", oid, err)
+						}
+					case "tag":
+						// Tags aren't verified yet.
+					case "blob":
+						// There's not much to verify for a blob, but it's
+						// a known type.
+					default:
+						return fmt.Errorf("Unknown object type %v", ty)
+					}
+
 				}
 				return nil
 			}()
@@ -160,7 +178,7 @@ func Fsck(c *Client, stderr io.Writer, opts FsckOptions, objects []string) (errs
 	}
 	for _, obj := range reachables {
 		if opts.Verbose {
-			fmt.Printf("Checking %v\n", obj)
+			fmt.Fprintf(stderr, "Checking %v\n", obj)
 		}
 		if _, ok := corrupted[obj]; ok {
 			addErr(fmt.Errorf("%v corrupt or missing", obj))
@@ -174,22 +192,6 @@ func Fsck(c *Client, stderr io.Writer, opts FsckOptions, objects []string) (errs
 		if !o {
 			addErr(fmt.Errorf("%v corrupt or missing", obj))
 			continue
-		}
-
-		switch ty := obj.Type(c); ty {
-		case "commit":
-			if err := verifyCommit(c, opts, CommitID(obj)); err != nil {
-				addErr(fmt.Errorf("error in commit %v: %v", obj, err))
-			}
-		case "tree":
-			if err := verifyTree(c, opts, TreeID(obj)); err != nil {
-				addErr(err)
-			}
-		case "blob":
-			// There's not much to verify for a blob, but it's
-			// a known type.
-		default:
-			addErr(fmt.Errorf("Unknown object type %v", ty))
 		}
 	}
 	return errs
@@ -311,5 +313,24 @@ func verifyCommit(c *Client, opts FsckOptions, cmt CommitID) error {
 
 // Verifies a tree for fsck or rev-parse --verify-objects
 func verifyTree(c *Client, opts FsckOptions, tid TreeID) error {
+	paths := make(map[IndexPath]struct{})
+	obj, err := c.GetObject(Sha1(tid))
+	if err != nil {
+		return err
+	}
+	content := obj.GetContent()
+	i := 0
+	for i < len(content) {
+		name, _, size, err := parseRawTreeLine(i, content)
+		if err != nil {
+			return err
+		}
+		if _, ok := paths[name]; ok {
+			return fmt.Errorf("duplicateEntries: contains duplicate file entries")
+		}
+		paths[name] = struct{}{}
+		i += size
+
+	}
 	return nil
 }

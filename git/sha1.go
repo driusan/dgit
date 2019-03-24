@@ -624,6 +624,55 @@ func (t TreeID) GetAllObjects(cl *Client, prefix IndexPath, recurse, excludeself
 	return t.GetAllObjectsExcept(cl, nil, prefix, recurse, excludeself)
 }
 
+// parseRawtreeLine parses a single line from a raw tree object starting at
+// entryStart. It returns the TreeEntry and the number of bytes in treecontent
+// that it occupies.
+func parseRawTreeLine(entryStart int, treecontent []byte) (IndexPath, TreeEntry, int, error) {
+	// The format of each tree entry is:
+	// 	[permission] [name] \0 [20 bytes of Sha1]
+	// so we first search for a nul byte which means the next 20 bytes
+	// are the SHA, and then we can calculate the name and permissions based
+	// on the entryStart and the nil.
+	for i := entryStart; i < len(treecontent); i++ {
+		if treecontent[i] == 0 {
+			// Add 1 when converting the value of the sha1 because
+			// because i is currently set to the nil
+			sha, err := Sha1FromSlice(treecontent[i+1 : i+21])
+			if err != nil {
+				return "", TreeEntry{}, 0, err
+			}
+
+			// Split up the perm from the name based on the whitespace
+			split := bytes.SplitN(treecontent[entryStart:i], []byte{' '}, 2)
+			perm := split[0]
+			name := split[1]
+
+			var mode EntryMode
+			switch string(perm) {
+			case "40000":
+				mode = ModeTree
+			case "100644":
+				mode = ModeBlob
+			case "100755":
+				mode = ModeExec
+			case "120000":
+				mode = ModeSymlink
+			case "160000":
+				mode = ModeCommit
+			default:
+				return "", TreeEntry{}, 0, fmt.Errorf("Unsupported mode %v in tree", string(perm))
+			}
+			entryEnd := i + 20 + 1
+			return IndexPath(name), TreeEntry{
+				Sha1:     sha,
+				FileMode: mode,
+			}, entryEnd - entryStart, nil
+		}
+	}
+	return "", TreeEntry{}, 0, fmt.Errorf("Missing nil byte in tree entry")
+
+}
+
 // GetAllObjectsExcept is like GetAllObjects, except that it excludes those objects in excludeList. It also
 // populates excludeList with any objects encountered.
 func (t TreeID) GetAllObjectsExcept(cl *Client, excludeList map[Sha1]struct{}, prefix IndexPath, recurse, excludeself bool) (map[IndexPath]TreeEntry, error) {
@@ -640,70 +689,32 @@ func (t TreeID) GetAllObjectsExcept(cl *Client, excludeList map[Sha1]struct{}, p
 	}
 
 	treecontent := o.GetContent()
-	entryStart := 0
 	var sha Sha1
 	val := make(map[IndexPath]TreeEntry)
 
-	for i := 0; i < len(treecontent); i++ {
-		// The format of each tree entry is:
-		// 	[permission] [name] \0 [20 bytes of Sha1]
-		// so if we find a \0, it means the next 20 bytes are the sha,
-		// and we need to keep track of the previous entry start to figure
-		// out the name and perm mode.
-		if treecontent[i] == 0 {
-			// Add 1 when converting the value of the sha1 because
-			// because i is currently set to the nil
-			sha, err = Sha1FromSlice(treecontent[i+1 : i+21])
+	i := 0
+	for i < len(treecontent) {
+		name, entry, size, err := parseRawTreeLine(i, treecontent)
+		if err != nil {
+			return nil, err
+		}
+		i += size
+
+		val[IndexPath(name)] = entry
+
+		if entry.FileMode == ModeTree && recurse {
+			childTree := TreeID(sha)
+			children, err := childTree.GetAllObjectsExcept(cl, excludeList, "", recurse, excludeself)
 			if err != nil {
 				return nil, err
 			}
-			if excludeList != nil {
-				if _, ok := excludeList[sha]; ok {
-					i += 20
-					entryStart = i + 1
-					continue
-				}
+			for child, childval := range children {
+				val[IndexPath(name)+"/"+child] = childval
 			}
+		}
 
-			// Split up the perm from the name based on the whitespace
-			split := bytes.SplitN(treecontent[entryStart:i], []byte{' '}, 2)
-			perm := split[0]
-			name := split[1]
-
-			var mode EntryMode
-			switch string(perm) {
-			case "40000":
-				mode = ModeTree
-				if recurse {
-					childTree := TreeID(sha)
-					children, err := childTree.GetAllObjectsExcept(cl, excludeList, "", recurse, excludeself)
-					if err != nil {
-						return nil, err
-					}
-					for child, childval := range children {
-						val[IndexPath(name)+"/"+child] = childval
-					}
-				}
-			case "100644":
-				mode = ModeBlob
-			case "100755":
-				mode = ModeExec
-			case "120000":
-				mode = ModeSymlink
-			case "160000":
-				mode = ModeCommit
-			default:
-				panic(fmt.Sprintf("Unsupported mode %v in tree %s", string(perm), t))
-			}
-			val[IndexPath(name)] = TreeEntry{
-				Sha1:     sha,
-				FileMode: mode,
-			}
-			i += 20
-			entryStart = i + 1
-			if excludeList != nil {
-				excludeList[sha] = struct{}{}
-			}
+		if excludeList != nil {
+			excludeList[entry.Sha1] = struct{}{}
 		}
 	}
 	if excludeList != nil {

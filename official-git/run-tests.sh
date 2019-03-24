@@ -51,6 +51,7 @@ GIT_SKIP_TESTS="t0008.321 t0008.323 t0008.37[0-9] t0008.38[0-7] t0008.39[1-2]"
 GIT_SKIP_TESTS="$GIT_SKIP_TESTS t1004.1[6-7]"
 GIT_SKIP_TESTS="$GIT_SKIP_TESTS t1014.26"
 GIT_SKIP_TESTS="$GIT_SKIP_TESTS t1308.2[6-7]" # No support for line ending handling or GIT_CEILING_DIRECTORIES
+GIT_SKIP_TESTS="$GIT_SKIP_TESTS t1450.1[7-9] t1450.[2-5][0-9]" # Only up to the first tag verification done for fsck.
 GIT_SKIP_TESTS="$GIT_SKIP_TESTS t1503.[5-7] t1503.10" # No support for @{suffix} (looking up based on reflog) in rev-parse
 GIT_SKIP_TESTS="$GIT_SKIP_TESTS t2018.[6-7] t2018.[9] t2018.1[5-8]"
 GIT_SKIP_TESTS="$GIT_SKIP_TESTS t3000.7"
@@ -104,6 +105,8 @@ echo t1308-config-set
 ./t1308-config-set.sh
 echo t1403-show-ref
 ./t1403-show-ref.sh
+echo t1450-fsck
+./t1450-fsck.sh
 echo t1500-rev-parse
 ./t1500-rev-parse.sh
 echo t1503-rev-parse-verify
