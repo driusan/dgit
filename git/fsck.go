@@ -119,7 +119,12 @@ func Fsck(c *Client, stderr io.Writer, opts FsckOptions, objects []string) (errs
 							return fmt.Errorf("error in tree %v: %v", oid, err)
 						}
 					case "tag":
-						// Tags aren't verified yet.
+						if errs := verifyTag(c, opts, oid); errs != nil {
+							for _, err := range errs {
+								addErr(err)
+							}
+							return nil
+						}
 					case "blob":
 						// There's not much to verify for a blob, but it's
 						// a known type.
@@ -161,6 +166,14 @@ func Fsck(c *Client, stderr io.Writer, opts FsckOptions, objects []string) (errs
 			addErr(err)
 		}
 		for _, head := range heads {
+			t, err := c.GetObject(head.Value)
+			if err != nil {
+				addErr(err)
+			}
+			if t.GetType() == "tag" {
+				// This was verified by verifytag
+				continue
+			}
 			h, err := head.CommitID(c)
 			if err != nil {
 				addErr(fmt.Errorf("not a commit"))
@@ -235,6 +248,56 @@ func verifyHead(c *Client, stderr io.Writer, opts FsckOptions) error {
 	return nil
 }
 
+func validatePerson(obj GitObject, typ string) error {
+	s := getObjectHeader(obj.GetContent(), typ)
+	// 0 = whole match
+	// 1 = name
+	// 2 = email
+	// 3 = timestamp
+	personRe := regexp.MustCompile(`(.*?)\<(.*?)\>(.*)`)
+	pieces := personRe.FindStringSubmatch(s)
+	if len(pieces) != 4 {
+		// This is mostly just to get the same error messages
+		// as git when running the official test suite"
+		// "foo asdf> 1234" is reported as bad name
+		// "foo 1234" is reported as bad email.
+		if strings.Count(s, ">") == 0 {
+			return fmt.Errorf("missingEmail: invalid %v line - missing email", typ)
+		}
+		return fmt.Errorf("badName: invalid %v line - bad name", typ)
+	}
+	if strings.Count(pieces[1], ">") > 0 {
+		return fmt.Errorf("badName: invalid %v line - bad name", typ)
+	}
+	if !strings.HasPrefix(pieces[3], " ") {
+		return fmt.Errorf("missingSpaceBeforeDate: invalid %v line - missing space before date", typ)
+	}
+
+	timestampRe := regexp.MustCompile(`^ (\d+) (\+|\-)(\d+)$`)
+	timepieces := timestampRe.FindStringSubmatch(pieces[3])
+	if len(timepieces) == 0 {
+		return fmt.Errorf("invalidateDate: invalid %v line - timestamp is not a valid date", typ)
+	}
+	// check for overflow of uint64
+	bignum, ok := new(big.Int).SetString(timepieces[1], 10)
+	if !ok {
+		// This shouldn't happen since the regexp validated
+		// that it was a string of digits.
+		panic("Could not convert integer to bignum")
+	}
+
+	// can't use math.Newint because it takes an int64, not a uint64
+	maxuint64, ok := new(big.Int).SetString("18446744073709551615", 10)
+	if !ok {
+		// This shouldn't happen since we're dealing with a const
+		panic("Could not convert max uint64 to bignum")
+	}
+	if bignum.Cmp(maxuint64) > 0 {
+		return fmt.Errorf("badDateOverflow: invalid %v line - date causes integer overflow", typ)
+	}
+	return nil
+}
+
 // Verifies a commit for fsck or rev-parse --verify-objects
 func verifyCommit(c *Client, opts FsckOptions, cmt CommitID) error {
 	obj, err := c.GetCommitObject(cmt)
@@ -242,59 +305,10 @@ func verifyCommit(c *Client, opts FsckOptions, cmt CommitID) error {
 		return err
 	}
 
-	validatePerson := func(typ string) error {
-		s := obj.GetHeader(typ)
-		// 0 = whole match
-		// 1 = name
-		// 2 = email
-		// 3 = timestamp
-		personRe := regexp.MustCompile(`(.*?)\<(.*?)\>(.*)`)
-		pieces := personRe.FindStringSubmatch(s)
-		if len(pieces) != 4 {
-			// This is mostly just to get the same error messages
-			// as git when running the official test suite"
-			// "foo asdf> 1234" is reported as bad name
-			// "foo 1234" is reported as bad email.
-			if strings.Count(s, ">") == 0 {
-				return fmt.Errorf("missingEmail: invalid %v line - missing email", typ)
-			}
-			return fmt.Errorf("badName: invalid %v line - bad name", typ)
-		}
-		if strings.Count(pieces[1], ">") > 0 {
-			return fmt.Errorf("badName: invalid %v line - bad name", typ)
-		}
-		if !strings.HasPrefix(pieces[3], " ") {
-			return fmt.Errorf("missingSpaceBeforeDate: invalid %v line - missing space before date", typ)
-		}
-
-		timestampRe := regexp.MustCompile(`^ (\d+) (\+|\-)(\d+)$`)
-		timepieces := timestampRe.FindStringSubmatch(pieces[3])
-		if len(timepieces) == 0 {
-			return fmt.Errorf("invalidateDate: invalid %v line - timestamp is not a valid date", typ)
-		}
-		// check for overflow of uint64
-		bignum, ok := new(big.Int).SetString(timepieces[1], 10)
-		if !ok {
-			// This shouldn't happen since the regexp validated
-			// that it was a string of digits.
-			panic("Could not convert integer to bignum")
-		}
-
-		// can't use math.Newint because it takes an int64, not a uint64
-		maxuint64, ok := new(big.Int).SetString("18446744073709551615", 10)
-		if !ok {
-			// This shouldn't happen since we're dealing with a const
-			panic("Could not convert max uint64 to bignum")
-		}
-		if bignum.Cmp(maxuint64) > 0 {
-			return fmt.Errorf("badDateOverflow: invalid %v line - date causes integer overflow", typ)
-		}
-		return nil
-	}
-	if err := validatePerson("author"); err != nil {
+	if err := validatePerson(obj, "author"); err != nil {
 		return err
 	}
-	if err := validatePerson("committer"); err != nil {
+	if err := validatePerson(obj, "committer"); err != nil {
 		return err
 	}
 
@@ -333,4 +347,58 @@ func verifyTree(c *Client, opts FsckOptions, tid TreeID) error {
 
 	}
 	return nil
+}
+
+func verifyTag(c *Client, opts FsckOptions, tid Sha1) []error {
+	var errs []error
+	tag, err := c.GetTagObject(tid)
+	if err != nil {
+		return []error{err}
+	}
+	objid := tag.GetHeader("object")
+	objsha, err := Sha1FromString(objid)
+	if err != nil {
+		return []error{err}
+	}
+
+	_, err = c.GetCommitObject(CommitID(objsha))
+	if err != nil {
+		// This is really stupid, but t1450.17 expects
+		// this one particular error on stdout instead
+		// of stderr, so we just print it instead of
+		// returning it.
+		fmt.Printf(
+			`broken link from tag %v
+              to commit %v
+`, tid, objid,
+		)
+		errs = append(errs, fmt.Errorf(""))
+	}
+	if tg := tag.GetHeader("tag"); tg != "" {
+		words := strings.Fields(tg)
+		if len(words) > 1 {
+			// Similar stupidity to t1450.17, t1450.18
+			// expects these on stderr, but also expects
+			// that these leave an exit status of 0.
+			fmt.Fprintf(os.Stderr, "warning in tag %v: badTagName: invalid 'tag' name: wrong name format\n", tid)
+		}
+	}
+	tagger := tag.GetHeader("tagger")
+	if tagger == "" {
+		fmt.Fprintf(os.Stderr, "warning in tag %v: missingTaggerEntry: invalid format - expected 'tagger' line\n", tid)
+	} else if err := validatePerson(tag, "tagger"); err != nil {
+		errs = append(errs, fmt.Errorf("error in tag %v: invalid author/committer", tid))
+	}
+
+	content := tag.GetContent()
+	for i, c := range content {
+		if c == 0 {
+			errs = append(errs, fmt.Errorf("error in tag %v: nulInHeader: unterminated header: NUL at offset %v", tid, i))
+		}
+		if c == '\n' && i > 0 && content[i-1] == '\n' {
+			// reached the end of the headers.
+			break
+		}
+	}
+	return errs
 }

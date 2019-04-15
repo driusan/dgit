@@ -19,11 +19,12 @@ func HashObject(c *git.Client, args []string) {
 	}
 
 	var t string
-	var write, stdin, stdinpaths bool
+	var write, stdin, stdinpaths, literally bool
 	flags.StringVar(&t, "t", "blob", "-t object type")
 	flags.BoolVar(&write, "w", false, "-w")
 	flags.BoolVar(&stdin, "stdin", false, "--stdin to read an object from stdin")
 	flags.BoolVar(&stdinpaths, "stdin-paths", false, "--stdin-paths to read a list of files from stdin")
+	flags.BoolVar(&literally, "literally", false, "Do not apply any filters to things being hashed")
 
 	flags.Parse(args)
 

@@ -13,7 +13,10 @@ type CatFileOptions struct {
 func catFilePretty(c *Client, obj GitObject, opts CatFileOptions) (string, error) {
 	switch t := obj.GetType(); t {
 	case "commit", "tree", "blob":
-		return obj.String(), nil
+		if opts.Pretty {
+			return obj.String(), nil
+		}
+		return string(obj.GetContent()), nil
 	case "tag":
 		return "", fmt.Errorf("-p tag not yet implemented")
 	default:

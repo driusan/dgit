@@ -55,7 +55,6 @@ func CatFile(c *git.Client, args []string) error {
 		return nil
 	default:
 		flags.Usage()
-
 	}
 	return nil
 }
