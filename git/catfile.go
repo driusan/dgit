@@ -39,7 +39,7 @@ func CatFile(c *Client, typ string, s Sha1, opts CatFileOptions) (string, error)
 	default:
 		switch typ {
 		case "commit", "tree", "blob":
-			return obj.String(), nil
+			return string(obj.GetContent()), nil
 		default:
 			return "", fmt.Errorf("invalid object type %v", typ)
 
