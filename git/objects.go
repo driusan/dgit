@@ -73,6 +73,10 @@ func (b GitTagObject) String() string {
 	return string(b.content)
 }
 
+func (c GitTagObject) GetHeader(header string) string {
+	return getObjectHeader(c.content, header)
+}
+
 type GitCommitObject struct {
 	size    int
 	content []byte
@@ -94,9 +98,11 @@ func (c GitCommitObject) GetSize() int {
 func (c GitCommitObject) String() string {
 	return string(c.content)
 }
-func (c GitCommitObject) GetHeader(header string) string {
+
+// get a header for either a commit or tag type object.
+func getObjectHeader(content []byte, header string) string {
 	headerPrefix := []byte(header + " ")
-	reader := bytes.NewBuffer(c.content)
+	reader := bytes.NewBuffer(content)
 	for line, err := reader.ReadBytes('\n'); err == nil; line, err = reader.ReadBytes('\n') {
 		if len(line) == 0 || len(line) == 1 {
 			// EOF or just a '\n', separating the headers from the body
@@ -108,6 +114,10 @@ func (c GitCommitObject) GetHeader(header string) string {
 		}
 	}
 	return ""
+}
+
+func (c GitCommitObject) GetHeader(header string) string {
+	return getObjectHeader(c.content, header)
 }
 
 type GitTreeObject struct {
@@ -191,11 +201,27 @@ func (c *Client) getPackedObject(packfile File, sha1 Sha1, metaOnly bool) (GitOb
 
 func (c *Client) GetCommitObject(commit CommitID) (GitCommitObject, error) {
 	o, err := c.GetObject(Sha1(commit))
+	if err != nil {
+		return GitCommitObject{}, err
+	}
 	gco, ok := o.(GitCommitObject)
 	if ok {
 		return gco, nil
 	}
 	return gco, fmt.Errorf("Could not convert commit ID %v to commit object: %v", commit, err)
+}
+
+func (c *Client) GetTagObject(tag Sha1) (GitTagObject, error) {
+	o, err := c.GetObject(tag)
+	if err != nil {
+		return GitTagObject{}, err
+	}
+
+	gco, ok := o.(GitTagObject)
+	if ok {
+		return gco, nil
+	}
+	return gco, fmt.Errorf("Could not convert ID %v to tag object: %v", tag, err)
 }
 func (c *Client) GetObjectMetadata(sha1 Sha1) (string, uint64, error) {
 	obj, err := c.getObject(sha1, true)
