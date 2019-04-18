@@ -3,12 +3,15 @@ package git
 import (
 	"fmt"
 	"io"
+	"os"
 )
 
 // List of command line options that may be passed to RevList
 type RevListOptions struct {
 	Quiet, Objects bool
 	MaxCount       *uint
+	VerifyObjects  bool
+	All            bool
 }
 
 var maxCountError = fmt.Errorf("Maximum number of objects has been reached")
@@ -19,6 +22,31 @@ func RevList(c *Client, opt RevListOptions, w io.Writer, includes, excludes []Co
 		vals = append(vals, s)
 		if !opt.Quiet {
 			fmt.Fprintf(w, "%v\n", s)
+		}
+		if opt.VerifyObjects {
+			switch t := s.Type(c); t {
+			case "commit":
+				if err := verifyCommit(c, FsckOptions{}, CommitID(s)); err != nil {
+					fmt.Fprintln(os.Stderr, err)
+					return err
+				}
+			case "tree":
+				if err := verifyTree(c, FsckOptions{}, TreeID(s)); err != nil {
+					fmt.Fprintln(os.Stderr, err)
+					return err
+				}
+			case "tag":
+				if err := verifyTag(c, FsckOptions{}, s); err != nil {
+					fmt.Fprintln(os.Stderr, err)
+					return err[0]
+				}
+			case "blob":
+				if err := verifyBlob(c, FsckOptions{}, os.Stderr, s); err != nil {
+					return err
+				}
+			default:
+				return fmt.Errorf("Invalid object type %v", t)
+			}
 		}
 		return nil
 	})

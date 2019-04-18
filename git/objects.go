@@ -99,6 +99,27 @@ func (c GitCommitObject) String() string {
 	return string(c.content)
 }
 
+func objectHeaderCount(content []byte) map[string]int {
+	rv := make(map[string]int)
+	reader := bytes.NewBuffer(content)
+	for line, err := reader.ReadBytes('\n'); err == nil; line, err = reader.ReadBytes('\n') {
+		if len(line) == 0 || len(line) == 1 {
+			// EOF or just a '\n', separating the headers from the body
+			break
+		}
+		if pos := bytes.IndexAny(line, " "); pos >= 0 {
+			header := string(line[:pos])
+			val, ok := rv[header]
+			if ok {
+				rv[header] = val + 1
+			} else {
+				rv[header] = 1
+			}
+		}
+	}
+	return rv
+}
+
 // get a header for either a commit or tag type object.
 func getObjectHeader(content []byte, header string) string {
 	headerPrefix := []byte(header + " ")
