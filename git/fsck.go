@@ -81,33 +81,12 @@ func Fsck(c *Client, stderr io.Writer, opts FsckOptions, objects []string) (errs
 					if err != nil {
 						return err
 					}
-					if opts.Verbose {
-						fmt.Fprintf(stderr, "Checking %s %s\n", oid.Type(c), wantsha1)
-					}
-					filename := filepath.Join(objdir, prefixdir.Name(), object.Name())
-					f, err := os.Open(filepath.Join(filename))
-					if err != nil {
-						return err
-					}
-					defer f.Close()
-					zr, err := zlib.NewReader(f)
-					if err != nil {
-						return err
-					}
-					h := sha1.New()
-					if _, err := io.Copy(h, zr); err != nil {
-						return err
-					}
-					sum := h.Sum(nil)
-					sumsha1, err := Sha1FromSlice(sum)
-					if err != nil {
-						// This should never happen, a sha1 from crypto/sha1
-						// should always be convertable to our Sha1 type
-						panic(err)
-					}
-					if sumsha1 != oid {
+
+					// The type of verifications done on blobs
+					// (ie. sha1 mismatch) are valid for all object types
+					if err := verifyBlob(c, opts, stderr, oid); err != nil {
 						corrupted[oid] = struct{}{}
-						return fmt.Errorf("hash mismatch for %v (expected %v)", filename, oid)
+						return err
 					}
 					switch ty := oid.Type(c); ty {
 					case "commit":
@@ -322,6 +301,12 @@ func verifyCommit(c *Client, opts FsckOptions, cmt CommitID) error {
 			break
 		}
 	}
+	if c.GetConfig("fsck.multipleAuthors") != "ignore" {
+		headers := objectHeaderCount(content)
+		if headers["author"] > 1 {
+			return fmt.Errorf("multipleAuthors: invalid format - multiple 'author' lines")
+		}
+	}
 	return nil
 }
 
@@ -335,12 +320,37 @@ func verifyTree(c *Client, opts FsckOptions, tid TreeID) error {
 	content := obj.GetContent()
 	i := 0
 	for i < len(content) {
-		name, _, size, err := parseRawTreeLine(i, content)
+		name, entry, size, err := parseRawTreeLine(i, content)
 		if err != nil {
 			return err
 		}
+		if entry.Sha1 == (Sha1{}) {
+			fmt.Fprintf(os.Stderr, "warning in tree %v: nullSha1: contains entries pointing to null sha1\n", tid)
+		}
 		if _, ok := paths[name]; ok {
 			return fmt.Errorf("duplicateEntries: contains duplicate file entries")
+		}
+
+		// I don't know why these are warnings instead of errors, but
+		// git fsck is stupid that way.
+		sanitizedName := strings.Replace(name.String(), "\u200c", "", -1)
+		sanitizedName = strings.ToLower(sanitizedName)
+		switch sanitizedName {
+		case ".":
+			fmt.Fprintf(os.Stderr, "warning in tree %v: hasDot: contains '.'\n", tid)
+		case "..":
+			fmt.Fprintf(os.Stderr, "warning in tree %v: hasDotdot: contains '..'\n", tid)
+		case ".git", ".git.":
+			fmt.Fprintf(os.Stderr, "warning in tree %v: hasDotgit: contains '.git'\n", tid)
+		}
+		if strings.Index(sanitizedName, `\.git\`) >= 0 || strings.HasPrefix(sanitizedName, `.git\`) {
+
+			// Equivalent to .git on Windows
+			fmt.Fprintf(os.Stderr, "warning in tree %v: hasDotgit: contains '.git'\n", tid)
+		}
+		if strings.HasPrefix(sanitizedName, "git~") {
+			// Equivalent to .git on Windows
+			fmt.Fprintf(os.Stderr, "warning in tree %v: hasDotgit: contains '.git'\n", tid)
 		}
 		paths[name] = struct{}{}
 		i += size
@@ -401,4 +411,39 @@ func verifyTag(c *Client, opts FsckOptions, tid Sha1) []error {
 		}
 	}
 	return errs
+}
+
+func verifyBlob(c *Client, opts FsckOptions, stderr io.Writer, s Sha1) error {
+	// FIXME: Check blobs that are in packs too.
+	objdir := c.GetObjectsDir().String()
+	prefixdir := fmt.Sprintf("%0.2x", s[0:1])
+	fname := fmt.Sprintf("%0.38x", s[1:])
+	filename := filepath.Join(objdir, prefixdir, fname)
+	if opts.Verbose {
+		fmt.Fprintf(stderr, "Checking %s %s\n", s.Type(c), s)
+	}
+	f, err := os.Open(filepath.Join(filename))
+	if err != nil {
+		return err
+	}
+	defer f.Close()
+	zr, err := zlib.NewReader(f)
+	if err != nil {
+		return err
+	}
+	h := sha1.New()
+	if _, err := io.Copy(h, zr); err != nil {
+		return err
+	}
+	sum := h.Sum(nil)
+	sumsha1, err := Sha1FromSlice(sum)
+	if err != nil {
+		// This should never happen, a sha1 from crypto/sha1
+		// should always be convertable to our Sha1 type
+		panic(err)
+	}
+	if sumsha1 != s {
+		return fmt.Errorf("error: sha1 mismatch %v", s)
+	}
+	return nil
 }

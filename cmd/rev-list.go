@@ -3,6 +3,7 @@ package cmd
 import (
 	"flag"
 	"fmt"
+	"os"
 
 	"github.com/driusan/dgit/git"
 )
@@ -19,9 +20,14 @@ func RevList(c *git.Client, args []string) error {
 	opts := git.RevListOptions{}
 	flags.BoolVar(&opts.Objects, "objects", false, "include non-commit objects in output")
 	flags.BoolVar(&opts.Quiet, "quiet", false, "prevent printing of revisions")
+	flags.BoolVar(&opts.VerifyObjects, "verify-objects", false, "verify objects instead of printing them")
+	flags.BoolVar(&opts.All, "all", false, "pretend as if all refs were passed on the command line")
+
 	flags.Parse(args)
 	args = flags.Args()
-
+	if opts.VerifyObjects {
+		opts.Objects = true
+	}
 	// First get a map of excluded commitIDs
 	var excludes []git.Commitish
 	var includes []git.Commitish
@@ -47,10 +53,6 @@ func RevList(c *git.Client, args []string) error {
 			}
 		}
 	}
-	return git.RevListCallback(c, opts, includes, excludes, func(s git.Sha1) error {
-		if !opts.Quiet {
-			fmt.Println(s)
-		}
-		return nil
-	})
+	_, err := git.RevList(c, opts, os.Stdout, includes, excludes)
+	return err
 }
