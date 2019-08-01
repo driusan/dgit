@@ -699,10 +699,16 @@ func (t TreeID) GetAllObjectsExcept(cl *Client, excludeList map[Sha1]struct{}, p
 		}
 		i += size
 
+		if excludeList != nil {
+			if _, ok := excludeList[entry.Sha1]; ok {
+				continue
+			}
+		}
 		val[IndexPath(name)] = entry
 
 		if entry.FileMode == ModeTree && recurse {
 			childTree := TreeID(entry.Sha1)
+
 			children, err := childTree.GetAllObjectsExcept(cl, excludeList, "", recurse, excludeself)
 			if err != nil {
 				return nil, err
