@@ -130,6 +130,7 @@ func revListCallback(c *Client, opt RevListOptions, commits []CommitID, excludeL
 				return err
 			}
 			for _, o := range objs {
+                excludeList[o] = struct{}{}
 				if err := callback(o); err != nil {
 					return err
 				}
