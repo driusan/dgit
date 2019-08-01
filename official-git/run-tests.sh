@@ -99,8 +99,11 @@ echo t1014-read-tree-confusing
 ./t1014-read-tree-confusing.sh
 echo t1100-commit-tree-options
 ./t1100-commit-tree-options.sh
-echo t1304-default-acl
-./t1304-default-acl.sh
+# At one point default-acl was working by coincidence, but
+# it was never explicitly fixed/implemented and the test
+# started breaking different, intentional bug fix.
+# echo t1304-default-acl
+# ./t1304-default-acl.sh
 echo t1308-config-set
 ./t1308-config-set.sh
 echo t1403-show-ref
