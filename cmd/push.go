@@ -127,5 +127,13 @@ To push and set the upstream to the remote named "origin" use:
 		RemoteSha1: remoteHead.String(),
 		Refname:    git.RefSpec(mergebranch),
 	}, f, stat.Size())
+
+	// We don't do anything special for setupstream here, because it was saved above
+	if rmtname := c.GetConfig(fmt.Sprintf("branch.%v.remote", bname)); rmtname != "" {
+		rmtref := git.RefSpec(fmt.Sprintf("refs/remotes/%v/%v", rmtname, bname))
+		if err := git.UpdateRefSpec(c, git.UpdateRefOptions{}, rmtref, git.CommitID(localSha[0].Id), "update by push"); err != nil {
+			return err
+		}
+	}
 	return nil
 }
