@@ -596,7 +596,7 @@ func IndexPack(c *Client, opts IndexPackOptions, r io.Reader) (idx PackfileIndex
 		// or not.
 		var sha1 Sha1
 		switch t {
-		case OBJ_COMMIT, OBJ_TREE, OBJ_BLOB:
+		case OBJ_COMMIT, OBJ_TREE, OBJ_BLOB, OBJ_TAG:
 			sha1, _, err = HashSlice(t.String(), rawdata)
 			if err != nil && opts.Strict {
 				return indexfile, err
@@ -709,7 +709,6 @@ func IndexPack(c *Client, opts IndexPackOptions, r io.Reader) (idx PackfileIndex
 			wg.Done()
 		default:
 			panic("Unhandled type in IndexPack: " + t.String())
-
 		}
 	}
 	// Read the packfile trailer into the index trailer.

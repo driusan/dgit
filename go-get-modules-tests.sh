@@ -21,6 +21,9 @@ mkdir /tmp/gopath.$$
 export GOPATH=/tmp/gopath.$$
 export GO111MODULE=on # Force Go 1.11 to use the go modules
 
+# Force Go master (>=1.14) to use git instead of a proxy.
+export GOPROXY="direct"
+
 mkdir -p /tmp/foo.$$
 cd /tmp/foo.$$
 go mod init somesite.com/foo || exit 0
@@ -34,7 +37,8 @@ rm -f $DGIT_TRACE
 
 echo "Go get a package with semver"
 go get "golang.org/x/text" || (echo "Go get failed"; exit 1)
-test -d $GOPATH/pkg/mod/github.com/golang || (echo "ERROR: Go get didn't work"; exit 1)
+# Only test the parent directory, because the exact package directory includes @version
+test -d $GOPATH/pkg/mod/golang.org/x || (echo "ERROR: Go get didn't work"; exit 1)
 
 test -f $DGIT_TRACE
 rm -f $DGIT_TRACE
