@@ -21,6 +21,9 @@ mkdir /tmp/gopath.$$
 export GOPATH=/tmp/gopath.$$
 export GO111MODULE=on # Force Go 1.11 to use the go modules
 
+# Force Go master (>=1.14) to use git instead of a proxy.
+export GOPROXY="direct"
+
 mkdir -p /tmp/foo.$$
 cd /tmp/foo.$$
 go mod init somesite.com/foo || exit 0
