@@ -34,7 +34,8 @@ rm -f $DGIT_TRACE
 
 echo "Go get a package with semver"
 go get "golang.org/x/text" || (echo "Go get failed"; exit 1)
-test -d $GOPATH/pkg/mod/github.com/golang || (echo "ERROR: Go get didn't work"; exit 1)
+# Only test the parent directory, because the exact package directory includes @version
+test -d $GOPATH/pkg/mod/golang.org/x || (echo "ERROR: Go get didn't work"; exit 1)
 
 test -f $DGIT_TRACE
 rm -f $DGIT_TRACE

@@ -80,7 +80,6 @@ func (p PackfileHeader) ReadHeaderSize(r io.Reader) (PackEntryType, PackEntrySiz
 			case OBJ_TREE:
 			case OBJ_BLOB:
 			case OBJ_TAG:
-				fmt.Printf("Tag!\n")
 			case OBJ_OFS_DELTA:
 			case OBJ_REF_DELTA:
 			}
