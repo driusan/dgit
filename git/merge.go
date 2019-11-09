@@ -20,6 +20,8 @@ const (
 	MergeOctopus   = MergeStrategy("octopus")
 )
 
+var AlreadyUpToDate = fmt.Errorf("Already up-to-date.")
+
 // Merge options represent the options that may be passed on
 // the command line to "git merge"
 type MergeOptions struct {
@@ -89,7 +91,7 @@ func Merge(c *Client, opts MergeOptions, others []Commitish) error {
 		}
 	}
 	if !needsMerge {
-		return fmt.Errorf("Already up-to-date.")
+		return AlreadyUpToDate
 
 	}
 

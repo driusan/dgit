@@ -233,7 +233,7 @@ func main() {
 		subcommandUsage = "[<repository [<refspec>...]]"
 		if err := cmd.Pull(c, args); err != nil {
 			fmt.Fprintf(os.Stderr, "%v\n", err)
-			if err.Error() == "Already up to date." {
+			if err.Error() == "Already up to date." || err == git.AlreadyUpToDate {
 				os.Exit(0)
 			}
 			os.Exit(2)
