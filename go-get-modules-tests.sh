@@ -20,6 +20,8 @@ export DGIT_TRACE=/tmp/go-get-dgit-log.$$.txt
 mkdir /tmp/gopath.$$
 export GOPATH=/tmp/gopath.$$
 export GO111MODULE=on # Force Go 1.11 to use the go modules
+export GOPROXY="direct"
+export GOSUMDB="off"
 
 mkdir -p /tmp/foo.$$
 cd /tmp/foo.$$
