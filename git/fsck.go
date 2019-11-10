@@ -349,4 +349,3 @@ func verifyTag(c *Client, opts FsckOptions, tid Sha1) error {
 	}
 	return nil
 }
-
