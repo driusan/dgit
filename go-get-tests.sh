@@ -17,6 +17,8 @@ cp dgit bin/git
 export PATH=$(pwd)/bin:$PATH
 
 export DGIT_TRACE=/tmp/go-get-dgit-log.$$.txt
+export GOPROXY="direct"
+export GOSUMDB="off"
 
 echo "Go get a package"
 go get ${TEST_PKG} || (echo "Go get failed"; exit 1)
