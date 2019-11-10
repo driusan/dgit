@@ -35,8 +35,8 @@ test -f $DGIT_TRACE || (echo "ERROR: Dgit wasn't called for the go get test"; ex
 rm -f $DGIT_TRACE
 
 echo "Go get a package with semver"
-go get "github.com/golang/text" || (echo "Go get failed"; exit 1)
-test -d $GOPATH/pkg/mod/github.com/golang || (echo "ERROR: Go get didn't work"; exit 1)
+go get "golang.org/x/text" || (echo "Go get failed"; exit 1)
+test -d $GOPATH/pkg/mod/golang.org/x/text || (echo "ERROR: Go get didn't work"; exit 1)
 
 test -f $DGIT_TRACE
 rm -f $DGIT_TRACE
