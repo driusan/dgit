@@ -3,7 +3,13 @@ set -e
 
 echo "Running go get tests"
 
+# Ensure that git is called, not the proxy
 export GOPROXY="direct"
+
+# The go sum is causing the go get tests to fail because it
+# (seems to?) invoke some Go commands we don't support. Turn
+# it off for now.
+export GOSUMDB="off"
 
 # Keep existing state
 export ORIG_PATH=$PATH
