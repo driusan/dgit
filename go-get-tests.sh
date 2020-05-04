@@ -34,7 +34,7 @@ $ORIG_GIT -C ${TEST_GIT_DIR} checkout . > /dev/null
 commitid=$($ORIG_GIT -C ${TEST_GIT_DIR} log --pretty=format:"%h" HEAD^..HEAD)
 
 echo "Run go get -u on the package"
-go get -u github.com/golang/protobuf/proto || (echo "Go get -u failed"; exit 1)
+go get -x -u ${TEST_PKG} || (echo "Go get -u failed"; exit 1)
 test -f $DGIT_TRACE || (echo "ERROR: Dgit wasn't called for the go get -u test"; exit 1)
 
 echo "Verify that the branch is now up to date with master"
