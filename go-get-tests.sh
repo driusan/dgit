@@ -3,6 +3,8 @@ set -e
 
 echo "Running go get tests"
 
+export GOPROXY="direct"
+
 # Keep existing state
 export ORIG_PATH=$PATH
 export ORIG_GIT=$(which git)
@@ -12,14 +14,14 @@ export TEST_GIT_DIR=../../golang/protobuf
 
 echo "Adding dgit to the path"
 go build
-mkdir bin
+mkdir -p bin
 cp dgit bin/git
 export PATH=$(pwd)/bin:$PATH
 
 export DGIT_TRACE=/tmp/go-get-dgit-log.$$.txt
 
 echo "Go get a package"
-go get ${TEST_PKG} || (echo "Go get failed"; exit 1)
+go get -x ${TEST_PKG} || (echo "Go get failed"; exit 1)
 test -d ${TEST_GIT_DIR} || (echo "ERROR: Go get didn't work"; exit 1)
 
 test -f $DGIT_TRACE || (echo "ERROR: Dgit wasn't called for the go get test"; exit 1)
