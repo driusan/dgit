@@ -7,6 +7,8 @@ go:
   # not because we accidentally depend on some newer feature.
   - "1.10.x"
 
+  - "1.11.x"
+  - "1.12.x"
   # Last 2 releases and master. These should be periodically
   # updated. It's assumed that if it works with 1.10 and the
   # latest it works with everything in between.
