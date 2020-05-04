@@ -30,11 +30,42 @@ func Remote(c *git.Client, args []string) error {
 	}
 	switch args[0] {
 	case "add":
-		if len(args) < 3 {
+
+		aopts := git.RemoteAddOptions{RemoteOptions: opts}
+		addflags := newFlagSet("remote add")
+		addflags.BoolVar(&aopts.Fetch, "fetch", false, "fetch the remote branches")
+		addflags.BoolVar(&aopts.Fetch, "f", false, "Alias of --fetch")
+
+		addflags.BoolVar(&aopts.Fetch, "tags", false, "Import all tags and associated objects when fetching")
+
+		addflags.StringVar(&aopts.Track, "track", "", "branches to track")
+		addflags.StringVar(&aopts.Track, "t", "", "Alias of --track")
+
+		addflags.StringVar(&aopts.Master, "master", "", "master branch")
+		addflags.StringVar(&aopts.Master, "m", "", "Alias of --master")
+
+		addflags.StringVar(&aopts.Master, "mirror", "", "Set up remote as a mirror to push to or fetch from")
+
+		addflags.Parse(args[1:])
+		args = addflags.Args()
+
+		fmt.Printf("%v", args)
+		if len(args) < 2 {
 			return fmt.Errorf("Must provide name and URL for remote to add")
 		}
-		aopts := git.RemoteAddOptions{opts}
-		return git.RemoteAdd(c, aopts, args[1], args[2])
+
+		// Go sometimes runs "git remote add name -- url" with the
+		// misplaced -- for no reason other than because it can.
+		// As a hack, remote any "--" in the leftover arguments
+		// so that go get will work.
+		newargs := make([]string, 0, len(args))
+		for _, arg := range args {
+			if arg == "--" {
+				continue
+			}
+			newargs = append(newargs, arg)
+		}
+		return git.RemoteAdd(c, aopts, newargs[0], newargs[1])
 	case "get-url":
 		uflags := newFlagSet("remote-get-url")
 		urlopts := git.RemoteGetURLOptions{RemoteOptions: opts}
