@@ -1,9 +1,17 @@
 language: go
 
 go:
+  # Oldest version known to work (also oldest Go without
+  # modules support). If we remove this it should be an
+  # explicit decision to drop support for older Go releases,
+  # not because we accidentally depend on some newer feature.
   - "1.10.x"
-  - "1.11.x"
-  - "1.12.x"
+
+  # Last 2 releases and master. These should be periodically
+  # updated. It's assumed that if it works with 1.10 and the
+  # latest it works with everything in between.
+  - "1.13.x"
+  - "1.14.x"
   - master
 
 go_import_path: github.com/driusan/dgit
