@@ -1,16 +1,16 @@
 package git
 
 import (
-	"fmt"
 	"bufio"
+	"fmt"
 	"io"
 	"io/ioutil"
 	"log"
 	"os"
-	"time"
 	"sort"
-	"sync"
 	"strings"
+	"sync"
+	"time"
 
 	"crypto/sha1"
 	"encoding/binary"
@@ -487,7 +487,7 @@ func (p *PackfileIndexV2) calculateTrailer() error {
 	return nil
 }
 
-type byteCounter struct{
+type byteCounter struct {
 	io.Reader
 	n int64
 }
@@ -569,10 +569,10 @@ func IndexPack(c *Client, opts IndexPackOptions, r io.Reader) (idx PackfileIndex
 
 	packhash, _ := indexfile.GetTrailer()
 	basename := fmt.Sprintf("%s/pack-%s", c.GitDir.File("objects/pack").String(), packhash)
-	if err := os.Rename(pack.Name(), basename + ".pack"); err != nil {
+	if err := os.Rename(pack.Name(), basename+".pack"); err != nil {
 		return indexfile, err
 	}
-	if err := os.Rename(pack.Name() + ".idx", basename + ".idx"); err != nil {
+	if err := os.Rename(pack.Name()+".idx", basename+".idx"); err != nil {
 		return indexfile, err
 	}
 	return indexfile, nil
@@ -791,9 +791,9 @@ func formatBytes(n int64) string {
 	if n <= 1024 {
 		return fmt.Sprintf("%v B", n)
 	} else if n <= 1024*1024 {
-		return fmt.Sprintf("%.2f KiB", float64(n) / float64(1024))
+		return fmt.Sprintf("%.2f KiB", float64(n)/float64(1024))
 	} else if n <= 1024*1024*1024 {
-		return fmt.Sprintf("%.2f MiB", float64(n) / float64(1024*1024))
+		return fmt.Sprintf("%.2f MiB", float64(n)/float64(1024*1024))
 	}
-	return fmt.Sprintf("%.2f GiB", float64(n) / float64(1024*1024*1024))
+	return fmt.Sprintf("%.2f GiB", float64(n)/float64(1024*1024*1024))
 }

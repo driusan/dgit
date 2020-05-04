@@ -48,8 +48,8 @@ type ZLibReader struct {
 	Digest       hash.Hash32
 	err          error
 	scratch      [4]byte
-
 }
+
 func (z *ZLibReader) CompressedSize() int64 {
 	return z.r.read
 }
@@ -73,9 +73,9 @@ func NewReader(r flate.Reader) (*ZLibReader, error) {
 	return NewReaderDict(r, nil)
 }
 
-type readCounter struct{
-	r io.Reader
-	rb io.ByteReader
+type readCounter struct {
+	r    io.Reader
+	rb   io.ByteReader
 	read int64
 }
 

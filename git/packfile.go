@@ -1,8 +1,8 @@
 package git
 
 import (
-	"bytes"
 	"bufio"
+	"bytes"
 	"compress/flate"
 	"fmt"
 	"io"
