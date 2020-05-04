@@ -46,4 +46,3 @@ rm -f $DGIT_TRACE
 export PATH=$ORIG_PATH
 unset GO111MODULE
 export GOPATH=$ORIG_GOPATH
-go mod tidy
