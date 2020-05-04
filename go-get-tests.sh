@@ -47,4 +47,5 @@ then
         exit 1
 fi
 
+go mod tidy
 export PATH=$ORIG_PATH
