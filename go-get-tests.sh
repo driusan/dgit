@@ -10,8 +10,8 @@ export GOPROXY="direct"
 export ORIG_PATH=$PATH
 export ORIG_GIT=$(which git)
 
-export TEST_PKG=github.com/fatih/color
-export TEST_GIT_DIR=../../fatih/color
+export TEST_PKG=github.com/blang/semver
+export TEST_GIT_DIR=../../blang/semver
 
 echo "Adding dgit to the path"
 go build
