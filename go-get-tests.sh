@@ -6,17 +6,12 @@ echo "Running go get tests"
 # Ensure that git is called, not the proxy
 export GOPROXY="direct"
 
-# The go sum is causing the go get tests to fail because it
-# (seems to?) invoke some Go commands we don't support. Turn
-# it off for now.
-export GOSUMDB="off"
-
 # Keep existing state
 export ORIG_PATH=$PATH
 export ORIG_GIT=$(which git)
 
-export TEST_PKG=github.com/golang/protobuf/proto
-export TEST_GIT_DIR=../../golang/protobuf
+export TEST_PKG=github.com/fatih/color
+export TEST_GIT_DIR=../../fatih/color
 
 echo "Adding dgit to the path"
 go build
