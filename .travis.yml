@@ -18,11 +18,10 @@ go:
 
 jobs:
     allow_failures:
-        - go:
-            # Require git cat-file --batch to be implemented
-            - "1.13.x"
-            - "1.14.x"
-            - master
+        # Require git cat-file --batch to be implemented
+        - go: "1.13.x"
+        - go: "1.14.x"
+        - go: master
 
 go_import_path: github.com/driusan/dgit
 
