@@ -2,6 +2,8 @@ package git
 
 import (
 	"bytes"
+	"bufio"
+	"compress/flate"
 	"fmt"
 	"io"
 
@@ -151,7 +153,7 @@ func (b *byteReader) ReadByte() (byte, error) {
 	return buf[0], nil
 }
 
-func (p PackfileHeader) readEntryDataStream1(r io.Reader) []byte {
+func (p PackfileHeader) readEntryDataStream1(r flate.Reader) []byte {
 	b := new(bytes.Buffer)
 	zr, err := zlib.NewReader(r)
 	if err != nil {
@@ -164,53 +166,18 @@ func (p PackfileHeader) readEntryDataStream1(r io.Reader) []byte {
 	return b.Bytes()
 }
 
-func (p PackfileHeader) readEntryDataStream2(r io.ReadSeeker) (uncompressed []byte, compressed []byte) {
+func (p PackfileHeader) readEntryDataStream2(r io.ReadSeeker) []byte {
 	b := new(bytes.Buffer)
 	bookmark, _ := r.Seek(0, 1)
-	zr, err := zlib.NewReader(r)
+	zr, err := zlib.NewReader(bufio.NewReader(r))
 	if err != nil {
 		panic(err)
 	}
 	defer zr.Close()
 	io.Copy(b, zr)
 
-	// Go's zlib implementation is greedy, so we need some hacks to
-	// get r back to the right place in the file.
-	// We use a modified version of compress/zlib which exposes the
-	// digest. Before reading, we take a bookmark of the address
-	// that we're starting at, then after reading we go back there.
-	// Starting from there, look through the reader until we find the
-	// compressed object's zlib digest.
-	// This is stupid, but necessary because git's packfile format
-	// is *very* stupid.
-	digest := zr.Digest.Sum32()
-	r.Seek(bookmark, 0)
-	address := make([]byte, 4)
-	var i int64
-	var finalAddress int64
-	for {
-		n, err := r.Read(address)
-		// This probably means we reached the end of the io.Reader.
-		// It might be the last read, so break out of the loop instead
-		// of getting caught in an infinite loop.
-		if n < 4 || err != nil {
-			break
-		}
-		var intAddress uint32 = (uint32(address[3]) | uint32(address[2])<<8 | uint32(address[1])<<16 | uint32(address[0])<<24)
-		if intAddress == digest {
-			finalAddress = bookmark + i + 4
-			break
-		}
-		// Advance a byte
-		i += 1
-		r.Seek(bookmark+i, 0)
-
-	}
-	r.Seek(bookmark, 0)
-	compressed = make([]byte, finalAddress-bookmark)
-	r.Read(compressed)
-	r.Seek(finalAddress, 0)
-	return b.Bytes(), compressed
+	r.Seek(bookmark+zr.CompressedSize(), 0)
+	return b.Bytes()
 }
 
 type VariableLengthInt uint64

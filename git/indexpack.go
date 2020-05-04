@@ -2,12 +2,15 @@ package git
 
 import (
 	"fmt"
+	"bufio"
 	"io"
 	"io/ioutil"
 	"log"
 	"os"
+	"time"
 	"sort"
 	"sync"
+	"strings"
 
 	"crypto/sha1"
 	"encoding/binary"
@@ -170,7 +173,7 @@ func (idx PackfileIndexV2) getObjectAtOffset(r io.ReaderAt, offset int64, metaOn
 		}
 		datareader := io.NewSectionReader(r, offset+int64(len(rawheader)), int64(worstdsize))
 		if !metaOnly || t == OBJ_OFS_DELTA || t == OBJ_REF_DELTA {
-			rawdata = p.readEntryDataStream1(datareader)
+			rawdata = p.readEntryDataStream1(bufio.NewReader(datareader))
 		}
 	} else {
 		// If it's size 0, sz*3 would immediately return io.EOF and cause
@@ -484,46 +487,102 @@ func (p *PackfileIndexV2) calculateTrailer() error {
 	return nil
 }
 
+type byteCounter struct{
+	io.Reader
+	n int64
+}
+
+func (r *byteCounter) Read(buf []byte) (int, error) {
+	n, err := r.Reader.Read(buf)
+	r.n += int64(n)
+	return n, err
+}
 func IndexPack(c *Client, opts IndexPackOptions, r io.Reader) (idx PackfileIndex, rerr error) {
+	var p PackfileHeader
+
+	if f, ok := r.(*os.File); ok && !opts.Stdin {
+		return indexPackFile(c, opts, f)
+	}
+
+	// If --verbose is set, keep track of the time to output
+	// a x kb/s in the output.
+	var startTime time.Time
+	if opts.Verbose {
+		startTime = time.Now()
+	}
+
+	// --stdin was specified, so tee it into a temp file to be indexed
+	pack, err := ioutil.TempFile(c.GitDir.File("objects/pack").String(), ".tmppackfileidx")
+	if err != nil {
+		return nil, err
+	}
+	defer pack.Close()
+
+	counter := &byteCounter{r, 0}
+	r = io.TeeReader(counter, pack)
+
+	if err := binary.Read(r, binary.BigEndian, &p); err != nil {
+		return nil, err
+	}
+
+	if p.Signature != [4]byte{'P', 'A', 'C', 'K'} {
+		return nil, fmt.Errorf("Invalid packfile: %+v", p.Signature)
+	}
+	if p.Version != 2 {
+		return nil, fmt.Errorf("Unsupported packfile version: %d", p.Version)
+	}
+
+	br := bufio.NewReader(r)
+	for i := uint32(0); i < p.Size; i += 1 {
+		if opts.Verbose {
+			now := time.Now()
+			elapsed := now.Unix() - startTime.Unix()
+			if elapsed == 0 {
+				progressF("Receiving objects: %2.f%% (%d/%d)", (float32(i+1) / float32(p.Size) * 100), i+1, p.Size)
+			} else {
+				bps := counter.n / elapsed
+				progressF("Receiving objects: %2.f%% (%d/%d), %v | %v/s", (float32(i+1) / float32(p.Size) * 100), i+1, p.Size, formatBytes(counter.n), formatBytes(bps))
+
+			}
+		}
+
+		_, _, _, _, _ = p.ReadHeaderSize(br)
+
+		_ = p.readEntryDataStream1(br)
+	}
+
+	// We need to read the packfile trailer so that it gets tee'd into
+	// the temp file, or it won't be there for index-pack.
+	var trailer PackfileIndexV2
+	if err := binary.Read(br, binary.BigEndian, &trailer.Packfile); err != nil {
+		return nil, err
+	}
+
+	// Now that we've read the whole packfile, index-pack normally and
+	// rename the temp file when successful.
+	pack.Seek(0, io.SeekStart)
+
+	indexfile, err := indexPackFile(c, opts, pack)
+	if err != nil {
+		return indexfile, err
+	}
+
+	packhash, _ := indexfile.GetTrailer()
+	basename := fmt.Sprintf("%s/pack-%s", c.GitDir.File("objects/pack").String(), packhash)
+	if err := os.Rename(pack.Name(), basename + ".pack"); err != nil {
+		return indexfile, err
+	}
+	if err := os.Rename(pack.Name() + ".idx", basename + ".idx"); err != nil {
+		return indexfile, err
+	}
+	return indexfile, nil
+}
+
+func indexPackFile(c *Client, opts IndexPackOptions, file *os.File) (idx PackfileIndex, rerr error) {
 	var p PackfileHeader
 	var indexfile PackfileIndexV2
 
-	iscopying := false
-	var file *os.File
-	if r2, ok := r.(*os.File); ok && !opts.Stdin {
-		file = r2
-	} else {
-		pack, err := ioutil.TempFile(c.GitDir.File("objects/pack").String(), ".tmppackfileidx")
-		if err != nil {
-			return nil, err
-		}
-		defer pack.Close()
-		file = pack
-		r = io.TeeReader(r, pack)
-		iscopying = true
-		// If -stdin was specified, we copy it to the pack directory
-		// namd after the trailer.
-		defer func() {
-			if rerr == nil && idx != nil {
-				packhash, _ := indexfile.GetTrailer()
-				base := fmt.Sprintf("%s/pack-%s", c.GitDir.File("objects/pack").String(), packhash)
-				if err := os.Rename(pack.Name(), base+".pack"); err != nil {
-					rerr = err
-					return
-				}
-				fidx, err := os.Create(base + ".idx")
-				if err != nil {
-					rerr = err
-					return
-				}
-				if err := indexfile.WriteIndex(fidx); err != nil {
-					rerr = err
-					return
-				}
-			}
-		}()
-	}
-	if err := binary.Read(r, binary.BigEndian, &p); err != nil {
+	if err := binary.Read(file, binary.BigEndian, &p); err != nil {
 		return nil, err
 	}
 
@@ -546,11 +605,6 @@ func IndexPack(c *Client, opts IndexPackOptions, r io.Reader) (idx PackfileIndex
 	indexfile.FourByteOffsets = make([]uint32, p.Size)
 	priorObjects := make(map[Sha1]ObjectOffset)
 
-	if iscopying {
-		// Seek past the header that was just copied.
-		file.Seek(12, io.SeekStart)
-	}
-
 	for i := uint32(0); i < p.Size; i += 1 {
 		if opts.Verbose {
 			progressF("Indexing objects: %2.f%% (%d/%d)", (float32(i+1) / float32(p.Size) * 100), i+1, p.Size)
@@ -561,24 +615,11 @@ func IndexPack(c *Client, opts IndexPackOptions, r io.Reader) (idx PackfileIndex
 		}
 
 		checksum := crc32.NewIEEE()
-		tr := io.TeeReader(r, checksum)
+		tr := io.TeeReader(file, checksum)
 		t, _, ref, offset, _ := p.ReadHeaderSize(tr)
 
-		var rawdata []byte
+		rawdata := p.readEntryDataStream2(file)
 
-		if iscopying {
-			// If we're copying from a reader, first we read from
-			// the stream to have the data tee'd into the file,
-			// then we read from the file because we need a
-			// ReadSeeker in order to get both the compressed and
-			// uncompressed data.
-			br := &byteReader{tr, 0}
-			rawdata = p.readEntryDataStream1(br)
-		} else {
-			// If we're reading from a file, we just read it
-			// directly since we can seek back.
-			rawdata, _ = p.readEntryDataStream2(file)
-		}
 		// The CRC32 checksum of the compressed data and the offset in
 		// the file don't change regardless of type.
 		mu.Lock()
@@ -711,14 +752,31 @@ func IndexPack(c *Client, opts IndexPackOptions, r io.Reader) (idx PackfileIndex
 			panic("Unhandled type in IndexPack: " + t.String())
 		}
 	}
+
 	// Read the packfile trailer into the index trailer.
-	binary.Read(r, binary.BigEndian, &indexfile.Packfile)
+	if err := binary.Read(file, binary.BigEndian, &indexfile.Packfile); err != nil {
+		return nil, err
+	}
 	sort.Sort(&indexfile)
 
 	// The sorting may have changed things, so as a final pass, hash
 	// everything to get the trailer (instead of doing it while we
 	// were calculating everything.)
-	err := indexfile.calculateTrailer()
+	if err := indexfile.calculateTrailer(); err != nil {
+		return nil, err
+	}
+
+	// Write the index to disk and return
+	idxname := strings.TrimSuffix(file.Name(), ".pack") + ".idx"
+	fidx, err := os.Create(idxname)
+	if err != nil {
+		return indexfile, err
+	}
+	defer fidx.Close()
+
+	if err := indexfile.WriteIndex(fidx); err != nil {
+		return indexfile, err
+	}
 	return indexfile, err
 }
 
@@ -727,4 +785,15 @@ func IndexPack(c *Client, opts IndexPackOptions, r io.Reader) (idx PackfileIndex
 // reader.
 func IndexAndCopyPack(c *Client, opts IndexPackOptions, r io.Reader) (PackfileIndex, error) {
 	return IndexPack(c, opts, r)
+}
+
+func formatBytes(n int64) string {
+	if n <= 1024 {
+		return fmt.Sprintf("%v B", n)
+	} else if n <= 1024*1024 {
+		return fmt.Sprintf("%.2f KiB", float64(n) / float64(1024))
+	} else if n <= 1024*1024*1024 {
+		return fmt.Sprintf("%.2f MiB", float64(n) / float64(1024*1024))
+	}
+	return fmt.Sprintf("%.2f GiB", float64(n) / float64(1024*1024*1024))
 }

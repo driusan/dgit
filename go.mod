@@ -1,5 +1,7 @@
 module github.com/driusan/dgit
 
+go 1.14
+
 require (
 	9fans.net/go v0.0.0-20180727211846-5d4fa602e1e8 // indirect
 	bitbucket.org/mischief/libauth v0.0.0-20180917063427-eea7aee20a38

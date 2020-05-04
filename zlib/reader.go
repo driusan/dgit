@@ -24,7 +24,6 @@ and to read that data back:
 package zlib
 
 import (
-	"bufio"
 	"compress/flate"
 	"errors"
 	"hash"
@@ -44,11 +43,15 @@ var (
 )
 
 type ZLibReader struct {
-	r            flate.Reader
+	r            *readCounter
 	decompressor io.ReadCloser
 	Digest       hash.Hash32
 	err          error
 	scratch      [4]byte
+
+}
+func (z *ZLibReader) CompressedSize() int64 {
+	return z.r.read
 }
 
 // Resetter resets a ReadCloser returned by NewReader or NewReaderDict to
@@ -66,8 +69,25 @@ type Resetter interface {
 // It is the caller's responsibility to call Close on the ReadCloser when done.
 //
 // The ReadCloser returned by NewReader also implements Resetter.
-func NewReader(r io.Reader) (*ZLibReader, error) {
+func NewReader(r flate.Reader) (*ZLibReader, error) {
 	return NewReaderDict(r, nil)
+}
+
+type readCounter struct{
+	r io.Reader
+	rb io.ByteReader
+	read int64
+}
+
+func (r *readCounter) Read(p []byte) (n int, err error) {
+	n, err = r.r.Read(p)
+	r.read += int64(n)
+	return
+}
+
+func (r *readCounter) ReadByte() (byte, error) {
+	r.read += 1
+	return r.rb.ReadByte()
 }
 
 // NewReaderDict is like NewReader but uses a preset dictionary.
@@ -75,7 +95,7 @@ func NewReader(r io.Reader) (*ZLibReader, error) {
 // If the compressed data refers to a different dictionary, NewReaderDict returns ErrDictionary.
 //
 // The ReadCloser returned by NewReaderDict also implements Resetter.
-func NewReaderDict(r io.Reader, dict []byte) (*ZLibReader, error) {
+func NewReaderDict(r flate.Reader, dict []byte) (*ZLibReader, error) {
 	z := new(ZLibReader)
 	err := z.Reset(r, dict)
 	if err != nil {
@@ -93,6 +113,7 @@ func (z *ZLibReader) Read(p []byte) (n int, err error) {
 	}
 
 	n, err = z.decompressor.Read(p)
+
 	z.Digest.Write(p[0:n])
 	if n != 0 || err != io.EOF {
 		z.err = err
@@ -134,12 +155,8 @@ func (z *ZLibReader) Close() error {
 	return z.err
 }
 
-func (z *ZLibReader) Reset(r io.Reader, dict []byte) error {
-	if fr, ok := r.(flate.Reader); ok {
-		z.r = fr
-	} else {
-		z.r = bufio.NewReader(r)
-	}
+func (z *ZLibReader) Reset(r flate.Reader, dict []byte) error {
+	z.r = &readCounter{r, r, 0}
 	_, err := io.ReadFull(z.r, z.scratch[0:2])
 	if err != nil {
 		return err
