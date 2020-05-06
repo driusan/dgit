@@ -4,12 +4,10 @@ import (
 	"bufio"
 	"fmt"
 	"io"
-	"io/ioutil"
 	"log"
 	"os"
 	"sort"
 	"strings"
-	"sync"
 	"time"
 
 	"crypto/sha1"
@@ -487,21 +485,11 @@ func (p *PackfileIndexV2) calculateTrailer() error {
 	return nil
 }
 
-type byteCounter struct {
-	io.Reader
-	n int64
-}
-
-func (r *byteCounter) Read(buf []byte) (int, error) {
-	n, err := r.Reader.Read(buf)
-	r.n += int64(n)
-	return n, err
-}
 func IndexPack(c *Client, opts IndexPackOptions, r io.Reader) (idx PackfileIndex, rerr error) {
-	var p PackfileHeader
-
+	isfile := false
 	if f, ok := r.(*os.File); ok && !opts.Stdin {
-		return indexPackFile(c, opts, f)
+		// os.Stdin isn *os.File, but we want to consider it a stream.
+		isfile = (f != os.Stdin)
 	}
 
 	// If --verbose is set, keep track of the time to output
@@ -511,118 +499,97 @@ func IndexPack(c *Client, opts IndexPackOptions, r io.Reader) (idx PackfileIndex
 		startTime = time.Now()
 	}
 
-	// --stdin was specified, so tee it into a temp file to be indexed
-	pack, err := ioutil.TempFile(c.GitDir.File("objects/pack").String(), ".tmppackfileidx")
+	indexfile, initcb, icb := indexClosure(c, opts)
+
+	cb := func(r io.ReaderAt, i, n int, loc int64, t PackEntryType, sz PackEntrySize, ref Sha1, offset ObjectOffset, rawdata []byte) error {
+		if !isfile && opts.Verbose {
+			now := time.Now()
+			elapsed := now.Unix() - startTime.Unix()
+			if elapsed == 0 {
+				progressF("Receiving objects: %2.f%% (%d/%d)", (float32(i+1) / float32(n) * 100), i+1, n)
+			} else {
+				bps := loc / elapsed
+				progressF("Receiving objects: %2.f%% (%d/%d), %v | %v/s", (float32(i+1) / float32(n) * 100), i+1, n, formatBytes(loc), formatBytes(bps))
+
+			}
+		}
+		return icb(r, i, n, loc, t, sz, ref, offset, rawdata)
+	}
+
+	trailerCB := func(trailer Sha1) error {
+		indexfile.Packfile = trailer
+
+		sort.Sort(indexfile)
+		// The sorting may have changed things, so as a final pass, hash
+		// everything in the index to get the trailer (instead of doing it
+		// while we were calculating it.)
+		if err := indexfile.calculateTrailer(); err != nil {
+			return err
+		}
+		return nil
+	}
+
+	pack, err := iteratePack(c, r, initcb, cb, trailerCB)
 	if err != nil {
 		return nil, err
 	}
 	defer pack.Close()
 
-	counter := &byteCounter{r, 0}
-	r = io.TeeReader(counter, pack)
+	// Write the index to disk and return
+	var basename, idxname string
+	if f, ok := r.(*os.File); ok && isfile && !opts.Stdin {
+		basename = pack.Name()
+		basename = strings.TrimSuffix(f.Name(), ".pack")
+		idxname = basename + ".idx"
+	} else {
+		packhash, _ := indexfile.GetTrailer()
+		basename := fmt.Sprintf("%s/pack-%s", c.GitDir.File("objects/pack").String(), packhash)
+		idxname = basename + ".idx"
 
-	if err := binary.Read(r, binary.BigEndian, &p); err != nil {
-		return nil, err
-	}
-
-	if p.Signature != [4]byte{'P', 'A', 'C', 'K'} {
-		return nil, fmt.Errorf("Invalid packfile: %+v", p.Signature)
-	}
-	if p.Version != 2 {
-		return nil, fmt.Errorf("Unsupported packfile version: %d", p.Version)
-	}
-
-	br := bufio.NewReader(r)
-	for i := uint32(0); i < p.Size; i += 1 {
-		if opts.Verbose {
-			now := time.Now()
-			elapsed := now.Unix() - startTime.Unix()
-			if elapsed == 0 {
-				progressF("Receiving objects: %2.f%% (%d/%d)", (float32(i+1) / float32(p.Size) * 100), i+1, p.Size)
-			} else {
-				bps := counter.n / elapsed
-				progressF("Receiving objects: %2.f%% (%d/%d), %v | %v/s", (float32(i+1) / float32(p.Size) * 100), i+1, p.Size, formatBytes(counter.n), formatBytes(bps))
-
-			}
+		if err := os.Rename(pack.Name(), basename+".pack"); err != nil {
+			return indexfile, err
 		}
-
-		_, _, _, _, _ = p.ReadHeaderSize(br)
-
-		_ = p.readEntryDataStream1(br)
 	}
 
-	// We need to read the packfile trailer so that it gets tee'd into
-	// the temp file, or it won't be there for index-pack.
-	var trailer PackfileIndexV2
-	if err := binary.Read(br, binary.BigEndian, &trailer.Packfile); err != nil {
-		return nil, err
+	if opts.Output == nil {
+		o, err := os.Create(idxname)
+		if err != nil {
+			return indexfile, err
+		}
+		defer o.Close()
+		opts.Output = o
 	}
 
-	// Now that we've read the whole packfile, index-pack normally and
-	// rename the temp file when successful.
-	pack.Seek(0, io.SeekStart)
-
-	indexfile, err := indexPackFile(c, opts, pack)
-	if err != nil {
+	if err := indexfile.WriteIndex(opts.Output); err != nil {
 		return indexfile, err
 	}
-
-	packhash, _ := indexfile.GetTrailer()
-	basename := fmt.Sprintf("%s/pack-%s", c.GitDir.File("objects/pack").String(), packhash)
-	if err := os.Rename(pack.Name(), basename+".pack"); err != nil {
-		return indexfile, err
-	}
-	if err := os.Rename(pack.Name()+".idx", basename+".idx"); err != nil {
-		return indexfile, err
-	}
-	return indexfile, nil
+	return indexfile, err
 }
 
-func indexPackFile(c *Client, opts IndexPackOptions, file *os.File) (idx PackfileIndex, rerr error) {
-	var p PackfileHeader
+func indexClosure(c *Client, opts IndexPackOptions) (*PackfileIndexV2, func(int), packIterator) {
 	var indexfile PackfileIndexV2
-
-	if err := binary.Read(file, binary.BigEndian, &p); err != nil {
-		return nil, err
-	}
-
-	if p.Signature != [4]byte{'P', 'A', 'C', 'K'} {
-		return nil, fmt.Errorf("Invalid packfile: %+v", p.Signature)
-	}
-	if p.Version != 2 {
-		return nil, fmt.Errorf("Unsupported packfile version: %d", p.Version)
-	}
-
-	var mu sync.Mutex
-	var wg sync.WaitGroup
-	wg.Add(int(p.Size))
 
 	indexfile.magic = [4]byte{0377, 't', 'O', 'c'}
 	indexfile.Version = 2
 
-	indexfile.Sha1Table = make([]Sha1, p.Size)
-	indexfile.CRC32 = make([]uint32, p.Size)
-	indexfile.FourByteOffsets = make([]uint32, p.Size)
 	priorObjects := make(map[Sha1]ObjectOffset)
+	icb := func(n int) {
+		indexfile.Sha1Table = make([]Sha1, n)
+		indexfile.CRC32 = make([]uint32, n)
+		indexfile.FourByteOffsets = make([]uint32, n)
 
-	for i := uint32(0); i < p.Size; i += 1 {
+	}
+
+	cb := func(r io.ReaderAt, i, n int, location int64, t PackEntryType, sz PackEntrySize, ref Sha1, offset ObjectOffset, rawdata []byte) error {
 		if opts.Verbose {
-			progressF("Indexing objects: %2.f%% (%d/%d)", (float32(i+1) / float32(p.Size) * 100), i+1, p.Size)
-		}
-		location, err := file.Seek(0, io.SeekCurrent)
-		if err != nil {
-			panic(err)
+			progressF("Indexing objects: %2.f%% (%d/%d)", (float32(i+1) / float32(n) * 100), i+1, n)
 		}
 
 		checksum := crc32.NewIEEE()
-		tr := io.TeeReader(file, checksum)
-		t, _, ref, offset, _ := p.ReadHeaderSize(tr)
-
-		rawdata := p.readEntryDataStream2(file)
+		// FIXME: Calculate checksum
 
 		// The CRC32 checksum of the compressed data and the offset in
 		// the file don't change regardless of type.
-		mu.Lock()
 		indexfile.CRC32[i] = checksum.Sum32()
 
 		if location < (1 << 31) {
@@ -631,37 +598,28 @@ func indexPackFile(c *Client, opts IndexPackOptions, file *os.File) (idx Packfil
 			indexfile.FourByteOffsets[i] = uint32(len(indexfile.EightByteOffsets)) | (1 << 31)
 			indexfile.EightByteOffsets = append(indexfile.EightByteOffsets, uint64(location))
 		}
-		mu.Unlock()
 
 		// The way we calculate the hash changes based on if it's a delta
 		// or not.
 		var sha1 Sha1
 		switch t {
 		case OBJ_COMMIT, OBJ_TREE, OBJ_BLOB, OBJ_TAG:
-			sha1, _, err = HashSlice(t.String(), rawdata)
+			sha1, _, err := HashSlice(t.String(), rawdata)
 			if err != nil && opts.Strict {
-				return indexfile, err
+				return err
 			}
-			mu.Lock()
 			for j := int(sha1[0]); j < 256; j++ {
 				indexfile.Fanout[j]++
 			}
 			indexfile.Sha1Table[i] = sha1
-			mu.Unlock()
 
 			// Maintain the list of references for further chains
 			// to use.
-			mu.Lock()
 			priorObjects[sha1] = ObjectOffset(location)
-			mu.Unlock()
-
-			wg.Done()
 		case OBJ_REF_DELTA:
 			log.Printf("Resolving REF_DELTA from %v\n", ref)
-			mu.Lock()
 			o, ok := priorObjects[ref]
 			if !ok {
-				mu.Unlock()
 				panic("Could not find basis for REF_DELTA")
 			}
 			// The refs in the index file need to be sorted in
@@ -669,18 +627,15 @@ func indexPackFile(c *Client, opts IndexPackOptions, file *os.File) (idx Packfil
 			// when resolving deltas. Chains don't have access
 			// to the priorObjects map that we have here.
 			sort.Sort(&indexfile)
-			mu.Unlock()
+
+			base, err := indexfile.getObjectAtOffset(r, int64(o), false)
 			if err != nil {
-				return indexfile, err
-			}
-			base, err := indexfile.getObjectAtOffset(file, int64(o), false)
-			if err != nil {
-				return indexfile, err
+				return err
 			}
 			res := resolvedDelta{Value: base.GetContent()}
 			_, val, err := calculateDelta(res, rawdata)
 			if err != nil {
-				return indexfile, err
+				return err
 			}
 			switch base.GetType() {
 			case "commit":
@@ -694,32 +649,27 @@ func indexPackFile(c *Client, opts IndexPackOptions, file *os.File) (idx Packfil
 			}
 			sha1, _, err = HashSlice(base.GetType(), val)
 			if err != nil && opts.Strict {
-				return nil, err
+				return err
 			}
 
-			mu.Lock()
 			priorObjects[sha1] = ObjectOffset(location)
-			mu.Unlock()
 
-			mu.Lock()
 			for j := int(sha1[0]); j < 256; j++ {
 				indexfile.Fanout[j]++
 			}
 			indexfile.Sha1Table[i] = sha1
 
-			mu.Unlock()
-			wg.Done()
 		case OBJ_OFS_DELTA:
 			log.Printf("Resolving OFS_DELTA from %v\n", location-int64(offset))
-			base, err := indexfile.getObjectAtOffset(file, location-int64(offset), false)
+			base, err := indexfile.getObjectAtOffset(r, location-int64(offset), false)
 			if err != nil {
-				return indexfile, err
+				return err
 			}
 
 			res := resolvedDelta{Value: base.GetContent()}
 			_, val, err := calculateDelta(res, rawdata)
 			if err != nil {
-				return indexfile, err
+				return err
 			}
 			switch base.GetType() {
 			case "commit":
@@ -733,51 +683,21 @@ func indexPackFile(c *Client, opts IndexPackOptions, file *os.File) (idx Packfil
 			}
 			sha1, _, err = HashSlice(base.GetType(), val)
 			if err != nil && opts.Strict {
-				return nil, err
+				return err
 			}
 
-			mu.Lock()
 			priorObjects[sha1] = ObjectOffset(location)
-			mu.Unlock()
 
-			mu.Lock()
 			for j := int(sha1[0]); j < 256; j++ {
 				indexfile.Fanout[j]++
 			}
 			indexfile.Sha1Table[i] = sha1
-
-			mu.Unlock()
-			wg.Done()
 		default:
 			panic("Unhandled type in IndexPack: " + t.String())
 		}
+		return nil
 	}
-
-	// Read the packfile trailer into the index trailer.
-	if err := binary.Read(file, binary.BigEndian, &indexfile.Packfile); err != nil {
-		return nil, err
-	}
-	sort.Sort(&indexfile)
-
-	// The sorting may have changed things, so as a final pass, hash
-	// everything to get the trailer (instead of doing it while we
-	// were calculating everything.)
-	if err := indexfile.calculateTrailer(); err != nil {
-		return nil, err
-	}
-
-	// Write the index to disk and return
-	idxname := strings.TrimSuffix(file.Name(), ".pack") + ".idx"
-	fidx, err := os.Create(idxname)
-	if err != nil {
-		return indexfile, err
-	}
-	defer fidx.Close()
-
-	if err := indexfile.WriteIndex(fidx); err != nil {
-		return indexfile, err
-	}
-	return indexfile, err
+	return &indexfile, icb, cb
 }
 
 // Indexes the pack, and stores a copy in Client's .git/objects/pack directory as it's
