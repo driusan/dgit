@@ -6,6 +6,7 @@ import (
 	"io"
 	"io/ioutil"
 	"os"
+	"sync"
 
 	"encoding/binary"
 )
@@ -59,19 +60,26 @@ func iteratePack(c *Client, r io.Reader, initcallback func(int), callback packIt
 	loc := counter.n
 	br := bufio.NewReader(r)
 	initcallback(int(p.Size))
+
+	var wg sync.WaitGroup
 	for i := uint32(0); i < p.Size; i += 1 {
+		wg.Add(1)
 		t, sz, deltasha, deltaoff, rawheader := p.ReadHeaderSize(br)
 
 		datacounter := byteReader{br, 0}
 		raw := p.readEntryDataStream1(&datacounter)
 
-		if err := callback(pack, int(i), int(p.Size), loc, t, sz, deltasha, deltaoff, raw); err != nil {
-			return pack, err
-		}
+		go func(i int, psize int, loc int64, t PackEntryType, sz PackEntrySize, deltasha Sha1, deltaoff ObjectOffset, raw []byte) {
+			defer wg.Done()
+			if err := callback(pack, i, psize, loc, t, sz, deltasha, deltaoff, raw); err != nil {
+				panic(err)
+			}
+		}(int(i), int(p.Size), loc, t, sz, deltasha, deltaoff, raw)
 
 		loc += int64(len(rawheader)) + int64(datacounter.n)
 	}
 
+	wg.Wait()
 	// We need to read the packfile trailer so that it gets tee'd into
 	// the temp file, or it won't be there for index-pack.
 	var trailer PackfileIndexV2

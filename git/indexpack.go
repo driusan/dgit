@@ -9,6 +9,10 @@ import (
 	"sort"
 	"strings"
 	"time"
+	"unsafe"
+
+	"sync"
+	"sync/atomic"
 
 	"crypto/sha1"
 	"encoding/binary"
@@ -572,6 +576,8 @@ func indexClosure(c *Client, opts IndexPackOptions) (*PackfileIndexV2, func(int)
 	indexfile.magic = [4]byte{0377, 't', 'O', 'c'}
 	indexfile.Version = 2
 
+	var mu sync.Mutex
+
 	priorObjects := make(map[Sha1]ObjectOffset)
 	icb := func(n int) {
 		indexfile.Sha1Table = make([]Sha1, n)
@@ -591,12 +597,15 @@ func indexClosure(c *Client, opts IndexPackOptions) (*PackfileIndexV2, func(int)
 		// The CRC32 checksum of the compressed data and the offset in
 		// the file don't change regardless of type.
 		indexfile.CRC32[i] = checksum.Sum32()
+		atomic.StoreUint32(&indexfile.CRC32[i], checksum.Sum32())
 
 		if location < (1 << 31) {
-			indexfile.FourByteOffsets[i] = uint32(location)
+			atomic.StoreUint32(&indexfile.FourByteOffsets[i], uint32(location))
 		} else {
-			indexfile.FourByteOffsets[i] = uint32(len(indexfile.EightByteOffsets)) | (1 << 31)
+			atomic.StoreUint32(&indexfile.FourByteOffsets[i], uint32(len(indexfile.EightByteOffsets))|(1<<31))
+			mu.Lock()
 			indexfile.EightByteOffsets = append(indexfile.EightByteOffsets, uint64(location))
+			mu.Unlock()
 		}
 
 		// The way we calculate the hash changes based on if it's a delta
@@ -609,16 +618,26 @@ func indexClosure(c *Client, opts IndexPackOptions) (*PackfileIndexV2, func(int)
 				return err
 			}
 			for j := int(sha1[0]); j < 256; j++ {
-				indexfile.Fanout[j]++
+				atomic.AddUint32(&indexfile.Fanout[j], 1)
 			}
-			indexfile.Sha1Table[i] = sha1
+
+			// SHA1 is 160 bits.. since we know no one else is writing here,
+			// we pretend it's 2 64 bit ints and a 32 bit int so that we can
+			// use atomic writes instead of a lock.
+			atomic.StoreUint64((*uint64)(unsafe.Pointer(&indexfile.Sha1Table[i][0])), *(*uint64)(unsafe.Pointer(&sha1[0])))
+			atomic.StoreUint64((*uint64)(unsafe.Pointer(&indexfile.Sha1Table[i][8])), *(*uint64)(unsafe.Pointer(&sha1[8])))
+			atomic.StoreUint32((*uint32)(unsafe.Pointer(&indexfile.Sha1Table[i][16])), *(*uint32)(unsafe.Pointer(&sha1[16])))
 
 			// Maintain the list of references for further chains
 			// to use.
+			mu.Lock()
 			priorObjects[sha1] = ObjectOffset(location)
+			mu.Unlock()
 		case OBJ_REF_DELTA:
 			log.Printf("Resolving REF_DELTA from %v\n", ref)
+			mu.Lock()
 			o, ok := priorObjects[ref]
+			mu.Unlock()
 			if !ok {
 				panic("Could not find basis for REF_DELTA")
 			}
@@ -626,7 +645,9 @@ func indexClosure(c *Client, opts IndexPackOptions) (*PackfileIndexV2, func(int)
 			// order for GetObject to look up the other SHA1s
 			// when resolving deltas. Chains don't have access
 			// to the priorObjects map that we have here.
+			mu.Lock()
 			sort.Sort(&indexfile)
+			mu.Unlock()
 
 			base, err := indexfile.getObjectAtOffset(r, int64(o), false)
 			if err != nil {
@@ -652,13 +673,19 @@ func indexClosure(c *Client, opts IndexPackOptions) (*PackfileIndexV2, func(int)
 				return err
 			}
 
+			mu.Lock()
 			priorObjects[sha1] = ObjectOffset(location)
+			mu.Unlock()
 
 			for j := int(sha1[0]); j < 256; j++ {
-				indexfile.Fanout[j]++
+				atomic.AddUint32(&indexfile.Fanout[j], 1)
 			}
-			indexfile.Sha1Table[i] = sha1
 
+			// SHA1 is 160 bits.. since we know no one else is writing here,
+			// we pretend it's 2 64 bit ints and a 32 bit int
+			atomic.StoreUint64((*uint64)(unsafe.Pointer(&indexfile.Sha1Table[i][0])), *(*uint64)(unsafe.Pointer(&sha1[0])))
+			atomic.StoreUint64((*uint64)(unsafe.Pointer(&indexfile.Sha1Table[i][8])), *(*uint64)(unsafe.Pointer(&sha1[8])))
+			atomic.StoreUint32((*uint32)(unsafe.Pointer(&indexfile.Sha1Table[i][16])), *(*uint32)(unsafe.Pointer(&sha1[16])))
 		case OBJ_OFS_DELTA:
 			log.Printf("Resolving OFS_DELTA from %v\n", location-int64(offset))
 			base, err := indexfile.getObjectAtOffset(r, location-int64(offset), false)
@@ -686,12 +713,19 @@ func indexClosure(c *Client, opts IndexPackOptions) (*PackfileIndexV2, func(int)
 				return err
 			}
 
+			mu.Lock()
 			priorObjects[sha1] = ObjectOffset(location)
+			mu.Unlock()
 
 			for j := int(sha1[0]); j < 256; j++ {
-				indexfile.Fanout[j]++
+				atomic.AddUint32(&indexfile.Fanout[j], 1)
 			}
-			indexfile.Sha1Table[i] = sha1
+
+			// SHA1 is 160 bits.. since we know no one else is writing here,
+			// we pretend it's 2 64 bit ints and a 32 bit int
+			atomic.StoreUint64((*uint64)(unsafe.Pointer(&indexfile.Sha1Table[i][0])), *(*uint64)(unsafe.Pointer(&sha1[0])))
+			atomic.StoreUint64((*uint64)(unsafe.Pointer(&indexfile.Sha1Table[i][8])), *(*uint64)(unsafe.Pointer(&sha1[8])))
+			atomic.StoreUint32((*uint32)(unsafe.Pointer(&indexfile.Sha1Table[i][16])), *(*uint32)(unsafe.Pointer(&sha1[16])))
 		default:
 			panic("Unhandled type in IndexPack: " + t.String())
 		}
