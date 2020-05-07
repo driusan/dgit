@@ -36,7 +36,12 @@ func Log(c *git.Client, args []string) error {
 	flags.StringVar(&format, "format", "medium", "Pretty print the commit logs")
 
 	adjustedArgs := []string{}
-	for _, a := range args {
+	for i, a := range args {
+		// Go adds an arbitrary -- at the end when doing a go get, we need
+		// to remove it or the flag parsing thinks it's a file.
+		if i == len(args)-1 && a == "--" {
+			continue
+		}
 		if strings.HasPrefix(a, "-n") && a != "-n" {
 			adjustedArgs = append(adjustedArgs, "-n", a[2:])
 			continue

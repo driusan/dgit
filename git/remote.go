@@ -219,6 +219,23 @@ type RemoteOptions struct {
 
 type RemoteAddOptions struct {
 	RemoteOptions
+
+	Fetch bool
+	// Fetch remote branches (not implemented)
+
+	// Import all tags and associated objects when fetching
+	Tags bool
+
+	// Branch(es) to track (not implemented)
+	Track string
+
+	// Master branch (not implemented)
+	Master string
+
+	// Mirror=[push|fetch]
+	// Set up remote as a mirror to push to or fetch from
+	// (not implemented)
+	Mirror string
 }
 type RemoteShowOptions struct {
 	RemoteOptions

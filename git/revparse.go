@@ -330,7 +330,15 @@ func RevParseCommitish(c *Client, opt *RevParseOptions, arg string) (cmt Commiti
 		if len(candidates) == 1 {
 			return candidates[0], nil
 		} else if len(candidates) > 1 {
-			return nil, fmt.Errorf("Ambiguous reference: '%v'", arg)
+			// Remove duplicates before declaring it ambiguous
+			m := make(map[CommitID]struct{})
+			for _, c := range candidates {
+				m[c] = struct{}{}
+			}
+			if len(m) == 1 {
+				return candidates[0], nil
+			}
+			return nil, fmt.Errorf("Ambiguous reference: '%v', %v", arg, candidates)
 		}
 	}
 	return nil, fmt.Errorf("Could not find %v", arg)
