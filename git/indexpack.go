@@ -505,7 +505,7 @@ func IndexPack(c *Client, opts IndexPackOptions, r io.Reader) (idx PackfileIndex
 
 	indexfile, initcb, icb := indexClosure(c, opts)
 
-	cb := func(r io.ReaderAt, i, n int, loc int64, t PackEntryType, sz PackEntrySize, ref Sha1, offset ObjectOffset, rawdata []byte) error {
+	cb := func(r io.ReaderAt, i, n int, loc int64, compsz int64, t PackEntryType, sz PackEntrySize, ref Sha1, offset ObjectOffset, rawdata []byte) error {
 		if !isfile && opts.Verbose {
 			now := time.Now()
 			elapsed := now.Unix() - startTime.Unix()
@@ -517,7 +517,7 @@ func IndexPack(c *Client, opts IndexPackOptions, r io.Reader) (idx PackfileIndex
 
 			}
 		}
-		return icb(r, i, n, loc, t, sz, ref, offset, rawdata)
+		return icb(r, i, n, loc, compsz, t, sz, ref, offset, rawdata)
 	}
 
 	trailerCB := func(trailer Sha1) error {
@@ -586,17 +586,18 @@ func indexClosure(c *Client, opts IndexPackOptions) (*PackfileIndexV2, func(int)
 
 	}
 
-	cb := func(r io.ReaderAt, i, n int, location int64, t PackEntryType, sz PackEntrySize, ref Sha1, offset ObjectOffset, rawdata []byte) error {
+	cb := func(r io.ReaderAt, i, n int, location int64, compsz int64, t PackEntryType, sz PackEntrySize, ref Sha1, offset ObjectOffset, rawdata []byte) error {
 		if opts.Verbose {
 			progressF("Indexing objects: %2.f%% (%d/%d)", (float32(i+1) / float32(n) * 100), i+1, n)
 		}
 
 		checksum := crc32.NewIEEE()
-		// FIXME: Calculate checksum
-
 		// The CRC32 checksum of the compressed data and the offset in
 		// the file don't change regardless of type.
-		indexfile.CRC32[i] = checksum.Sum32()
+		rawcompressed := io.NewSectionReader(r, location, compsz)
+		if _, err := io.Copy(checksum, rawcompressed); err != nil {
+			return err
+		}
 		atomic.StoreUint32(&indexfile.CRC32[i], checksum.Sum32())
 
 		if location < (1 << 31) {
