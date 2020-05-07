@@ -35,7 +35,6 @@ func IndexPack(c *git.Client, args []string) (err error) {
 
 	// Determine where to read the pack file based on command line options.
 	var packfile io.ReadSeeker
-	var idx git.PackfileIndex
 
 	if options.Stdin {
 		packfile = os.Stdin
@@ -97,10 +96,8 @@ func IndexPack(c *git.Client, args []string) (err error) {
 		defer f.Close()
 		options.Output = f
 	}
-	idx, err = git.IndexPack(c, options, packfile)
-	if err != nil {
+	if _, err := git.IndexPack(c, options, packfile); err != nil {
 		return err
 	}
-
-	return idx.WriteIndex(options.Output)
+	return nil
 }
