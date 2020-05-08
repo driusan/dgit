@@ -46,7 +46,25 @@ func CatFile(c *Client, typ string, s Sha1, opts CatFileOptions) (string, error)
 		return fmt.Sprintf("%v", obj.GetSize()), nil
 	default:
 		switch typ {
-		case "commit", "tree", "blob", "tag":
+		case "blob":
+			switch o := obj.(type) {
+			case GitBlobObject:
+				return string(obj.GetContent()), nil
+			case GitTagObject:
+				if o.GetHeader("type") != "blob" {
+					return "", fmt.Errorf("tag does not tag a blob")
+				}
+				tagged := o.GetHeader("object")
+				s, err := Sha1FromString(tagged)
+				if err != nil {
+					panic(err)
+					return "", err
+				}
+
+				return CatFile(c, typ, s, opts)
+			}
+			return "", fmt.Errorf("Invalid blob type")
+		case "commit", "tree", "tag":
 			return string(obj.GetContent()), nil
 		default:
 			return "", fmt.Errorf("invalid object type %v", typ)
@@ -57,6 +75,9 @@ func CatFile(c *Client, typ string, s Sha1, opts CatFileOptions) (string, error)
 }
 
 func CatFileBatch(c *Client, opts CatFileOptions, r io.Reader, w io.Writer) error {
+	if opts.Type || opts.Size || opts.ExitCode || opts.Pretty {
+		return fmt.Errorf("May not combine options with --batch")
+	}
 	scanner := bufio.NewScanner(r)
 	scanner.Split(bufio.ScanLines)
 	for scanner.Scan() {
