@@ -11,7 +11,6 @@ export GOSUMDB="off"
 export ORIG_PATH=$PATH
 export ORIG_GIT=$(which git)
 
-mkdir -p $GOPATH
 echo "Adding dgit to the path"
 go build
 mkdir -p bin
@@ -25,8 +24,9 @@ export DGIT_TRACE=/tmp/go-get-dgit-log.$$.txt
 export GOPATH=/tmp/gopath.tst
 export TEST_PKG=github.com/blang/semver
 export TEST_GIT_DIR=${GOPATH}/src/${TEST_PKG}
-
+mkdir -p $GOPATH
 cd $GOPATH
+
 echo "Go get a package inside $GOPATH"
 go get -x ${TEST_PKG} || (echo "Go get ${TEST_PKG} failed"; exit 1)
 test -d ${GOPATH}/src/${TEST_PKG} || (echo "ERROR: Go get didn't work"; exit 1)
