@@ -3,7 +3,6 @@ package cmd
 import (
 	"flag"
 	"fmt"
-	"io"
 	"os"
 	"strings"
 
@@ -66,7 +65,7 @@ func CatFile(c *git.Client, args []string) error {
 	switch len(oargs) {
 	case 0:
 		if options.Batch || options.BatchCheck {
-			return git.CatFileBatch(c, options, io.TeeReader(os.Stdin, os.Stderr), os.Stdout)
+			return git.CatFileBatch(c, options, os.Stdin, os.Stdout)
 		}
 
 		flags.Usage()
