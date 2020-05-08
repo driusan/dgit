@@ -57,14 +57,19 @@ func CatFile(c *git.Client, args []string) error {
 
 	oargs := flags.Args()
 
-	if options.Batch || options.BatchCheck {
-		return git.CatFileBatch(c, options, os.Stdin, os.Stdout)
-	}
 	switch len(oargs) {
 	case 0:
+		if options.Batch || options.BatchCheck {
+			return git.CatFileBatch(c, options, io.TeeReader(os.Stdin, os.Stderr), os.Stdout)
+		}
+
 		flags.Usage()
 		return nil
 	case 1:
+		if options.Batch || options.BatchCheck {
+			return git.CatFileBatch(c, options, os.Stdin, os.Stdout)
+		}
+
 		shas, err := git.RevParse(c, git.RevParseOptions{}, oargs)
 		if err != nil {
 			return err
@@ -80,6 +85,9 @@ func CatFile(c *git.Client, args []string) error {
 		}
 		return nil
 	case 2:
+		if options.Batch || options.BatchCheck {
+			return fmt.Errorf("May not combine batch with type")
+		}
 		shas, err := git.RevParse(c, git.RevParseOptions{}, []string{oargs[1]})
 		if err != nil {
 			return err
