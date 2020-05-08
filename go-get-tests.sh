@@ -51,5 +51,4 @@ then
         exit 1
 fi
 
-rm -rf /tmp/gopath.tst
 export PATH=$ORIG_PATH
