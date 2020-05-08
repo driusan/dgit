@@ -3,6 +3,7 @@ package cmd
 import (
 	"flag"
 	"fmt"
+	"io"
 	"os"
 	"strings"
 
@@ -26,11 +27,13 @@ func CatFile(c *git.Client, args []string) error {
 	flags.BoolVar(&options.Type, "t", false, "Print the type of the object")
 	flags.BoolVar(&options.ExitCode, "e", false, "Exit with 0 status if file exists and is valid")
 	flags.BoolVar(&options.AllowUnknownType, "allow-unknown-type", false, "Allow types that are unknown to git")
+	flags.BoolVar(&options.FollowSymlinks, "follow-symlinks", false, "Follow symlinks when using the form treeish:path in batch mode")
 	flags.BoolVar(&options.Batch, "batch", false, "Read arguments in batch from stdin")
 	flags.BoolVar(&options.BatchCheck, "batch-check", false, "Read arguments in batch from stdin")
 	flags.StringVar(&options.BatchFmt, "batch-fmt", "", "Format string for batch or batch-check (non-standard)")
 
 	adjustedArgs := make([]string, 0, len(args))
+	nonOptionArgs := make([]string, 0, 2)
 
 	for _, arg := range args {
 		if strings.HasPrefix(arg, "-batch=") {
@@ -49,10 +52,13 @@ func CatFile(c *git.Client, args []string) error {
 			adjustedArgs = append(adjustedArgs, "-batch-check")
 			adjustedArgs = append(adjustedArgs, "-batch-fmt",
 				strings.TrimPrefix(arg, "--batch-check="))
-		} else {
+		} else if strings.HasPrefix(arg, "-") {
 			adjustedArgs = append(adjustedArgs, arg)
+		} else {
+			nonOptionArgs = append(nonOptionArgs, arg)
 		}
 	}
+	adjustedArgs = append(adjustedArgs, nonOptionArgs...)
 	flags.Parse(adjustedArgs)
 
 	oargs := flags.Args()
@@ -67,7 +73,7 @@ func CatFile(c *git.Client, args []string) error {
 		return nil
 	case 1:
 		if options.Batch || options.BatchCheck {
-			return git.CatFileBatch(c, options, os.Stdin, os.Stdout)
+			return fmt.Errorf("May not combine batch with object")
 		}
 
 		shas, err := git.RevParse(c, git.RevParseOptions{}, oargs)

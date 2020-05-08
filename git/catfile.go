@@ -15,6 +15,7 @@ type CatFileOptions struct {
 
 	Batch, BatchCheck bool
 	BatchFmt          string
+	FollowSymlinks    bool
 }
 
 func catFilePretty(c *Client, obj GitObject, opts CatFileOptions) (string, error) {
@@ -29,6 +30,9 @@ func catFilePretty(c *Client, obj GitObject, opts CatFileOptions) (string, error
 	}
 }
 func CatFile(c *Client, typ string, s Sha1, opts CatFileOptions) (string, error) {
+	if opts.FollowSymlinks {
+		return "", fmt.Errorf("FollowSymlinks only valid in batch mode")
+	}
 	obj, err := c.GetObject(s)
 	if err != nil {
 		return "", err
@@ -93,10 +97,11 @@ func CatFileBatch(c *Client, opts CatFileOptions, r io.Reader, w io.Writer) erro
 		} else {
 			id = line
 		}
-		obj, err = RevParse(c, RevParseOptions{}, []string{id})
-		if err != nil {
-			return err
+		if strings.TrimSpace(id) == "" {
+			fmt.Fprintf(w, "%v missing\n", id)
+			continue
 		}
+		obj, _ = RevParse(c, RevParseOptions{Quiet: true}, []string{id})
 		if len(obj) == 0 {
 			fmt.Fprintf(w, "%v missing\n", id)
 			continue
@@ -106,6 +111,10 @@ func CatFileBatch(c *Client, opts CatFileOptions, r io.Reader, w io.Writer) erro
 		}
 		gitobj, err := c.GetObject(obj[0].Id)
 		if err != nil {
+			if err.Error() == "Object not found." {
+				fmt.Fprintf(w, "%v missing\n", id)
+				continue
+			}
 			return err
 		}
 
