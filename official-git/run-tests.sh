@@ -41,13 +41,15 @@ sed s/init/remote/g git-remote > git-remote
 chmod a+x git-remote
 cd t
 
+# t0006 needs git repack and cat-file %(deltabase), cat-file options allow-unknown-type and cat-file --follow-symlinks
 # t0008 tests that are skipped require ! to negate a pattern. (GitHub issue #72)
 # t1004.16 needs "git merge-resolve" (which isn't documented anywhere I can find)
 # t1004.17 needs "git merge-recursive" (which also isn't documented)
 # t1014.26 needs "git config --unset-all"
 # t3000.7 requires git pack-refs
 
-GIT_SKIP_TESTS="t0008.321 t0008.323 t0008.37[0-9] t0008.38[0-7] t0008.39[1-2]"
+GIT_SKIP_TESTS="t1006.8[6789] t1006.9[0-9] t1006.10[0-9] t1006.110"
+GIT_SKIP_TESTS="$GIT_SKIP_TESTS t0008.321 t0008.323 t0008.37[0-9] t0008.38[0-7] t0008.39[1-2]"
 GIT_SKIP_TESTS="$GIT_SKIP_TESTS t1004.1[6-7]"
 GIT_SKIP_TESTS="$GIT_SKIP_TESTS t1014.26"
 GIT_SKIP_TESTS="$GIT_SKIP_TESTS t1308.2[6-7]" # No support for line ending handling or GIT_CEILING_DIRECTORIES
@@ -87,6 +89,8 @@ echo t1004-read-tree-m-u-wf
 ./t1004-read-tree-m-u-wf.sh
 echo t1005-read-tree-reset
 ./t1005-read-tree-reset.sh
+echo t1006-cat-file.sh
+./t1006-cat-file.sh
 echo t1008-read-tree-overlay
 ./t1008-read-tree-overlay.sh
 echo t1009-read-tree-new-index

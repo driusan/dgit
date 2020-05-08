@@ -108,7 +108,19 @@ func RevParsePath(c *Client, opt *RevParseOptions, arg string) (Sha1, error) {
 	if pathcomponent < 0 {
 		treepart = arg
 	} else if pathcomponent == 0 {
-		treepart = "HEAD"
+		// Nothing specified for rev refers to the
+		// index, not the head.
+		files, err := LsFiles(c, LsFilesOptions{Cached: true}, []File{File(arg[1:])})
+		if len(files) != 1 || err != nil {
+			return Sha1{}, fmt.Errorf("%v not found", arg)
+		}
+
+		for _, entry := range files {
+			if entry.IndexEntry.PathName == IndexPath(arg[1:]) {
+				return entry.Sha1, nil
+			}
+			return Sha1{}, fmt.Errorf("%v not found", arg)
+		}
 	} else {
 		treepart = arg[0:pathcomponent]
 	}

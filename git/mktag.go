@@ -63,6 +63,7 @@ func Mktag(c *Client, r io.Reader) (Sha1, error) {
 	switch typ {
 	case "commit":
 		// FIXME: This should actually verify the object
+	case "blob":
 	default:
 		return Sha1{}, fmt.Errorf(`error: char7: could not verify object.`)
 	}

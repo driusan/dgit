@@ -48,7 +48,10 @@ func CommitTree(c *git.Client, args []string) (git.CommitID, error) {
 
 	flags.Parse(args)
 
-	finalMessage := strings.Join(m, "\n\n") + "\n"
+	finalMessage := strings.Join(m, "\n\n")
+	if finalMessage != "" {
+		finalMessage += "\n"
+	}
 
 	if len(flags.Args()) != 1 {
 		flags.Usage()
@@ -84,13 +87,17 @@ func CommitTree(c *git.Client, args []string) (git.CommitID, error) {
 
 	}
 
-	if (finalMessage == "\n" && messageFile == "") || messageFile == "-" {
+	if (finalMessage == "" && messageFile == "") || messageFile == "-" {
 		// No -m or -F provided, read from STDIN
 		m, err := ioutil.ReadAll(os.Stdin)
 		if err != nil {
 			return git.CommitID{}, err
 		}
-		finalMessage = "\n" + string(m)
+		if finalMessage == "" {
+			finalMessage = string(m)
+		} else {
+			finalMessage = "\n" + string(m)
+		}
 	} else if messageFile != "" {
 		// No -m, but -F was provided. Read from file passed.
 		m, err := ioutil.ReadFile(messageFile)
@@ -100,5 +107,5 @@ func CommitTree(c *git.Client, args []string) (git.CommitID, error) {
 		finalMessage = "\n" + string(m)
 	}
 
-	return git.CommitTree(c, git.CommitTreeOptions{}, tree, parents, strings.TrimSpace(finalMessage)+"\n")
+	return git.CommitTree(c, git.CommitTreeOptions{}, tree, parents, finalMessage)
 }
