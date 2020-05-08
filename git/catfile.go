@@ -81,6 +81,9 @@ func CatFileBatch(c *Client, opts CatFileOptions, r io.Reader, w io.Writer) erro
 		if len(obj) == 0 {
 			fmt.Fprintf(w, "%v missing\n", id)
 			continue
+		} else if len(obj) > 1 {
+			fmt.Fprintf(w, "%v ambiguous\n", id)
+			continue
 		}
 		gitobj, err := c.GetObject(obj[0].Id)
 		if err != nil {
