@@ -73,7 +73,11 @@ func CatFile(c *git.Client, args []string) error {
 		if err != nil {
 			return err
 		}
-		fmt.Println(val)
+		if options.Size || options.Type {
+			fmt.Println(val)
+		} else {
+			fmt.Print(val)
+		}
 		return nil
 	case 2:
 		shas, err := git.RevParse(c, git.RevParseOptions{}, []string{oargs[1]})
