@@ -63,25 +63,42 @@ func CatFileBatch(c *Client, opts CatFileOptions, r io.Reader, w io.Writer) erro
 	scanner.Split(bufio.ScanLines)
 	for scanner.Scan() {
 		line := scanner.Text()
-		obj, err := RevParse(c, RevParseOptions{}, []string{line})
+		var obj []ParsedRevision
+		var err error
+		var rest string
+		var id string
+		if strings.Contains(opts.BatchFmt, "%(rest)") {
+			split := strings.Fields(line)
+			id = split[0]
+			rest = strings.TrimLeft(line[len(split[0]):], "\n \t\r")
+		} else {
+			id = line
+		}
+		obj, err = RevParse(c, RevParseOptions{}, []string{id})
 		if err != nil {
 			return err
+		}
+		if len(obj) == 0 {
+			fmt.Fprintf(w, "%v missing\n", id)
+			continue
 		}
 		gitobj, err := c.GetObject(obj[0].Id)
 		if err != nil {
 			return err
 		}
+
 		if opts.BatchFmt != "" {
 			str := opts.BatchFmt
 			str = strings.Replace(str, "%(objectname)", obj[0].Id.String(), -1)
 			str = strings.Replace(str, "%(objecttype)", gitobj.GetType(), -1)
 			str = strings.Replace(str, "%(objectsize)", strconv.Itoa(gitobj.GetSize()), -1)
+			str = strings.Replace(str, "%(rest)", rest, -1)
 			fmt.Fprintln(w, str)
 		} else {
 			fmt.Fprintf(w, "%v %v %v\n", obj[0].Id, gitobj.GetType(), gitobj.GetSize())
-			if opts.Batch && !opts.BatchCheck {
-				fmt.Fprintf(w, "%v\n", string(gitobj.GetContent()))
-			}
+		}
+		if opts.Batch && !opts.BatchCheck {
+			fmt.Fprintf(w, "%v\n", string(gitobj.GetContent()))
 		}
 	}
 	if err := scanner.Err(); err != nil {
