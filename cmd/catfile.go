@@ -3,6 +3,8 @@ package cmd
 import (
 	"flag"
 	"fmt"
+	"os"
+	"strings"
 
 	"github.com/driusan/dgit/git"
 )
@@ -24,9 +26,40 @@ func CatFile(c *git.Client, args []string) error {
 	flags.BoolVar(&options.Type, "t", false, "Print the type of the object")
 	flags.BoolVar(&options.ExitCode, "e", false, "Exit with 0 status if file exists and is valid")
 	flags.BoolVar(&options.AllowUnknownType, "allow-unknown-type", false, "Allow types that are unknown to git")
-	flags.Parse(args)
+	flags.BoolVar(&options.Batch, "batch", false, "Read arguments in batch from stdin")
+	flags.BoolVar(&options.BatchCheck, "batch-check", false, "Read arguments in batch from stdin")
+	flags.StringVar(&options.BatchFmt, "batch-fmt", "", "Format string for batch or batch-check (non-standard)")
+
+	adjustedArgs := make([]string, 0, len(args))
+
+	for _, arg := range args {
+		if strings.HasPrefix(arg, "-batch=") {
+			adjustedArgs = append(adjustedArgs, "-batch")
+			adjustedArgs = append(adjustedArgs, "-batch-fmt",
+				strings.TrimPrefix(arg, "-batch="))
+		} else if strings.HasPrefix(arg, "--batch=") {
+			adjustedArgs = append(adjustedArgs, "-batch")
+			adjustedArgs = append(adjustedArgs, "-batch-fmt",
+				strings.TrimPrefix(arg, "--batch="))
+		} else if strings.HasPrefix(arg, "-batch-check=") {
+			adjustedArgs = append(adjustedArgs, "-batch-check")
+			adjustedArgs = append(adjustedArgs, "-batch-fmt",
+				strings.TrimPrefix(arg, "-batch-check="))
+		} else if strings.HasPrefix(arg, "--batch-check=") {
+			adjustedArgs = append(adjustedArgs, "-batch-check")
+			adjustedArgs = append(adjustedArgs, "-batch-fmt",
+				strings.TrimPrefix(arg, "--batch-check="))
+		} else {
+			adjustedArgs = append(adjustedArgs, arg)
+		}
+	}
+	flags.Parse(adjustedArgs)
+
 	oargs := flags.Args()
 
+	if options.Batch || options.BatchCheck {
+		return git.CatFileBatch(c, options, os.Stdin, os.Stdout)
+	}
 	switch len(oargs) {
 	case 0:
 		flags.Usage()
@@ -40,7 +73,7 @@ func CatFile(c *git.Client, args []string) error {
 		if err != nil {
 			return err
 		}
-		fmt.Print(val)
+		fmt.Println(val)
 		return nil
 	case 2:
 		shas, err := git.RevParse(c, git.RevParseOptions{}, []string{oargs[1]})
