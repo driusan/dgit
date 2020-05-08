@@ -19,13 +19,11 @@ type CatFileOptions struct {
 
 func catFilePretty(c *Client, obj GitObject, opts CatFileOptions) (string, error) {
 	switch t := obj.GetType(); t {
-	case "commit", "tree", "blob":
+	case "commit", "tree", "blob", "tag":
 		if opts.Pretty {
 			return obj.String(), nil
 		}
 		return string(obj.GetContent()), nil
-	case "tag":
-		return "", fmt.Errorf("-p tag not yet implemented")
 	default:
 		return "", fmt.Errorf("Invalid git type: %s", t)
 	}
@@ -48,7 +46,7 @@ func CatFile(c *Client, typ string, s Sha1, opts CatFileOptions) (string, error)
 		return fmt.Sprintf("%v", obj.GetSize()), nil
 	default:
 		switch typ {
-		case "commit", "tree", "blob":
+		case "commit", "tree", "blob", "tag":
 			return string(obj.GetContent()), nil
 		default:
 			return "", fmt.Errorf("invalid object type %v", typ)
