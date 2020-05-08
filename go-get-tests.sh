@@ -5,6 +5,7 @@ echo "Running go get tests"
 
 # Ensure that git is called, not the proxy
 export GOPROXY="direct"
+export GOSUMDB="off"
 
 # Keep existing state
 export ORIG_PATH=$PATH
