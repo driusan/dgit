@@ -11,10 +11,6 @@ export GOSUMDB="off"
 export ORIG_PATH=$PATH
 export ORIG_GIT=$(which git)
 
-export GOPATH=/tmp/gopath.tst
-export TEST_PKG=github.com/blang/semver
-export TEST_GIT_DIR=${GOPATH}/src/${TEST_PKG}
-
 mkdir -p $GOPATH
 echo "Adding dgit to the path"
 go build
@@ -23,6 +19,12 @@ cp dgit bin/git
 export PATH=$(pwd)/bin:$PATH
 
 export DGIT_TRACE=/tmp/go-get-dgit-log.$$.txt
+
+# Make a new $GOPATH and use it so that newer versions of
+# git with different default module modes don't get confused.
+export GOPATH=/tmp/gopath.tst
+export TEST_PKG=github.com/blang/semver
+export TEST_GIT_DIR=${GOPATH}/src/${TEST_PKG}
 
 cd $GOPATH
 echo "Go get a package inside $GOPATH"
