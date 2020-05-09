@@ -91,7 +91,7 @@ func iteratePack(c *Client, r io.Reader, initcallback func(int), callback packIt
 		// Doing this in goroutines seems to crash 9front and provides very
 		// little performance gain, so for now only do 1 a time.
 		func(i int, psize int, loc int64, compsize int64, t PackEntryType, sz PackEntrySize, deltasha Sha1, deltaoff ObjectOffset, raw []byte) {
-		//go func(i int, psize int, loc int64, compsize int64, t PackEntryType, sz PackEntrySize, deltasha Sha1, deltaoff ObjectOffset, raw []byte) {
+			//go func(i int, psize int, loc int64, compsize int64, t PackEntryType, sz PackEntrySize, deltasha Sha1, deltaoff ObjectOffset, raw []byte) {
 			defer wg.Done()
 			if err := callback(pack, i, psize, loc, compsize, t, sz, deltasha, deltaoff, raw); err != nil {
 				panic(err)
