@@ -649,7 +649,9 @@ func parseRawTreeLine(entryStart int, treecontent []byte) (IndexPath, TreeEntry,
 
 			var mode EntryMode
 			switch string(perm) {
-			case "40000":
+			case "40755": // sometimes in git9 repositories
+				mode = modeGit9Tree
+			case "40000": // valid git tree
 				mode = ModeTree
 			case "100644":
 				mode = ModeBlob

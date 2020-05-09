@@ -16,6 +16,10 @@ const (
 	ModeTree    = EntryMode(0040000)
 )
 
+// we sometimes see these coming from git9, although they chouldn't be valid
+// according to the git spec. We need to handle them to clone some repos anyways
+const modeGit9Tree = EntryMode(0040755)
+
 // TreeType prints the entry mode as the type that shows up in the "git ls-tree"
 // command.
 func (e EntryMode) TreeType() string {
@@ -25,7 +29,7 @@ func (e EntryMode) TreeType() string {
 		return "blob"
 	case ModeCommit:
 		return "commit"
-	case ModeTree:
+	case ModeTree, modeGit9Tree:
 		return "tree"
 	default:
 		panic(fmt.Sprintf("Invalid mode %o", e))
@@ -42,6 +46,8 @@ func ModeFromString(s string) (EntryMode, error) {
 		return ModeSymlink, nil
 	case "160000":
 		return ModeCommit, nil
+	case "040755":
+		return modeGit9Tree, fmt.Errorf("Bad tree type %v", s)
 	case "040000":
 		return ModeTree, nil
 	default:

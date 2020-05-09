@@ -179,11 +179,12 @@ func (t GitTreeObject) String() string {
 			perm := split[0]
 			name := split[1]
 			var gtype string
-			if string(perm) == "40000" {
+			if string(perm) == "40000" || string(perm) == "40755" {
 				// the only possible perms in a tree are 40000 (tree), 100644 (blob),
 				// and 100755 (blob with mode +x, also a blob).. so we just check for
 				// the only possible perm value for a tree, instead of looking up
 				// the object in the .git/objects database.
+				// git9 sometimes generates trees of 40755, so we fix them up here too.
 				//
 				// It's also supposed to be printed 0-padded with git cat-file -p,
 				// so we just change the string since we're here.

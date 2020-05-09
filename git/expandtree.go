@@ -53,8 +53,8 @@ func expandGitTreeIntoIndexesRecursive(c *Client, t TreeID, prefix string, recur
 		} else {
 			dirname = IndexPath(prefix) + "/" + path
 		}
-		if (treeEntry.FileMode != ModeTree) || showTreeEntry || !recurse {
 
+		if (treeEntry.FileMode.TreeType() != "tree") || showTreeEntry || !recurse {
 			newEntry := IndexEntry{}
 			newEntry.Sha1 = treeEntry.Sha1
 			newEntry.Mode = treeEntry.FileMode
@@ -84,7 +84,7 @@ func expandGitTreeIntoIndexesRecursive(c *Client, t TreeID, prefix string, recur
 			}
 			newEntries = append(newEntries, &newEntry)
 		}
-		if treeEntry.FileMode == ModeTree && recurse {
+		if treeEntry.FileMode.TreeType() == "tree" && recurse {
 			subindexes, err := expandGitTreeIntoIndexesRecursive(c, TreeID(treeEntry.Sha1), dirname.String(), recurse, showTreeEntry, treeOnly)
 			if err != nil {
 				return nil, err
