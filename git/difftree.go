@@ -1,6 +1,7 @@
 package git
 
 import (
+	"fmt"
 	"regexp"
 	"sort"
 )
@@ -59,6 +60,10 @@ type DiffTreeOptions struct {
 
 	// Recurse into subtrees.
 	Recurse bool
+
+	// Diff the initial commit against the empty tree
+	Root bool
+
 	// And 6 million more options, which are mostly for the unsupported patch
 	// format anyways.
 }
@@ -68,14 +73,59 @@ func DiffTree(c *Client, opt *DiffTreeOptions, tree1, tree2 Treeish, paths []str
 	if err != nil {
 		return nil, err
 	}
-	t2, err := tree2.TreeID(c)
-	if err != nil {
-		return nil, err
+
+	var t2 TreeID
+	if tree2 != nil {
+		t, err := tree2.TreeID(c)
+		if err != nil {
+			return nil, err
+		}
+		t2 = t
+	} else {
+		// No tree, use tree 1's parent
+		if c1, ok := tree1.(Commitish); ok {
+			c1a, err := c1.CommitID(c)
+			if err != nil {
+				return nil, err
+			}
+			parents, err := c1a.Parents(c)
+			if err != nil {
+				return nil, err
+			}
+			if len(parents) > 1 {
+				return nil, fmt.Errorf("Parent is a merge commit")
+			} else if len(parents) == 0 {
+				if !opt.Root {
+					return nil, nil
+				}
+				t2 = TreeID{}
+			} else {
+				ptree, err := parents[0].TreeID(c)
+				if err != nil {
+					return nil, err
+				}
+				t2 = ptree
+			}
+
+		} else {
+			return nil, fmt.Errorf("Can not determine parent of tree")
+		}
 	}
 
 	tree1Objects, err := t1.GetAllObjects(c, "", opt.Recurse, opt.Recurse)
 	if err != nil {
 		return nil, err
+	}
+	if opt.Root && t2 == (TreeID{}) {
+		// There is no parent to check against and we --root was
+		// passed, so just include everything from tree1
+		var val []HashDiff = make([]HashDiff, 0, len(tree1Objects))
+		for name, sha := range tree1Objects {
+			val = append(val, HashDiff{name, TreeEntry{}, sha, 0, 0})
+		}
+		sort.Sort(ByName(val))
+
+		return val, nil
 	}
 	tree2Objects, err := t2.GetAllObjects(c, "", opt.Recurse, opt.Recurse)
 	if err != nil {

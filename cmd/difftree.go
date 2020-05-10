@@ -29,6 +29,7 @@ func DiffTree(c *git.Client, args []string) error {
 	U := flags.Int("U", 3, "Alias of --unified")
 	flags.BoolVar(&options.Raw, "raw", true, "Generate the diff in raw format")
 	flags.BoolVar(&options.Recurse, "r", false, "Recurse into subtrees")
+	flags.BoolVar(&options.Root, "root", false, "Diff the initial commit against /dev/null")
 
 	adjustedArgs := []string{}
 	for _, a := range args {
@@ -59,19 +60,45 @@ func DiffTree(c *git.Client, args []string) error {
 
 	options.NumContextLines = 3
 
-	if len(args) < 2 {
+	if len(args) < 1 {
 		flags.Usage()
-		return fmt.Errorf("Must provide two <tree-ish>es. (One not yet supported)")
+		return fmt.Errorf("Must provide at least 1 treeish.")
 	}
 	treeish, err := git.RevParseTreeish(c, &git.RevParseOptions{}, args[0])
 	if err != nil {
 		return err
 	}
-	treeish2, err := git.RevParseTreeish(c, &git.RevParseOptions{}, args[1])
+	var treeish2 git.Treeish = nil
+	var onetree bool = false
+	if len(args) >= 2 {
+		t2, err := git.RevParseTreeish(c, &git.RevParseOptions{}, args[1])
+		if err != nil {
+			return err
+		}
+		treeish2 = t2
+		args = args[2:]
+	} else {
+		args = args[1:]
+		onetree = true
+	}
+	diffs, err := git.DiffTree(c, &options, treeish, treeish2, args)
 	if err != nil {
 		return err
 	}
-	diffs, err := git.DiffTree(c, &options, treeish, treeish2, args[2:])
+	if onetree {
+		if c1, ok := treeish.(git.Commitish); ok {
+			cmt, err := c1.CommitID(c)
+			if err != nil {
+				// This shouldn't happen, the err
+				// should have come from diff-tree
+				// and been returned above, so panic
+				// so that we investigate
+				panic(err)
+			}
+			fmt.Println(cmt)
+		}
+	}
+
 	for _, diff := range diffs {
 		fmt.Printf("%v\n", diff)
 	}
