@@ -218,7 +218,7 @@ func (c *Client) getPackedObject(packfile File, sha1 Sha1, metaOnly bool) (GitOb
 		return nil, err
 	}
 	defer f.Close()
-	return cacheloc.index.getObjectAtOffset(f, cacheloc.offset, metaOnly, nil)
+	return cacheloc.index.getObjectAtOffset(f, cacheloc.offset, metaOnly)
 }
 
 func (c *Client) GetCommitObject(commit CommitID) (GitCommitObject, error) {
