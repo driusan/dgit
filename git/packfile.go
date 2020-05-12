@@ -21,7 +21,7 @@ type PackfileHeader struct {
 type PackEntryType uint8
 type PackEntrySize uint64
 type ObjectReference []byte
-type ObjectOffset int
+type ObjectOffset int64
 
 const (
 	OBJ_COMMIT    PackEntryType = 1

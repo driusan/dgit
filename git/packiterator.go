@@ -41,7 +41,7 @@ func (r *flateCounter) ReadByte() (byte, error) {
 
 type packIterator func(r io.ReaderAt, i, n int, loc int64, compsz int64, t PackEntryType, osz PackEntrySize, deltaref Sha1, deltaoffset ObjectOffset, rawdata []byte) error
 
-func iteratePack(c *Client, r io.Reader, initcallback func(int), callback packIterator, trailerCB func(packtrailer Sha1) error) (*os.File, error) {
+func iteratePack(c *Client, r io.Reader, initcallback func(int), callback packIterator, trailerCB func(r io.ReaderAt, n int, packtrailer Sha1) error) (*os.File, error) {
 	// if the reader is not a file, tee it into a temp file to resolve
 	// deltas from.
 	var pack *os.File
@@ -108,7 +108,7 @@ func iteratePack(c *Client, r io.Reader, initcallback func(int), callback packIt
 	if err := binary.Read(br, binary.BigEndian, &trailer.Packfile); err != nil {
 		return nil, err
 	}
-	trailerCB(trailer.Packfile)
+	trailerCB(pack, int(p.Size), trailer.Packfile)
 
 	return pack, nil
 }
