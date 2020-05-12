@@ -7,7 +7,6 @@ import (
 	"io"
 	"io/ioutil"
 	"os"
-	"sync"
 
 	"encoding/binary"
 )
@@ -78,9 +77,7 @@ func iteratePack(c *Client, r io.Reader, initcallback func(int), callback packIt
 	br := bufio.NewReader(r)
 	initcallback(int(p.Size))
 
-	var wg sync.WaitGroup
 	for i := uint32(0); i < p.Size; i += 1 {
-		wg.Add(1)
 		t, sz, deltasha, deltaoff, rawheader := p.ReadHeaderSize(br)
 
 		datacounter := flateCounter{br, 0}
@@ -91,24 +88,22 @@ func iteratePack(c *Client, r io.Reader, initcallback func(int), callback packIt
 		// Doing this in goroutines seems to crash 9front and provides very
 		// little performance gain, so for now only do 1 a time.
 		func(i int, psize int, loc int64, compsize int64, t PackEntryType, sz PackEntrySize, deltasha Sha1, deltaoff ObjectOffset, raw []byte) {
-			//go func(i int, psize int, loc int64, compsize int64, t PackEntryType, sz PackEntrySize, deltasha Sha1, deltaoff ObjectOffset, raw []byte) {
-			defer wg.Done()
 			if err := callback(pack, i, psize, loc, compsize, t, sz, deltasha, deltaoff, raw); err != nil {
 				panic(err)
 			}
 		}(int(i), int(p.Size), loc, compsize, t, sz, deltasha, deltaoff, raw)
-
 		loc += compsize
 	}
 
-	wg.Wait()
 	// We need to read the packfile trailer so that it gets tee'd into
 	// the temp file, or it won't be there for index-pack.
 	var trailer PackfileIndexV2
 	if err := binary.Read(br, binary.BigEndian, &trailer.Packfile); err != nil {
 		return nil, err
 	}
-	trailerCB(pack, int(p.Size), trailer.Packfile)
+	if err := trailerCB(pack, int(p.Size), trailer.Packfile); err != nil {
+		return nil, err
+	}
 
 	return pack, nil
 }

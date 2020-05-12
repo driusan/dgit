@@ -198,6 +198,9 @@ func (idx PackfileIndexV2) getObjectAtOffset(r io.ReaderAt, offset int64, metaOn
 	case OBJ_BLOB:
 		o := GitBlobObject{int(sz), rawdata}
 		return o, nil
+	case OBJ_TAG:
+		o := GitTagObject{int(sz), rawdata}
+		return o, nil
 	case OBJ_OFS_DELTA:
 		base, err := idx.getObjectAtOffset(r, offset-int64(refoffset), false)
 		if err != nil {
@@ -214,6 +217,8 @@ func (idx PackfileIndexV2) getObjectAtOffset(r io.ReaderAt, offset int64, metaOn
 			res.Type = OBJ_TREE
 		case "blob":
 			res.Type = OBJ_BLOB
+		case "tag":
+			res.Type = OBJ_TAG
 		default:
 			return nil, InvalidObject
 		}
@@ -230,6 +235,8 @@ func (idx PackfileIndexV2) getObjectAtOffset(r io.ReaderAt, offset int64, metaOn
 			return GitTreeObject{len(val), val}, nil
 		case OBJ_BLOB:
 			return GitBlobObject{len(val), val}, nil
+		case OBJ_TAG:
+			return GitTagObject{len(val), val}, nil
 		default:
 			return nil, InvalidObject
 		}
@@ -252,6 +259,8 @@ func (idx PackfileIndexV2) getObjectAtOffset(r io.ReaderAt, offset int64, metaOn
 			res.Type = OBJ_TREE
 		case "blob":
 			res.Type = OBJ_BLOB
+		case "tag":
+			res.Type = OBJ_TAG
 		default:
 			return nil, InvalidObject
 		}
@@ -268,6 +277,8 @@ func (idx PackfileIndexV2) getObjectAtOffset(r io.ReaderAt, offset int64, metaOn
 			return GitTreeObject{len(val), val}, nil
 		case OBJ_BLOB:
 			return GitBlobObject{len(val), val}, nil
+		case OBJ_TAG:
+			return GitTagObject{len(val), val}, nil
 		default:
 			return nil, InvalidObject
 		}
@@ -329,15 +340,13 @@ func (idx PackfileIndexV2) getObjectAtOffsetForIndexing(r io.ReaderAt, offset in
 	// or not.
 	switch t {
 	case OBJ_COMMIT:
-		o := GitCommitObject{int(sz), rawdata}
-		return o, nil
+		return GitCommitObject{int(sz), rawdata}, nil
 	case OBJ_TREE:
-		o := GitTreeObject{int(sz), rawdata}
-		return o, nil
 		return GitTreeObject{int(sz), rawdata}, nil
 	case OBJ_BLOB:
-		o := GitBlobObject{int(sz), rawdata}
-		return o, nil
+		return GitBlobObject{int(sz), rawdata}, nil
+	case OBJ_TAG:
+		return GitTagObject{int(sz), rawdata}, nil
 	case OBJ_OFS_DELTA:
 		base, err := idx.getObjectAtOffsetForIndexing(r, offset-int64(refoffset), false, cache, refcache)
 		if err != nil {
@@ -354,6 +363,8 @@ func (idx PackfileIndexV2) getObjectAtOffsetForIndexing(r io.ReaderAt, offset in
 			res.Type = OBJ_TREE
 		case "blob":
 			res.Type = OBJ_BLOB
+		case "tag":
+			res.Type = OBJ_TAG
 		default:
 			return nil, InvalidObject
 		}
@@ -370,6 +381,8 @@ func (idx PackfileIndexV2) getObjectAtOffsetForIndexing(r io.ReaderAt, offset in
 			return GitTreeObject{len(val), val}, nil
 		case OBJ_BLOB:
 			return GitBlobObject{len(val), val}, nil
+		case OBJ_TAG:
+			return GitTagObject{len(val), val}, nil
 		default:
 			return nil, InvalidObject
 		}
@@ -400,6 +413,8 @@ func (idx PackfileIndexV2) getObjectAtOffsetForIndexing(r io.ReaderAt, offset in
 			res.Type = OBJ_TREE
 		case "blob":
 			res.Type = OBJ_BLOB
+		case "tag":
+			res.Type = OBJ_TAG
 		default:
 			return nil, InvalidObject
 		}
@@ -416,6 +431,8 @@ func (idx PackfileIndexV2) getObjectAtOffsetForIndexing(r io.ReaderAt, offset in
 			return GitTreeObject{len(val), val}, nil
 		case OBJ_BLOB:
 			return GitBlobObject{len(val), val}, nil
+		case OBJ_TAG:
+			return GitTagObject{len(val), val}, nil
 		default:
 			return nil, InvalidObject
 		}
