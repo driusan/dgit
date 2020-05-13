@@ -128,6 +128,10 @@ func (p PackfileHeader) ReadHeaderSize(r io.Reader) (PackEntryType, PackEntrySiz
 	return entrytype, size, Sha1{}, 0, dataread
 }
 
+func (p PackfileHeader) dataStreamReader(r flate.Reader) (io.Reader, error) {
+	zr, err := zlib.NewReader(r)
+	return zr, err
+}
 func (p PackfileHeader) readEntryDataStream1(r flate.Reader) []byte {
 	b := new(bytes.Buffer)
 	zr, err := zlib.NewReader(r)

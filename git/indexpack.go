@@ -2,14 +2,19 @@ package git
 
 import (
 	"bufio"
+	"bytes"
 	"fmt"
 	"io"
+	"io/ioutil"
 	"log"
 	"os"
+	"runtime"
 	"sort"
 	"strings"
 	"time"
 	"unsafe"
+
+	"compress/flate"
 
 	"sync"
 	"sync/atomic"
@@ -287,27 +292,172 @@ func (idx PackfileIndexV2) getObjectAtOffset(r io.ReaderAt, offset int64, metaOn
 	}
 }
 
+type lrucache struct {
+	head, tail *cachenode
+
+	offsetmap map[ObjectOffset]*cachenode
+
+	sz    int // total size in bytes of objects stored
+	maxsz int
+}
+
+type cachenode struct {
+	next, prev *cachenode
+
+	offset ObjectOffset
+	Value  GitObject
+}
+
+func (c *lrucache) Get(offset ObjectOffset) GitObject {
+	if o, ok := c.offsetmap[offset]; ok {
+		return o.Value
+	}
+	return nil
+}
+
+func (c *lrucache) moveToFront(n *cachenode) {
+	c.head.next = n
+	n.next.prev = n.prev
+	n.prev.next = n.next
+
+	n.prev = c.head
+	n.next = nil
+	c.head = n
+	if c.tail == nil {
+		c.tail = n
+	}
+	return
+}
+
+func (c *lrucache) add(offset ObjectOffset, n *cachenode) {
+	sz := n.Value.GetSize()
+	if sz > c.maxsz {
+		// If it will take up more than half our cache, don't
+		// cache it.
+		return
+	}
+	if sz+c.sz > c.maxsz {
+		// When we reach the max capacity we free half the
+		// cache. The memory won't be freed until the GC is
+		// run. Once we reach capacity, we'll being reaching
+		// it often when adding new objects if we free just
+		// enough, and constantly running the GC defeats the
+		// purpose of having a cache.
+		var mstati runtime.MemStats
+		runtime.ReadMemStats(&mstati)
+		for (sz + c.sz) > c.maxsz/2 {
+			// println("sz", sz, " c.sz", c.sz, " maxcz", c.maxsz)
+			// Remove tail
+			oldtail := c.tail
+			var newtail *cachenode
+			if oldtail != nil {
+				newtail = oldtail.next
+			}
+			if c.tail == nil {
+				return
+				panic("No tail to remove")
+			} else if c.tail.Value == nil {
+				panic("Tail doesn't have content")
+			}
+
+			c.sz -= oldtail.Value.GetSize()
+			if newtail != nil {
+				newtail.prev = nil
+
+				// Make sure GC picks up the node
+				// by removing any potential references
+				if oldtail.next != nil {
+					oldtail.next.prev = nil
+				}
+				if oldtail.prev != nil {
+					oldtail.prev.next = nil
+				}
+			}
+
+			delete(c.offsetmap, oldtail.offset)
+			c.tail = newtail
+		}
+		runtime.GC()
+		var mstat runtime.MemStats
+		runtime.ReadMemStats(&mstat)
+		if mstat.Alloc > 1271664312 {
+			// FIXME: Find memory leak
+			ocache = newObjectCache()
+			runtime.GC()
+		}
+		println("Original heap", mstati.Alloc, " new heap", mstat.Alloc)
+	}
+	c.offsetmap[offset] = n
+	n.prev = c.head
+	if n.prev != nil {
+		n.prev.next = n
+	}
+	n.next = nil
+
+	c.head = n
+	if c.tail == nil {
+		c.tail = n
+	}
+	c.sz += sz
+}
+
+func (c *lrucache) Cache(offset ObjectOffset, val GitObject) {
+	n := c.offsetmap[offset]
+	if n != nil {
+		// Move to front, sz doesn't change
+		c.moveToFront(n)
+		return
+	}
+	// Add to cache if applicable
+	n = &cachenode{
+		prev:  c.head,
+		Value: val,
+	}
+	c.add(offset, n)
+	return
+}
+
+func newObjectCache() lrucache {
+	c := lrucache{
+		offsetmap: make(map[ObjectOffset]*cachenode),
+		//maxsz:     256 * 1024 * 1024,
+		// maxsz: 64 * 1024 * 1024,
+		maxsz: 2 * 1024 * 1024, // testing
+	}
+	return c
+}
+
+var ocache lrucache = newObjectCache()
+
 // Retrieve an object from the packfile represented by r at offset.
 // This will use the specified caches to resolve the location of any
 // deltas, not the index itself. They must be maintained by the caller.
-func (idx PackfileIndexV2) getObjectAtOffsetForIndexing(r io.ReaderAt, offset int64, metaOnly bool, cache map[ObjectOffset]*packObject, refcache map[Sha1]*packObject) (rv GitObject, err error) {
-	self, ok := cache[ObjectOffset(offset)]
-	if ok && self.cached != nil {
-		return self.cached, nil
-	} else {
+func (idx PackfileIndexV2) getObjectAtOffsetForIndexing(r io.ReaderAt, offset int64, metaOnly bool, cache map[ObjectOffset]*packObject, refcache map[Sha1]*packObject) (t PackEntryType, data io.Reader, osz int64, err error) {
+	/*
+		if o := ocache.Get(ObjectOffset(offset)); o != nil {
+			return o, nil
+		}
+	*/
+
+	// self := cache[ObjectOffset(offset)]
+	/*
 		defer func() {
-			if self.deltasAgainst > 0 {
-				cache[ObjectOffset(offset)].cached = rv
+			if self.deltasAgainst > 1 {
+				ocache.Cache(ObjectOffset(offset), rv)
 			}
 		}()
-	}
+	*/
 
 	var p PackfileHeader
 
+	// var rawdata []byte
+
 	// 4k should be enough for the header.
+	var rawheader []byte
+	var datareader flate.Reader
 	metareader := io.NewSectionReader(r, offset, 4096)
-	t, sz, ref, refoffset, rawheader := p.ReadHeaderSize(metareader)
-	var rawdata []byte
+	//t, sz, ref, refoffset, rawheader := p.ReadHeaderSize(metareader)
+	t, sz, _, refoffset, rawheader := p.ReadHeaderSize(metareader)
 	// sz is the uncompressed size, so the total size should usually be
 	// less than sz for the compressed data. It might theoretically be a
 	// little more, but we're generous here since this doesn't allocate
@@ -326,118 +476,145 @@ func (idx PackfileIndexV2) getObjectAtOffsetForIndexing(r io.ReaderAt, offset in
 		if worstdsize < 512 {
 			worstdsize = 512
 		}
-		datareader := io.NewSectionReader(r, offset+int64(len(rawheader)), int64(worstdsize))
 		if !metaOnly || t == OBJ_OFS_DELTA || t == OBJ_REF_DELTA {
-			rawdata = p.readEntryDataStream1(bufio.NewReader(datareader))
+			// readDataEntryStream needs a ByteReader, so we wrap
+			// the reader in a bufio
+			dr, err := p.dataStreamReader(bufio.NewReader(io.NewSectionReader(r, offset+int64(len(rawheader)), int64(worstdsize))))
+			if err != nil {
+				return 0, nil, 0, err
+			}
+			datareader = bufio.NewReader(dr)
 		}
 	} else {
 		// If it's size 0, sz*3 would immediately return io.EOF and cause
 		// panic, so we just directly make the rawdata slice.
-		rawdata = make([]byte, 0)
+		datareader = bytes.NewBuffer(nil)
+		// rawdata = make([]byte, 0)
 	}
 
 	// The way we calculate the hash changes based on if it's a delta
 	// or not.
 	switch t {
 	case OBJ_COMMIT:
-		return GitCommitObject{int(sz), rawdata}, nil
+		//(t PackEntryType, data io.Reader, osz int64, err error)
+		return OBJ_COMMIT, datareader, int64(sz), nil
+		// return GitCommitObject{int(sz), rawdata}, nil
 	case OBJ_TREE:
-		return GitTreeObject{int(sz), rawdata}, nil
+		return OBJ_TREE, datareader, int64(sz), nil
+		//return GitTreeObject{int(sz), rawdata}, nil
 	case OBJ_BLOB:
-		return GitBlobObject{int(sz), rawdata}, nil
+		return OBJ_BLOB, datareader, int64(sz), nil
+		// return GitBlobObject{int(sz), rawdata}, nil
 	case OBJ_TAG:
-		return GitTagObject{int(sz), rawdata}, nil
+		return OBJ_TAG, datareader, int64(sz), nil
+		// return GitTagObject{int(sz), rawdata}, nil
 	case OBJ_OFS_DELTA:
-		base, err := idx.getObjectAtOffsetForIndexing(r, offset-int64(refoffset), false, cache, refcache)
+		parent := cache[ObjectOffset(offset-int64(refoffset))]
+		parent.deltasResolved++
+		t, r, _, err := idx.getObjectAtOffsetForIndexing(r, offset-int64(refoffset), false, cache, refcache)
+		//t, r, sz, err := idx.getObjectAtOffsetForIndexing(r, offset-int64(refoffset), false, cache, refcache)
 		if err != nil {
-			return nil, err
+			return 0, nil, 0, err
 		}
-
-		// calculateDelta needs a fully resolved delta, so we need to create
-		// one based on the GitObject returned.
-		res := resolvedDelta{Value: base.GetContent()}
-		switch ty := base.GetType(); ty {
-		case "commit":
-			res.Type = OBJ_COMMIT
-		case "tree":
-			res.Type = OBJ_TREE
-		case "blob":
-			res.Type = OBJ_BLOB
-		case "tag":
-			res.Type = OBJ_TAG
-		default:
-			return nil, InvalidObject
+		if t == OBJ_OFS_DELTA || t == OBJ_REF_DELTA {
+			panic("No chains")
 		}
-
-		baseType, val, err := calculateDelta(res, rawdata)
+		base, err := ioutil.ReadAll(r)
 		if err != nil {
-			return nil, err
+			return 0, nil, 0, err
 		}
-		// Convert back into a GitObject interface.
-		switch baseType {
-		case OBJ_COMMIT:
-			return GitCommitObject{len(val), val}, nil
-		case OBJ_TREE:
-			return GitTreeObject{len(val), val}, nil
-		case OBJ_BLOB:
-			return GitBlobObject{len(val), val}, nil
-		case OBJ_TAG:
-			return GitTagObject{len(val), val}, nil
-		default:
-			return nil, InvalidObject
-		}
-	case OBJ_REF_DELTA:
-		var base GitObject
-		// If we're index the pack, we can only use the refcache because
-		// the index isn't sorted yet.
-		// We use the map to effectively transform this from a reference
-		// to an offset lookup.
-		b, ok := refcache[ref]
-		if !ok {
-			return nil, fmt.Errorf("Object %v not found")
-		}
-		self.baselocation = b.location
+		deltareader := newDelta(datareader, bytes.NewReader(base))
+		return t, &deltareader, 0, err
+		/*
 
-		base, err := idx.getObjectAtOffsetForIndexing(r, int64(b.location), false, cache, refcache)
-		if err != nil {
-			return nil, err
-		}
+				// calculateDelta needs a fully resolved delta, so we need to create
+				// one based on the GitObject returned.
+				res := resolvedDelta{Value: base.GetContent()}
+				switch ty := base.GetType(); ty {
+				case "commit":
+					res.Type = OBJ_COMMIT
+				case "tree":
+					res.Type = OBJ_TREE
+				case "blob":
+					res.Type = OBJ_BLOB
+				case "tag":
+					res.Type = OBJ_TAG
+				default:
+					return nil, InvalidObject
+				}
 
-		// calculateDelta needs a fully resolved delta, so we need to create
-		// one based on the GitObject returned.
-		res := resolvedDelta{Value: base.GetContent()}
-		switch ty := base.GetType(); ty {
-		case "commit":
-			res.Type = OBJ_COMMIT
-		case "tree":
-			res.Type = OBJ_TREE
-		case "blob":
-			res.Type = OBJ_BLOB
-		case "tag":
-			res.Type = OBJ_TAG
-		default:
-			return nil, InvalidObject
-		}
+				baseType, val, err := calculateDelta(res, rawdata)
+				if err != nil {
+					return nil, err
+				}
+				// Convert back into a GitObject interface.
+				switch baseType {
+				case OBJ_COMMIT:
+					return GitCommitObject{len(val), val}, nil
+				case OBJ_TREE:
+					return GitTreeObject{len(val), val}, nil
+				case OBJ_BLOB:
+					return GitBlobObject{len(val), val}, nil
+				case OBJ_TAG:
+					return GitTagObject{len(val), val}, nil
+				default:
+					return nil, InvalidObject
+				}
+			case OBJ_REF_DELTA:
+				var base GitObject
+				// If we're index the pack, we can only use the refcache because
+				// the index isn't sorted yet.
+				// We use the map to effectively transform this from a reference
+				// to an offset lookup.
+				b, ok := refcache[ref]
+				if !ok {
+					return nil, fmt.Errorf("Object %v not found")
+				}
+				self.baselocation = b.location
 
-		baseType, val, err := calculateDelta(res, rawdata)
-		if err != nil {
-			return nil, err
-		}
-		// Convert back into a GitObject interface.
-		switch baseType {
-		case OBJ_COMMIT:
-			return GitCommitObject{len(val), val}, nil
-		case OBJ_TREE:
-			return GitTreeObject{len(val), val}, nil
-		case OBJ_BLOB:
-			return GitBlobObject{len(val), val}, nil
-		case OBJ_TAG:
-			return GitTagObject{len(val), val}, nil
-		default:
-			return nil, InvalidObject
-		}
+				b.deltasResolved++
+
+				base, err := idx.getObjectAtOffsetForIndexing(r, int64(b.location), false, cache, refcache)
+				if err != nil {
+					return nil, err
+				}
+
+				// calculateDelta needs a fully resolved delta, so we need to create
+				// one based on the GitObject returned.
+				res := resolvedDelta{Value: base.GetContent()}
+				switch ty := base.GetType(); ty {
+				case "commit":
+					res.Type = OBJ_COMMIT
+				case "tree":
+					res.Type = OBJ_TREE
+				case "blob":
+					res.Type = OBJ_BLOB
+				case "tag":
+					res.Type = OBJ_TAG
+				default:
+					return nil, InvalidObject
+				}
+
+				baseType, val, err := calculateDelta(res, rawdata)
+				if err != nil {
+					return nil, err
+				}
+				// Convert back into a GitObject interface.
+				switch baseType {
+				case OBJ_COMMIT:
+					return GitCommitObject{len(val), val}, nil
+				case OBJ_TREE:
+					return GitTreeObject{len(val), val}, nil
+				case OBJ_BLOB:
+					return GitBlobObject{len(val), val}, nil
+				case OBJ_TAG:
+					return GitTagObject{len(val), val}, nil
+				default:
+					return nil, InvalidObject
+				}
+		*/
 	default:
-		return nil, fmt.Errorf("Unhandled object type.")
+		return 0, nil, 0, fmt.Errorf("Unhandled object type.")
 	}
 }
 
@@ -704,18 +881,12 @@ func IndexPack(c *Client, opts IndexPackOptions, r io.Reader) (idx PackfileIndex
 				progressF("Resolving deltas: %2.f%% (%d/%d)", (float32(i+1) / float32(len(deltas)) * 100), i+1, len(deltas))
 			}
 
-			object, err := indexfile.getObjectAtOffsetForIndexing(r, int64(delta.location), false, priorLocations, priorObjects)
+			t, r, sz, err := indexfile.getObjectAtOffsetForIndexing(r, int64(delta.location), false, priorLocations, priorObjects)
 			if err != nil {
 				return err
 			}
-			parent := priorLocations[delta.baselocation]
 
-			parent.deltasResolved++
-			if parent.deltasResolved == parent.deltasAgainst {
-				parent.cached = nil
-			}
-
-			sha1, _, err := HashSlice(object.GetType(), object.GetContent())
+			sha1, err := HashReaderWithSize(t.String(), sz, r)
 			if err != nil {
 				return err
 			}
@@ -782,7 +953,6 @@ type packObject struct {
 	location                      ObjectOffset
 	deltasAgainst, deltasResolved int
 	baselocation                  ObjectOffset
-	cached                        GitObject
 	typ                           PackEntryType
 }
 

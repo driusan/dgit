@@ -4,10 +4,165 @@ import (
 	"bytes"
 	"fmt"
 	"io"
+
+	"compress/flate"
 )
 
 type deltaeval struct {
 	value []byte
+}
+
+type delta struct {
+	src  flate.Reader
+	base io.ReadSeeker
+
+	sz uint64
+	// unread from the last read
+	cached []byte
+}
+
+func newDelta(src flate.Reader, base io.ReadSeeker) delta {
+	d := delta{src: src, base: base}
+	// Read the source length, we don't care about the value
+	ReadVariable(src)
+
+	// Read the target length so we know when we've finished processing
+	// the delta stream.
+	d.sz = ReadVariable(src)
+
+	return d
+}
+
+func (d *delta) Read(buf []byte) (n int, err error) {
+	// Read the cached data before we read more from
+	// the stream
+	if len(d.cached) > 0 {
+		return d.readCached(buf)
+	}
+	instruction, err := d.src.ReadByte()
+	if err != nil {
+		return 0, err
+	}
+	if instruction >= 128 {
+		//fmt.Printf("Performing copy\n")
+		var offset, length uint64
+
+		if instruction&0x01 != 0 {
+			o, err := d.src.ReadByte()
+			if err != nil {
+				return 0, err
+			}
+			offset = uint64(o)
+		}
+		if instruction&0x02 != 0 {
+			o, err := d.src.ReadByte()
+			if err != nil {
+				return 0, err
+			}
+			offset |= uint64(o) << 8
+		}
+		if instruction&0x04 != 0 {
+			o, err := d.src.ReadByte()
+			if err != nil {
+				return 0, err
+			}
+			offset |= uint64(o) << 16
+		}
+		if instruction&0x08 != 0 {
+			o, err := d.src.ReadByte()
+			if err != nil {
+				return 0, err
+			}
+			offset |= uint64(o) << 24
+		}
+
+		if instruction&0x10 != 0 {
+			l, err := d.src.ReadByte()
+			if err != nil {
+				return 0, err
+			}
+			length = uint64(l)
+		}
+		if instruction&0x20 != 0 {
+			l, err := d.src.ReadByte()
+			if err != nil {
+				return 0, err
+			}
+			length |= uint64(l) << 8
+		}
+		if instruction&0x40 != 0 {
+			l, err := d.src.ReadByte()
+			if err != nil {
+				return 0, err
+			}
+			length |= uint64(l) << 16
+		}
+
+		if length == 0 {
+			length = 0x10000
+		}
+		if _, err := d.base.Seek(int64(offset), io.SeekStart); err != nil {
+			return 0, err
+		}
+		if uint64(len(buf)) >= length {
+			// It should all fit in the buffer
+			rn, err := d.base.Read(buf[:length])
+
+			// If the reader didn't return the whole
+			// thing despite fitting in the buffer, cache
+			// the rest for the next read call.
+			if uint64(rn) < length {
+				d.cached = make([]byte, length-uint64(rn))
+				if _, err := io.ReadFull(d.base, d.cached); err != nil {
+					return 0, err
+				}
+			}
+			return rn, err
+		}
+		// It's not going to all fit in the buffer, so cache it
+		// and then return from the cache
+		d.cached = make([]byte, length)
+		if _, err := io.ReadFull(d.base, d.cached); err != nil {
+			return 0, err
+		}
+		return d.readCached(buf)
+		// return 0, fmt.Errorf("Copy should copy %v from %v", length, offset)
+	} else {
+		//println("Performing read instruction")
+		// Read instruction bytes
+		length := int(instruction)
+		if len(buf) >= length {
+			// println("Buffer fits")
+			// It fits into the buffer, so don't
+			// bother caching,
+			rn, err := d.src.Read(buf[:instruction])
+
+			// If the reader didn't return the whole
+			// thing despite fitting in the buffer, cache
+			// the rest for the next read call.
+			if int(rn) < length {
+				d.cached = make([]byte, length-int(rn))
+				if _, err := io.ReadFull(d.base, d.cached); err != nil {
+					return 0, err
+				}
+			}
+			return rn, err
+		}
+		d.cached = make([]byte, instruction)
+		return d.readCached(buf)
+	}
+	panic("Unreachable code reached")
+	return 0, fmt.Errorf("Read Not implemented")
+}
+
+func (d *delta) readCached(buf []byte) (n int, err error) {
+	n = copy(buf, d.cached)
+	if n == len(d.cached) {
+		d.cached = nil
+	} else {
+		d.cached = d.cached[n:]
+	}
+	return n, nil
 }
 
 // Insert length bytes from src into d.
@@ -66,7 +221,6 @@ func calculateDelta(ref resolvedDelta, delta []byte) (PackEntryType, []byte, err
 		}
 	}
 	return ref.Type, d.value, nil
-
 }
 
 // Calculate an offset delta. refs must be a map of all previous references in
