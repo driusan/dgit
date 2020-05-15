@@ -21,7 +21,7 @@ import (
 
 	"crypto/sha1"
 	"encoding/binary"
-	"hash/crc32"
+	// "hash/crc32"
 )
 
 type IndexPackOptions struct {
@@ -160,7 +160,7 @@ func (idx PackfileIndexV2) getObjectAtOffset(r io.ReaderAt, offset int64, metaOn
 
 	// 4k should be enough for the header.
 	metareader := io.NewSectionReader(r, offset, 4096)
-	t, sz, ref, refoffset, rawheader := p.ReadHeaderSize(metareader)
+	t, sz, ref, refoffset, rawheader := p.ReadHeaderSize(bufio.NewReader(metareader))
 	var rawdata []byte
 	// sz is the uncompressed size, so the total size should usually be
 	// less than sz for the compressed data. It might theoretically be a
@@ -305,14 +305,18 @@ type cachenode struct {
 	next, prev *cachenode
 
 	offset ObjectOffset
-	Value  GitObject
+
+	ResolvedType PackEntryType
+	Header       []byte
+	Data         []byte
 }
 
-func (c *lrucache) Get(offset ObjectOffset) GitObject {
+func (c *lrucache) Get(offset ObjectOffset) (PackEntryType, []byte) {
 	if o, ok := c.offsetmap[offset]; ok {
-		return o.Value
+		c.moveToFront(o)
+		return o.ResolvedType, o.Data
 	}
-	return nil
+	return 0, nil
 }
 
 func (c *lrucache) moveToFront(n *cachenode) {
@@ -330,7 +334,7 @@ func (c *lrucache) moveToFront(n *cachenode) {
 }
 
 func (c *lrucache) add(offset ObjectOffset, n *cachenode) {
-	sz := n.Value.GetSize()
+	sz := len(n.Data)
 	if sz > c.maxsz {
 		// If it will take up more than half our cache, don't
 		// cache it.
@@ -356,11 +360,11 @@ func (c *lrucache) add(offset ObjectOffset, n *cachenode) {
 			if c.tail == nil {
 				return
 				panic("No tail to remove")
-			} else if c.tail.Value == nil {
+			} else if c.tail.Data == nil {
 				panic("Tail doesn't have content")
 			}
 
-			c.sz -= oldtail.Value.GetSize()
+			c.sz -= len(oldtail.Data)
 			if newtail != nil {
 				newtail.prev = nil
 
@@ -401,17 +405,19 @@ func (c *lrucache) add(offset ObjectOffset, n *cachenode) {
 	c.sz += sz
 }
 
-func (c *lrucache) Cache(offset ObjectOffset, val GitObject) {
+func (c *lrucache) Cache(offset ObjectOffset, typ PackEntryType, header, data []byte) {
 	n := c.offsetmap[offset]
 	if n != nil {
-		// Move to front, sz doesn't change
+		// Tried to re-cache the same thing, just move it to the front
 		c.moveToFront(n)
 		return
 	}
 	// Add to cache if applicable
 	n = &cachenode{
-		prev:  c.head,
-		Value: val,
+		prev:         c.head,
+		ResolvedType: typ,
+		Header:       header,
+		Data:         data,
 	}
 	c.add(offset, n)
 	return
@@ -421,8 +427,8 @@ func newObjectCache() lrucache {
 	c := lrucache{
 		offsetmap: make(map[ObjectOffset]*cachenode),
 		//maxsz:     256 * 1024 * 1024,
-		// maxsz: 64 * 1024 * 1024,
-		maxsz: 2 * 1024 * 1024, // testing
+		maxsz: 64 * 1024 * 1024,
+		// maxsz: 2 * 1024 * 1024, // testing
 	}
 	return c
 }
@@ -433,31 +439,18 @@ var ocache lrucache = newObjectCache()
 // This will use the specified caches to resolve the location of any
 // deltas, not the index itself. They must be maintained by the caller.
 func (idx PackfileIndexV2) getObjectAtOffsetForIndexing(r io.ReaderAt, offset int64, metaOnly bool, cache map[ObjectOffset]*packObject, refcache map[Sha1]*packObject) (t PackEntryType, data io.Reader, osz int64, err error) {
-	/*
-		if o := ocache.Get(ObjectOffset(offset)); o != nil {
-			return o, nil
-		}
-	*/
-
-	// self := cache[ObjectOffset(offset)]
-	/*
-		defer func() {
-			if self.deltasAgainst > 1 {
-				ocache.Cache(ObjectOffset(offset), rv)
-			}
-		}()
-	*/
+	if t, data := ocache.Get(ObjectOffset(offset)); data != nil {
+		// println("Using cache")
+		return t, bytes.NewReader(data), int64(len(data)), nil
+	}
 
 	var p PackfileHeader
 
-	// var rawdata []byte
-
 	// 4k should be enough for the header.
-	var rawheader []byte
 	var datareader flate.Reader
 	metareader := io.NewSectionReader(r, offset, 4096)
 	//t, sz, ref, refoffset, rawheader := p.ReadHeaderSize(metareader)
-	t, sz, _, refoffset, rawheader := p.ReadHeaderSize(metareader)
+	t, sz, ref, refoffset, rawheader := p.ReadHeaderSize(bufio.NewReader(metareader))
 	// sz is the uncompressed size, so the total size should usually be
 	// less than sz for the compressed data. It might theoretically be a
 	// little more, but we're generous here since this doesn't allocate
@@ -479,7 +472,7 @@ func (idx PackfileIndexV2) getObjectAtOffsetForIndexing(r io.ReaderAt, offset in
 		if !metaOnly || t == OBJ_OFS_DELTA || t == OBJ_REF_DELTA {
 			// readDataEntryStream needs a ByteReader, so we wrap
 			// the reader in a bufio
-			dr, err := p.dataStreamReader(bufio.NewReader(io.NewSectionReader(r, offset+int64(len(rawheader)), int64(worstdsize))))
+			dr, err := p.dataStream(bufio.NewReader(io.NewSectionReader(r, offset+int64(len(rawheader)), int64(worstdsize))))
 			if err != nil {
 				return 0, nil, 0, err
 			}
@@ -489,30 +482,17 @@ func (idx PackfileIndexV2) getObjectAtOffsetForIndexing(r io.ReaderAt, offset in
 		// If it's size 0, sz*3 would immediately return io.EOF and cause
 		// panic, so we just directly make the rawdata slice.
 		datareader = bytes.NewBuffer(nil)
-		// rawdata = make([]byte, 0)
 	}
 
 	// The way we calculate the hash changes based on if it's a delta
 	// or not.
 	switch t {
-	case OBJ_COMMIT:
-		//(t PackEntryType, data io.Reader, osz int64, err error)
-		return OBJ_COMMIT, datareader, int64(sz), nil
-		// return GitCommitObject{int(sz), rawdata}, nil
-	case OBJ_TREE:
-		return OBJ_TREE, datareader, int64(sz), nil
-		//return GitTreeObject{int(sz), rawdata}, nil
-	case OBJ_BLOB:
-		return OBJ_BLOB, datareader, int64(sz), nil
-		// return GitBlobObject{int(sz), rawdata}, nil
-	case OBJ_TAG:
-		return OBJ_TAG, datareader, int64(sz), nil
-		// return GitTagObject{int(sz), rawdata}, nil
-	case OBJ_OFS_DELTA:
-		parent := cache[ObjectOffset(offset-int64(refoffset))]
+	case OBJ_COMMIT, OBJ_TREE, OBJ_BLOB, OBJ_TAG:
+		return t, datareader, int64(sz), nil
+	case OBJ_REF_DELTA:
+		parent := refcache[ref]
 		parent.deltasResolved++
-		t, r, _, err := idx.getObjectAtOffsetForIndexing(r, offset-int64(refoffset), false, cache, refcache)
-		//t, r, sz, err := idx.getObjectAtOffsetForIndexing(r, offset-int64(refoffset), false, cache, refcache)
+		t, r, _, err := idx.getObjectAtOffsetForIndexing(r, int64(parent.location), false, cache, refcache)
 		if err != nil {
 			return 0, nil, 0, err
 		}
@@ -525,96 +505,24 @@ func (idx PackfileIndexV2) getObjectAtOffsetForIndexing(r io.ReaderAt, offset in
 		}
 		deltareader := newDelta(datareader, bytes.NewReader(base))
 		return t, &deltareader, 0, err
-		/*
-
-				// calculateDelta needs a fully resolved delta, so we need to create
-				// one based on the GitObject returned.
-				res := resolvedDelta{Value: base.GetContent()}
-				switch ty := base.GetType(); ty {
-				case "commit":
-					res.Type = OBJ_COMMIT
-				case "tree":
-					res.Type = OBJ_TREE
-				case "blob":
-					res.Type = OBJ_BLOB
-				case "tag":
-					res.Type = OBJ_TAG
-				default:
-					return nil, InvalidObject
-				}
-
-				baseType, val, err := calculateDelta(res, rawdata)
-				if err != nil {
-					return nil, err
-				}
-				// Convert back into a GitObject interface.
-				switch baseType {
-				case OBJ_COMMIT:
-					return GitCommitObject{len(val), val}, nil
-				case OBJ_TREE:
-					return GitTreeObject{len(val), val}, nil
-				case OBJ_BLOB:
-					return GitBlobObject{len(val), val}, nil
-				case OBJ_TAG:
-					return GitTagObject{len(val), val}, nil
-				default:
-					return nil, InvalidObject
-				}
-			case OBJ_REF_DELTA:
-				var base GitObject
-				// If we're index the pack, we can only use the refcache because
-				// the index isn't sorted yet.
-				// We use the map to effectively transform this from a reference
-				// to an offset lookup.
-				b, ok := refcache[ref]
-				if !ok {
-					return nil, fmt.Errorf("Object %v not found")
-				}
-				self.baselocation = b.location
-
-				b.deltasResolved++
-
-				base, err := idx.getObjectAtOffsetForIndexing(r, int64(b.location), false, cache, refcache)
-				if err != nil {
-					return nil, err
-				}
-
-				// calculateDelta needs a fully resolved delta, so we need to create
-				// one based on the GitObject returned.
-				res := resolvedDelta{Value: base.GetContent()}
-				switch ty := base.GetType(); ty {
-				case "commit":
-					res.Type = OBJ_COMMIT
-				case "tree":
-					res.Type = OBJ_TREE
-				case "blob":
-					res.Type = OBJ_BLOB
-				case "tag":
-					res.Type = OBJ_TAG
-				default:
-					return nil, InvalidObject
-				}
-
-				baseType, val, err := calculateDelta(res, rawdata)
-				if err != nil {
-					return nil, err
-				}
-				// Convert back into a GitObject interface.
-				switch baseType {
-				case OBJ_COMMIT:
-					return GitCommitObject{len(val), val}, nil
-				case OBJ_TREE:
-					return GitTreeObject{len(val), val}, nil
-				case OBJ_BLOB:
-					return GitBlobObject{len(val), val}, nil
-				case OBJ_TAG:
-					return GitTagObject{len(val), val}, nil
-				default:
-					return nil, InvalidObject
-				}
-		*/
+	case OBJ_OFS_DELTA:
+		parent := cache[ObjectOffset(offset-int64(refoffset))]
+		parent.deltasResolved++
+		t, r, _, err := idx.getObjectAtOffsetForIndexing(r, offset-int64(refoffset), false, cache, refcache)
+		if err != nil {
+			return 0, nil, 0, err
+		}
+		if t == OBJ_OFS_DELTA || t == OBJ_REF_DELTA {
+			panic("No chains")
+		}
+		base, err := ioutil.ReadAll(r)
+		if err != nil {
+			return 0, nil, 0, err
+		}
+		deltareader := newDelta(datareader, bytes.NewReader(base))
+		return t, &deltareader, 0, err
 	default:
-		return 0, nil, 0, fmt.Errorf("Unhandled object type.")
+		return 0, nil, 0, fmt.Errorf("Unhandled object type %v: ", t)
 	}
 }
 
@@ -858,27 +766,27 @@ func IndexPack(c *Client, opts IndexPackOptions, r io.Reader) (idx PackfileIndex
 	}
 
 	var deltas []*packObject
-	indexfile, initcb, icb, priorObjects, priorLocations := indexClosure(c, opts, &deltas)
+	indexfile, initcb, icb, crc32cb, priorObjects, priorLocations := indexClosure(c, opts, &deltas)
 
-	cb := func(r io.ReaderAt, i, n int, loc int64, compsz int64, t PackEntryType, sz PackEntrySize, ref Sha1, offset ObjectOffset, rawdata []byte) error {
+	cb := func(r io.ReaderAt, i, n int, loc int64, t PackEntryType, sz PackEntrySize, ref Sha1, offset ObjectOffset, header, data []byte) error {
 		if !isfile && opts.Verbose {
 			now := time.Now()
 			elapsed := now.Unix() - startTime.Unix()
 			if elapsed == 0 {
-				progressF("Receiving objects: %2.f%% (%d/%d)", (float32(i+1) / float32(n) * 100), i+1, n)
+				progressF("Receiving objects: %2.f%% (%d/%d)", i+1 == n, (float32(i+1) / float32(n) * 100), i+1, n)
 			} else {
 				bps := loc / elapsed
-				progressF("Receiving objects: %2.f%% (%d/%d), %v | %v/s", (float32(i+1) / float32(n) * 100), i+1, n, formatBytes(loc), formatBytes(bps))
+				progressF("Receiving objects: %2.f%% (%d/%d), %v | %v/s", i+1 == n, (float32(i+1) / float32(n) * 100), i+1, n, formatBytes(loc), formatBytes(bps))
 
 			}
 		}
-		return icb(r, i, n, loc, compsz, t, sz, ref, offset, rawdata)
+		return icb(r, i, n, loc, t, sz, ref, offset, header, data)
 	}
 
 	trailerCB := func(r io.ReaderAt, n int, trailer Sha1) error {
 		for i, delta := range deltas {
 			if opts.Verbose {
-				progressF("Resolving deltas: %2.f%% (%d/%d)", (float32(i+1) / float32(len(deltas)) * 100), i+1, len(deltas))
+				progressF("Resolving deltas: %2.f%% (%d/%d)", i+1 == len(deltas), (float32(i+1) / float32(len(deltas)) * 100), i+1, len(deltas))
 			}
 
 			t, r, sz, err := indexfile.getObjectAtOffsetForIndexing(r, int64(delta.location), false, priorLocations, priorObjects)
@@ -910,7 +818,7 @@ func IndexPack(c *Client, opts IndexPackOptions, r io.Reader) (idx PackfileIndex
 		return nil
 	}
 
-	pack, err := iteratePack(c, r, initcb, cb, trailerCB)
+	pack, err := iteratePack(c, r, initcb, cb, trailerCB, crc32cb)
 	if err != nil {
 		return nil, err
 	}
@@ -956,7 +864,7 @@ type packObject struct {
 	typ                           PackEntryType
 }
 
-func indexClosure(c *Client, opts IndexPackOptions, deltas *[]*packObject) (*PackfileIndexV2, func(int), packIterator, map[Sha1]*packObject, map[ObjectOffset]*packObject) {
+func indexClosure(c *Client, opts IndexPackOptions, deltas *[]*packObject) (*PackfileIndexV2, func(int), packIterator, func(int, uint32) error, map[Sha1]*packObject, map[ObjectOffset]*packObject) {
 	var indexfile PackfileIndexV2
 
 	indexfile.magic = [4]byte{0377, 't', 'O', 'c'}
@@ -976,19 +884,10 @@ func indexClosure(c *Client, opts IndexPackOptions, deltas *[]*packObject) (*Pac
 		indexfile.FourByteOffsets = make([]uint32, n)
 	}
 
-	cb := func(r io.ReaderAt, i, n int, location int64, compsz int64, t PackEntryType, sz PackEntrySize, ref Sha1, offset ObjectOffset, rawdata []byte) error {
+	cb := func(r io.ReaderAt, i, n int, location int64, t PackEntryType, sz PackEntrySize, ref Sha1, offset ObjectOffset, rawheader, rawdata []byte) error {
 		if opts.Verbose {
-			progressF("Indexing objects: %2.f%% (%d/%d)", (float32(i+1) / float32(n) * 100), i+1, n)
+			progressF("Indexing objects: %2.f%% (%d/%d)", i+1 == n, (float32(i+1) / float32(n) * 100), i+1, n)
 		}
-
-		checksum := crc32.NewIEEE()
-		// The CRC32 checksum of the compressed data and the offset in
-		// the file don't change regardless of type.
-		rawcompressed := io.NewSectionReader(r, location, compsz)
-		if _, err := io.Copy(checksum, rawcompressed); err != nil {
-			return err
-		}
-		atomic.StoreUint32(&indexfile.CRC32[i], checksum.Sum32())
 
 		if location < (1 << 31) {
 			atomic.StoreUint32(&indexfile.FourByteOffsets[i], uint32(location))
@@ -1004,7 +903,8 @@ func indexClosure(c *Client, opts IndexPackOptions, deltas *[]*packObject) (*Pac
 		var sha1 Sha1
 		switch t {
 		case OBJ_COMMIT, OBJ_TREE, OBJ_BLOB, OBJ_TAG:
-			sha1, _, err := HashSlice(t.String(), rawdata)
+			ocache.Cache(ObjectOffset(location), t, rawheader, rawdata)
+			sha1, err := HashReaderWithSize(t.String(), int64(len(rawdata)), bytes.NewReader(rawdata))
 			if err != nil && opts.Strict {
 				return err
 			}
@@ -1107,7 +1007,12 @@ func indexClosure(c *Client, opts IndexPackOptions, deltas *[]*packObject) (*Pac
 		}
 		return nil
 	}
-	return &indexfile, icb, cb, priorObjects, priorLocations
+	crc32cb := func(i int, crc uint32) error {
+		indexfile.CRC32[i] = crc
+		return nil
+	}
+
+	return &indexfile, icb, cb, crc32cb, priorObjects, priorLocations
 }
 
 // Indexes the pack, and stores a copy in Client's .git/objects/pack directory as it's
