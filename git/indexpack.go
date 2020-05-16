@@ -304,6 +304,9 @@ func init() {
 type cachedObject struct {
 	ResolvedType PackEntryType
 	Data         []byte
+
+	RefOffset int
+	Ref Sha1
 }
 
 // Retrieve an object from the packfile represented by r at offset.
@@ -311,7 +314,7 @@ type cachedObject struct {
 // deltas, not the index itself. They must be maintained by the caller.
 var cachedn, cachemiss int
 
-func (idx PackfileIndexV2) resolveDeltaForIndexing(pack io.ReaderAt, deltat PackEntryType, rawdata []byte, location int64, ref Sha1, refoffset int64, cache map[ObjectOffset]*packObject, refcache map[Sha1]*packObject) (t PackEntryType, data io.Reader, osz int64, err error) {
+func (idx PackfileIndexV2) resolveDeltaForIndexing(pack io.ReaderAt, deltat PackEntryType, rawdata []byte, location ObjectOffset, ref Sha1, refoffset int64, cache map[ObjectOffset]*packObject, refcache map[Sha1]*packObject) (t PackEntryType, data io.Reader, osz int64, err error) {
 	datareader := bytes.NewBuffer(rawdata)
 	switch deltat {
 	case OBJ_REF_DELTA:
@@ -321,9 +324,6 @@ func (idx PackfileIndexV2) resolveDeltaForIndexing(pack io.ReaderAt, deltat Pack
 		if err != nil {
 			return 0, nil, 0, err
 		}
-		if t == OBJ_OFS_DELTA || t == OBJ_REF_DELTA {
-			panic("No chains")
-		}
 		base, err := ioutil.ReadAll(r)
 		if err != nil {
 			return 0, nil, 0, err
@@ -331,21 +331,18 @@ func (idx PackfileIndexV2) resolveDeltaForIndexing(pack io.ReaderAt, deltat Pack
 		deltareader := newDelta(datareader, bytes.NewReader(base))
 		return t, &deltareader, int64(deltareader.sz), err
 	case OBJ_OFS_DELTA:
-		parent := cache[ObjectOffset(location-int64(refoffset))]
+		parent := cache[ObjectOffset(location)-ObjectOffset(refoffset)]
 		parent.deltasResolved++
-		t, r, _, err := idx.getObjectAtOffsetForIndexing(pack, location-int64(refoffset), false, cache, refcache)
+		t, r, _, err := idx.getObjectAtOffsetForIndexing(pack, int64(ObjectOffset(location)-ObjectOffset(refoffset)), false, cache, refcache)
 		if err != nil {
 			return 0, nil, 0, err
-		}
-		if t == OBJ_OFS_DELTA || t == OBJ_REF_DELTA {
-			panic("No chains")
 		}
 		base, err := ioutil.ReadAll(r)
 		if err != nil {
 			return 0, nil, 0, err
 		}
 		if parent.deltasAgainst > 0 && parent.deltasAgainst < parent.deltasResolved {
-			ocache.Add(ObjectOffset(location)-ObjectOffset(refoffset), cachedObject{t, base})
+			ocache.Add(ObjectOffset(location)-ObjectOffset(refoffset), cachedObject{t, base, 0, Sha1{}})
 		}
 		deltareader := newDelta(datareader, bytes.NewReader(base))
 		return t, &deltareader, int64(deltareader.sz), err
@@ -360,9 +357,8 @@ func (idx PackfileIndexV2) getObjectAtOffsetForIndexing(r io.ReaderAt, offset in
 		o := val.(cachedObject)
 		cachedn++
 
-// func (idx PackfileIndexV2) resolveDeltaForIndexing(pack io.ReaderAt, deltat PackEntryType, rawdata []byte, location int64, ref Sha1, refoffset int64, cache map[ObjectOffset]*packObject, refcache map[Sha1]*packObject) (t PackEntryType, data io.Reader, osz int64, err error) {
 		if o.ResolvedType == OBJ_OFS_DELTA || o.ResolvedType == OBJ_REF_DELTA {
-			return idx.resolveDeltaForIndexing(r, o.ResolvedType, o.Data, offset, Sha1{}, 0, cache, refcache)
+			return idx.resolveDeltaForIndexing(r, o.ResolvedType, o.Data, ObjectOffset(offset), o.Ref, int64(o.RefOffset), cache, refcache)
 		}
 		return o.ResolvedType, bytes.NewReader(o.Data), int64(len(o.Data)), nil
 	} else {
@@ -414,50 +410,13 @@ func (idx PackfileIndexV2) getObjectAtOffsetForIndexing(r io.ReaderAt, offset in
 	case OBJ_COMMIT, OBJ_TREE, OBJ_BLOB, OBJ_TAG:
 		return t, datareader, int64(sz), nil
 	case OBJ_REF_DELTA, OBJ_OFS_DELTA:
-		// Nothing, handle them below
+		rawdata, err := ioutil.ReadAll(datareader)
+		if err != nil {
+			return 0, nil, 0, err
+		}
+		return idx.resolveDeltaForIndexing(r, t, rawdata, ObjectOffset(offset), ref, int64(refoffset), cache, refcache)
 	default:
 		return 0, nil, 0, fmt.Errorf("Unhandled object type %v: ", t)
-	}
-
-	switch t {
-	case OBJ_REF_DELTA:
-		parent := refcache[ref]
-		parent.deltasResolved++
-		t, r, _, err := idx.getObjectAtOffsetForIndexing(r, int64(parent.location), false, cache, refcache)
-		if err != nil {
-			return 0, nil, 0, err
-		}
-		if t == OBJ_OFS_DELTA || t == OBJ_REF_DELTA {
-			panic("No chains")
-		}
-		base, err := ioutil.ReadAll(r)
-		if err != nil {
-			return 0, nil, 0, err
-		}
-		deltareader := newDelta(datareader, bytes.NewReader(base))
-		return t, &deltareader, int64(deltareader.sz), err
-	case OBJ_OFS_DELTA:
-		parent := cache[ObjectOffset(offset-int64(refoffset))]
-		parent.deltasResolved++
-		t, r, _, err := idx.getObjectAtOffsetForIndexing(r, offset-int64(refoffset), false, cache, refcache)
-		if err != nil {
-			return 0, nil, 0, err
-		}
-		if t == OBJ_OFS_DELTA || t == OBJ_REF_DELTA {
-			panic("No chains")
-		}
-		base, err := ioutil.ReadAll(r)
-		if err != nil {
-			return 0, nil, 0, err
-		}
-		if parent.deltasAgainst > 0 && parent.deltasAgainst < parent.deltasResolved {
-			ocache.Add(ObjectOffset(offset)-refoffset, cachedObject{t, base})
-		}
-		deltareader := newDelta(datareader, bytes.NewReader(base))
-		return t, &deltareader, int64(deltareader.sz), err
-		//return t, &deltareader, int64(sz), err
-	default:
-		return 0, nil, 0, fmt.Errorf("Unhandled delta type %v: ", t)
 	}
 }
 
@@ -741,7 +700,7 @@ func IndexPack(c *Client, opts IndexPackOptions, r io.Reader) (idx PackfileIndex
 				return err
 			}
 			if delta.deltasAgainst > 0 && delta.deltasAgainst < delta.deltasResolved {
-				ocache.Add(ObjectOffset(delta.location), cachedObject{t, buf.Bytes()})
+				ocache.Add(ObjectOffset(delta.location), cachedObject{t, buf.Bytes(), 0, Sha1{}})
 			}
 			delta.oid = sha1
 			priorObjects[sha1] = delta
@@ -849,7 +808,7 @@ func indexClosure(c *Client, opts IndexPackOptions, deltas *list.List) (*Packfil
 		var sha1 Sha1
 		switch t {
 		case OBJ_COMMIT, OBJ_TREE, OBJ_BLOB, OBJ_TAG:
-			ocache.Add(ObjectOffset(location), cachedObject{t, rawdata})
+			ocache.Add(ObjectOffset(location), cachedObject{t, rawdata, 0, Sha1{}})
 			sha1, err := HashReaderWithSize(t.String(), int64(len(rawdata)), bytes.NewReader(rawdata))
 			if err != nil && opts.Strict {
 				return err

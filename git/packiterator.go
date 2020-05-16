@@ -93,6 +93,8 @@ func iteratePack(c *Client, r io.Reader, initcallback func(int), callback packIt
 			return nil, err
 		}
 
+		ocache.Add(ObjectOffset(loc), cachedObject{t, data, int(deltaoff), deltasha})
+
 		if err := callback(pack, int(i), int(p.Size), loc, t, sz, deltasha, deltaoff, data); err != nil {
 			return nil, err
 		}
