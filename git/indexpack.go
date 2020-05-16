@@ -223,36 +223,20 @@ func (idx PackfileIndexV2) getObjectAtOffset(r io.ReaderAt, offset int64, metaOn
 			return nil, err
 		}
 
-		// calculateDelta needs a fully resolved delta, so we need to create
-		// one based on the GitObject returned.
-		res := resolvedDelta{Value: base.GetContent()}
-		switch ty := base.GetType(); ty {
-		case "commit":
-			res.Type = OBJ_COMMIT
-		case "tree":
-			res.Type = OBJ_TREE
-		case "blob":
-			res.Type = OBJ_BLOB
-		case "tag":
-			res.Type = OBJ_TAG
-		default:
-			return nil, InvalidObject
-		}
-
-		baseType, val, err := calculateDelta(res, rawdata)
+		deltareader := newDelta(bytes.NewBuffer(rawdata), bytes.NewReader(base.GetContent()))
+		resolved, err := ioutil.ReadAll(&deltareader)
 		if err != nil {
 			return nil, err
 		}
-		// Convert back into a GitObject interface.
-		switch baseType {
-		case OBJ_COMMIT:
-			return GitCommitObject{len(val), val}, nil
-		case OBJ_TREE:
-			return GitTreeObject{len(val), val}, nil
-		case OBJ_BLOB:
-			return GitBlobObject{len(val), val}, nil
-		case OBJ_TAG:
-			return GitTagObject{len(val), val}, nil
+		switch ty := base.GetType(); ty {
+		case "commit":
+			return GitCommitObject{int(deltareader.sz), resolved}, nil
+		case "tree":
+			return GitTreeObject{int(deltareader.sz), resolved}, nil
+		case "blob":
+			return GitBlobObject{int(deltareader.sz), resolved}, nil
+		case "tag":
+			return GitTagObject{int(deltareader.sz), resolved}, nil
 		default:
 			return nil, InvalidObject
 		}
@@ -265,36 +249,20 @@ func (idx PackfileIndexV2) getObjectAtOffset(r io.ReaderAt, offset int64, metaOn
 			return nil, err
 		}
 
-		// calculateDelta needs a fully resolved delta, so we need to create
-		// one based on the GitObject returned.
-		res := resolvedDelta{Value: base.GetContent()}
-		switch ty := base.GetType(); ty {
-		case "commit":
-			res.Type = OBJ_COMMIT
-		case "tree":
-			res.Type = OBJ_TREE
-		case "blob":
-			res.Type = OBJ_BLOB
-		case "tag":
-			res.Type = OBJ_TAG
-		default:
-			return nil, InvalidObject
-		}
-
-		baseType, val, err := calculateDelta(res, rawdata)
+		deltareader := newDelta(bytes.NewBuffer(rawdata), bytes.NewReader(base.GetContent()))
+		resolved, err := ioutil.ReadAll(&deltareader)
 		if err != nil {
 			return nil, err
 		}
-		// Convert back into a GitObject interface.
-		switch baseType {
-		case OBJ_COMMIT:
-			return GitCommitObject{len(val), val}, nil
-		case OBJ_TREE:
-			return GitTreeObject{len(val), val}, nil
-		case OBJ_BLOB:
-			return GitBlobObject{len(val), val}, nil
-		case OBJ_TAG:
-			return GitTagObject{len(val), val}, nil
+		switch ty := base.GetType(); ty {
+		case "commit":
+			return GitCommitObject{int(deltareader.sz), resolved}, nil
+		case "tree":
+			return GitTreeObject{int(deltareader.sz), resolved}, nil
+		case "blob":
+			return GitBlobObject{int(deltareader.sz), resolved}, nil
+		case "tag":
+			return GitTagObject{int(deltareader.sz), resolved}, nil
 		default:
 			return nil, InvalidObject
 		}
