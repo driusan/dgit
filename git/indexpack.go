@@ -499,7 +499,7 @@ func (idx PackfileIndexV2) getObject(r io.ReaderAt, s Sha1) (GitObject, error) {
 }
 
 func (idx PackfileIndexV2) GetObject(r io.ReaderAt, s Sha1) (GitObject, error) {
-	return idx.GetObject(r, s)
+	return idx.getObject(r, s)
 }
 
 func getPackFileObject(idx io.Reader, packfile io.ReaderAt, s Sha1, metaOnly bool) (GitObject, error) {
@@ -550,6 +550,7 @@ func getPackFileObject(idx io.Reader, packfile io.ReaderAt, s Sha1, metaOnly boo
 	}
 	return pack.GetObject(packfile, s)
 }
+
 func (idx PackfileIndexV2) GetTrailer() (Sha1, Sha1) {
 	return idx.Packfile, idx.IdxFile
 }
@@ -726,7 +727,7 @@ func IndexPack(c *Client, opts IndexPackOptions, r io.Reader) (idx PackfileIndex
 			}
 			delta.oid = sha1
 			priorObjects[sha1] = delta
-			indexfile.updateFanout(i, sha1)
+			indexfile.updateFanout(delta.idx, sha1)
 		}
 
 		indexfile.Packfile = trailer
