@@ -460,7 +460,7 @@ func (idx PackfileIndexV2) GetObjectMetadata(r io.ReaderAt, s Sha1) (GitObject, 
 	return idx.getObjectAtOffset(r, offset, true)
 }
 
-func (idx PackfileIndexV2) getObject(r io.ReaderAt, s Sha1) (GitObject, error) {
+func (idx PackfileIndexV2) GetObject(r io.ReaderAt, s Sha1) (GitObject, error) {
 	foundIdx := -1
 	startIdx := idx.Fanout[s[0]]
 	if startIdx <= 0 {
@@ -496,10 +496,6 @@ func (idx PackfileIndexV2) getObject(r io.ReaderAt, s Sha1) (GitObject, error) {
 	// Now that we've figured out where the object lives, use the packfile
 	// to get the value from the packfile.
 	return idx.getObjectAtOffset(r, offset, false)
-}
-
-func (idx PackfileIndexV2) GetObject(r io.ReaderAt, s Sha1) (GitObject, error) {
-	return idx.getObject(r, s)
 }
 
 func getPackFileObject(idx io.Reader, packfile io.ReaderAt, s Sha1, metaOnly bool) (GitObject, error) {
