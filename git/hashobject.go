@@ -16,15 +16,13 @@ func HashReaderWithSize(t string, sz int64, r io.Reader) (Sha1, error) {
 
 	if sz < 0 {
 		return Sha1{}, fmt.Errorf("Invalid size: %v", sz)
-	} else if sz == 0 {
-		return Sha1FromSlice(h.Sum(nil))
 	}
 	n, err := io.Copy(h, r)
 	if err != nil {
 		return Sha1{}, err
 	}
 	if n != sz {
-		return Sha1{}, fmt.Errorf("Unexpected reader size (%v != %v)", n, sz)
+		return Sha1{}, fmt.Errorf("Unexpected reader size (got %v != want %v)", n, sz)
 	}
 	return Sha1FromSlice(h.Sum(nil))
 }

@@ -5,7 +5,7 @@ import (
 	// "bytes"
 	"compress/flate"
 	"fmt"
-	//"hash/crc32"
+	"hash/crc32"
 	"io"
 	"io/ioutil"
 	"os"
@@ -40,7 +40,7 @@ func (r *flateCounter) ReadByte() (byte, error) {
 	return r.Reader.ReadByte()
 }
 
-type packIterator func(r io.ReaderAt, i, n int, loc int64, t PackEntryType, osz PackEntrySize, deltaref Sha1, deltaoffset ObjectOffset, rawheader, rawdata []byte) error
+type packIterator func(r io.ReaderAt, i, n int, loc int64, t PackEntryType, osz PackEntrySize, deltaref Sha1, deltaoffset ObjectOffset, rawdata []byte) error
 
 func iteratePack(c *Client, r io.Reader, initcallback func(int), callback packIterator, trailerCB func(r io.ReaderAt, packn int, packtrailer Sha1) error, crc32cb func(i int, crc uint32) error) (*os.File, error) {
 	// if the reader is not a file, tee it into a temp file to resolve
@@ -80,7 +80,6 @@ func iteratePack(c *Client, r io.Reader, initcallback func(int), callback packIt
 	initcallback(int(p.Size))
 
 	for i := uint32(0); i < p.Size; i += 1 {
-		// crc := crc32.NewIEEE()
 		r := br
 		t, sz, deltasha, deltaoff, rawheader := p.ReadHeaderSize(r)
 
@@ -94,19 +93,18 @@ func iteratePack(c *Client, r io.Reader, initcallback func(int), callback packIt
 			return nil, err
 		}
 
-		if err := callback(pack, int(i), int(p.Size), loc, t, sz, deltasha, deltaoff, rawheader, data); err != nil {
+		if err := callback(pack, int(i), int(p.Size), loc, t, sz, deltasha, deltaoff, data); err != nil {
 			return nil, err
 		}
 
 		compsize := int64(len(rawheader)) + int64(datacounter.n)
 
-		/*
-			datareader := io.NewSectionReader(pack, loc, compsize)
-			if _, err := io.Copy(crc, datareader); err != nil {
-				return nil, err
-			}
-			crc32cb(int(i), crc.Sum32())
-		*/
+		crc := crc32.NewIEEE()
+		datareader := io.NewSectionReader(pack, loc, compsize)
+		if _, err := io.Copy(crc, datareader); err != nil {
+			return nil, err
+		}
+		crc32cb(int(i), crc.Sum32())
 
 		loc += compsize
 

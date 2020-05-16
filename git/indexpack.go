@@ -8,7 +8,7 @@ import (
 	"io/ioutil"
 	"log"
 	"os"
-	"runtime"
+	//"runtime"
 	"sort"
 	"strings"
 	"time"
@@ -19,8 +19,11 @@ import (
 	"sync"
 	"sync/atomic"
 
+	"container/list"
 	"crypto/sha1"
 	"encoding/binary"
+
+	"github.com/hashicorp/golang-lru"
 	// "hash/crc32"
 )
 
@@ -292,156 +295,78 @@ func (idx PackfileIndexV2) getObjectAtOffset(r io.ReaderAt, offset int64, metaOn
 	}
 }
 
-type lrucache struct {
-	head, tail *cachenode
+var ocache *lru.Cache
 
-	offsetmap map[ObjectOffset]*cachenode
-
-	sz    int // total size in bytes of objects stored
-	maxsz int
+func init() {
+	ocache, _ = lru.New(5000)
 }
 
-type cachenode struct {
-	next, prev *cachenode
-
-	offset ObjectOffset
-
+type cachedObject struct {
 	ResolvedType PackEntryType
-	Header       []byte
 	Data         []byte
 }
-
-func (c *lrucache) Get(offset ObjectOffset) (PackEntryType, []byte) {
-	if o, ok := c.offsetmap[offset]; ok {
-		c.moveToFront(o)
-		return o.ResolvedType, o.Data
-	}
-	return 0, nil
-}
-
-func (c *lrucache) moveToFront(n *cachenode) {
-	c.head.next = n
-	n.next.prev = n.prev
-	n.prev.next = n.next
-
-	n.prev = c.head
-	n.next = nil
-	c.head = n
-	if c.tail == nil {
-		c.tail = n
-	}
-	return
-}
-
-func (c *lrucache) add(offset ObjectOffset, n *cachenode) {
-	sz := len(n.Data)
-	if sz > c.maxsz {
-		// If it will take up more than half our cache, don't
-		// cache it.
-		return
-	}
-	if sz+c.sz > c.maxsz {
-		// When we reach the max capacity we free half the
-		// cache. The memory won't be freed until the GC is
-		// run. Once we reach capacity, we'll being reaching
-		// it often when adding new objects if we free just
-		// enough, and constantly running the GC defeats the
-		// purpose of having a cache.
-		var mstati runtime.MemStats
-		runtime.ReadMemStats(&mstati)
-		for (sz + c.sz) > c.maxsz/2 {
-			// println("sz", sz, " c.sz", c.sz, " maxcz", c.maxsz)
-			// Remove tail
-			oldtail := c.tail
-			var newtail *cachenode
-			if oldtail != nil {
-				newtail = oldtail.next
-			}
-			if c.tail == nil {
-				return
-				panic("No tail to remove")
-			} else if c.tail.Data == nil {
-				panic("Tail doesn't have content")
-			}
-
-			c.sz -= len(oldtail.Data)
-			if newtail != nil {
-				newtail.prev = nil
-
-				// Make sure GC picks up the node
-				// by removing any potential references
-				if oldtail.next != nil {
-					oldtail.next.prev = nil
-				}
-				if oldtail.prev != nil {
-					oldtail.prev.next = nil
-				}
-			}
-
-			delete(c.offsetmap, oldtail.offset)
-			c.tail = newtail
-		}
-		runtime.GC()
-		var mstat runtime.MemStats
-		runtime.ReadMemStats(&mstat)
-		if mstat.Alloc > 1271664312 {
-			// FIXME: Find memory leak
-			ocache = newObjectCache()
-			runtime.GC()
-		}
-		println("Original heap", mstati.Alloc, " new heap", mstat.Alloc)
-	}
-	c.offsetmap[offset] = n
-	n.prev = c.head
-	if n.prev != nil {
-		n.prev.next = n
-	}
-	n.next = nil
-
-	c.head = n
-	if c.tail == nil {
-		c.tail = n
-	}
-	c.sz += sz
-}
-
-func (c *lrucache) Cache(offset ObjectOffset, typ PackEntryType, header, data []byte) {
-	n := c.offsetmap[offset]
-	if n != nil {
-		// Tried to re-cache the same thing, just move it to the front
-		c.moveToFront(n)
-		return
-	}
-	// Add to cache if applicable
-	n = &cachenode{
-		prev:         c.head,
-		ResolvedType: typ,
-		Header:       header,
-		Data:         data,
-	}
-	c.add(offset, n)
-	return
-}
-
-func newObjectCache() lrucache {
-	c := lrucache{
-		offsetmap: make(map[ObjectOffset]*cachenode),
-		//maxsz:     256 * 1024 * 1024,
-		maxsz: 64 * 1024 * 1024,
-		// maxsz: 2 * 1024 * 1024, // testing
-	}
-	return c
-}
-
-var ocache lrucache = newObjectCache()
 
 // Retrieve an object from the packfile represented by r at offset.
 // This will use the specified caches to resolve the location of any
 // deltas, not the index itself. They must be maintained by the caller.
+var cachedn, cachemiss int
+
+func (idx PackfileIndexV2) resolveDeltaForIndexing(pack io.ReaderAt, deltat PackEntryType, rawdata []byte, location int64, ref Sha1, refoffset int64, cache map[ObjectOffset]*packObject, refcache map[Sha1]*packObject) (t PackEntryType, data io.Reader, osz int64, err error) {
+	datareader := bytes.NewBuffer(rawdata)
+	switch deltat {
+	case OBJ_REF_DELTA:
+		parent := refcache[ref]
+		parent.deltasResolved++
+		t, r, _, err := idx.getObjectAtOffsetForIndexing(pack, int64(parent.location), false, cache, refcache)
+		if err != nil {
+			return 0, nil, 0, err
+		}
+		if t == OBJ_OFS_DELTA || t == OBJ_REF_DELTA {
+			panic("No chains")
+		}
+		base, err := ioutil.ReadAll(r)
+		if err != nil {
+			return 0, nil, 0, err
+		}
+		deltareader := newDelta(datareader, bytes.NewReader(base))
+		return t, &deltareader, int64(deltareader.sz), err
+	case OBJ_OFS_DELTA:
+		parent := cache[ObjectOffset(location-int64(refoffset))]
+		parent.deltasResolved++
+		t, r, _, err := idx.getObjectAtOffsetForIndexing(pack, location-int64(refoffset), false, cache, refcache)
+		if err != nil {
+			return 0, nil, 0, err
+		}
+		if t == OBJ_OFS_DELTA || t == OBJ_REF_DELTA {
+			panic("No chains")
+		}
+		base, err := ioutil.ReadAll(r)
+		if err != nil {
+			return 0, nil, 0, err
+		}
+		if parent.deltasAgainst > 0 && parent.deltasAgainst < parent.deltasResolved {
+			ocache.Add(ObjectOffset(location)-ObjectOffset(refoffset), cachedObject{t, base})
+		}
+		deltareader := newDelta(datareader, bytes.NewReader(base))
+		return t, &deltareader, int64(deltareader.sz), err
+		//return t, &deltareader, int64(sz), err
+	default:
+		return 0, nil, 0, fmt.Errorf("Unhandled delta type %v: ", t)
+	}
+}
+
 func (idx PackfileIndexV2) getObjectAtOffsetForIndexing(r io.ReaderAt, offset int64, metaOnly bool, cache map[ObjectOffset]*packObject, refcache map[Sha1]*packObject) (t PackEntryType, data io.Reader, osz int64, err error) {
-	if t, data := ocache.Get(ObjectOffset(offset)); data != nil {
-		// println("Using cache")
-		return t, bytes.NewReader(data), int64(len(data)), nil
+	if val, ok := ocache.Get(ObjectOffset(offset)); ok {
+		o := val.(cachedObject)
+		cachedn++
+
+// func (idx PackfileIndexV2) resolveDeltaForIndexing(pack io.ReaderAt, deltat PackEntryType, rawdata []byte, location int64, ref Sha1, refoffset int64, cache map[ObjectOffset]*packObject, refcache map[Sha1]*packObject) (t PackEntryType, data io.Reader, osz int64, err error) {
+		if o.ResolvedType == OBJ_OFS_DELTA || o.ResolvedType == OBJ_REF_DELTA {
+			return idx.resolveDeltaForIndexing(r, o.ResolvedType, o.Data, offset, Sha1{}, 0, cache, refcache)
+		}
+		return o.ResolvedType, bytes.NewReader(o.Data), int64(len(o.Data)), nil
+	} else {
+		cachemiss++
 	}
 
 	var p PackfileHeader
@@ -449,7 +374,6 @@ func (idx PackfileIndexV2) getObjectAtOffsetForIndexing(r io.ReaderAt, offset in
 	// 4k should be enough for the header.
 	var datareader flate.Reader
 	metareader := io.NewSectionReader(r, offset, 4096)
-	//t, sz, ref, refoffset, rawheader := p.ReadHeaderSize(metareader)
 	t, sz, ref, refoffset, rawheader := p.ReadHeaderSize(bufio.NewReader(metareader))
 	// sz is the uncompressed size, so the total size should usually be
 	// less than sz for the compressed data. It might theoretically be a
@@ -489,6 +413,13 @@ func (idx PackfileIndexV2) getObjectAtOffsetForIndexing(r io.ReaderAt, offset in
 	switch t {
 	case OBJ_COMMIT, OBJ_TREE, OBJ_BLOB, OBJ_TAG:
 		return t, datareader, int64(sz), nil
+	case OBJ_REF_DELTA, OBJ_OFS_DELTA:
+		// Nothing, handle them below
+	default:
+		return 0, nil, 0, fmt.Errorf("Unhandled object type %v: ", t)
+	}
+
+	switch t {
 	case OBJ_REF_DELTA:
 		parent := refcache[ref]
 		parent.deltasResolved++
@@ -504,7 +435,7 @@ func (idx PackfileIndexV2) getObjectAtOffsetForIndexing(r io.ReaderAt, offset in
 			return 0, nil, 0, err
 		}
 		deltareader := newDelta(datareader, bytes.NewReader(base))
-		return t, &deltareader, 0, err
+		return t, &deltareader, int64(deltareader.sz), err
 	case OBJ_OFS_DELTA:
 		parent := cache[ObjectOffset(offset-int64(refoffset))]
 		parent.deltasResolved++
@@ -519,10 +450,14 @@ func (idx PackfileIndexV2) getObjectAtOffsetForIndexing(r io.ReaderAt, offset in
 		if err != nil {
 			return 0, nil, 0, err
 		}
+		if parent.deltasAgainst > 0 && parent.deltasAgainst < parent.deltasResolved {
+			ocache.Add(ObjectOffset(offset)-refoffset, cachedObject{t, base})
+		}
 		deltareader := newDelta(datareader, bytes.NewReader(base))
-		return t, &deltareader, 0, err
+		return t, &deltareader, int64(deltareader.sz), err
+		//return t, &deltareader, int64(sz), err
 	default:
-		return 0, nil, 0, fmt.Errorf("Unhandled object type %v: ", t)
+		return 0, nil, 0, fmt.Errorf("Unhandled delta type %v: ", t)
 	}
 }
 
@@ -765,10 +700,10 @@ func IndexPack(c *Client, opts IndexPackOptions, r io.Reader) (idx PackfileIndex
 		startTime = time.Now()
 	}
 
-	var deltas []*packObject
-	indexfile, initcb, icb, crc32cb, priorObjects, priorLocations := indexClosure(c, opts, &deltas)
+	deltas := list.New()
+	indexfile, initcb, icb, crc32cb, priorObjects, priorLocations := indexClosure(c, opts, deltas)
 
-	cb := func(r io.ReaderAt, i, n int, loc int64, t PackEntryType, sz PackEntrySize, ref Sha1, offset ObjectOffset, header, data []byte) error {
+	cb := func(r io.ReaderAt, i, n int, loc int64, t PackEntryType, sz PackEntrySize, ref Sha1, offset ObjectOffset, data []byte) error {
 		if !isfile && opts.Verbose {
 			now := time.Now()
 			elapsed := now.Unix() - startTime.Unix()
@@ -780,13 +715,16 @@ func IndexPack(c *Client, opts IndexPackOptions, r io.Reader) (idx PackfileIndex
 
 			}
 		}
-		return icb(r, i, n, loc, t, sz, ref, offset, header, data)
+		return icb(r, i, n, loc, t, sz, ref, offset, data)
 	}
 
 	trailerCB := func(r io.ReaderAt, n int, trailer Sha1) error {
-		for i, delta := range deltas {
+		i := 0
+		for e := deltas.Front(); e != nil; e = e.Next() {
+			i++
+			delta := e.Value.(*packObject)
 			if opts.Verbose {
-				progressF("Resolving deltas: %2.f%% (%d/%d)", i+1 == len(deltas), (float32(i+1) / float32(len(deltas)) * 100), i+1, len(deltas))
+				progressF("Resolving deltas: %2.f%% (%d/%d)", i+1 == deltas.Len(), (float32(i+1) / float32(deltas.Len()) * 100), i+1, deltas.Len())
 			}
 
 			t, r, sz, err := indexfile.getObjectAtOffsetForIndexing(r, int64(delta.location), false, priorLocations, priorObjects)
@@ -794,9 +732,16 @@ func IndexPack(c *Client, opts IndexPackOptions, r io.Reader) (idx PackfileIndex
 				return err
 			}
 
+			var buf bytes.Buffer
+			if delta.deltasAgainst > 0 && delta.deltasAgainst < delta.deltasResolved {
+				r = io.TeeReader(r, &buf)
+			}
 			sha1, err := HashReaderWithSize(t.String(), sz, r)
 			if err != nil {
 				return err
+			}
+			if delta.deltasAgainst > 0 && delta.deltasAgainst < delta.deltasResolved {
+				ocache.Add(ObjectOffset(delta.location), cachedObject{t, buf.Bytes()})
 			}
 			delta.oid = sha1
 			priorObjects[sha1] = delta
@@ -808,6 +753,7 @@ func IndexPack(c *Client, opts IndexPackOptions, r io.Reader) (idx PackfileIndex
 
 		indexfile.Packfile = trailer
 
+		println("Cached reads", cachedn, " Cache misses", cachemiss)
 		sort.Sort(indexfile)
 		// The sorting may have changed things, so as a final pass, hash
 		// everything in the index to get the trailer (instead of doing it
@@ -820,6 +766,7 @@ func IndexPack(c *Client, opts IndexPackOptions, r io.Reader) (idx PackfileIndex
 
 	pack, err := iteratePack(c, r, initcb, cb, trailerCB, crc32cb)
 	if err != nil {
+		println("err: Cached reads", cachedn, " Cache misses", cachemiss)
 		return nil, err
 	}
 	defer pack.Close()
@@ -864,7 +811,7 @@ type packObject struct {
 	typ                           PackEntryType
 }
 
-func indexClosure(c *Client, opts IndexPackOptions, deltas *[]*packObject) (*PackfileIndexV2, func(int), packIterator, func(int, uint32) error, map[Sha1]*packObject, map[ObjectOffset]*packObject) {
+func indexClosure(c *Client, opts IndexPackOptions, deltas *list.List) (*PackfileIndexV2, func(int), packIterator, func(int, uint32) error, map[Sha1]*packObject, map[ObjectOffset]*packObject) {
 	var indexfile PackfileIndexV2
 
 	indexfile.magic = [4]byte{0377, 't', 'O', 'c'}
@@ -878,13 +825,12 @@ func indexClosure(c *Client, opts IndexPackOptions, deltas *[]*packObject) (*Pac
 	priorLocations := make(map[ObjectOffset]*packObject)
 
 	icb := func(n int) {
-		*deltas = make([]*packObject, 0, n)
 		indexfile.Sha1Table = make([]Sha1, n)
 		indexfile.CRC32 = make([]uint32, n)
 		indexfile.FourByteOffsets = make([]uint32, n)
 	}
 
-	cb := func(r io.ReaderAt, i, n int, location int64, t PackEntryType, sz PackEntrySize, ref Sha1, offset ObjectOffset, rawheader, rawdata []byte) error {
+	cb := func(r io.ReaderAt, i, n int, location int64, t PackEntryType, sz PackEntrySize, ref Sha1, offset ObjectOffset, rawdata []byte) error {
 		if opts.Verbose {
 			progressF("Indexing objects: %2.f%% (%d/%d)", i+1 == n, (float32(i+1) / float32(n) * 100), i+1, n)
 		}
@@ -903,7 +849,7 @@ func indexClosure(c *Client, opts IndexPackOptions, deltas *[]*packObject) (*Pac
 		var sha1 Sha1
 		switch t {
 		case OBJ_COMMIT, OBJ_TREE, OBJ_BLOB, OBJ_TAG:
-			ocache.Cache(ObjectOffset(location), t, rawheader, rawdata)
+			ocache.Add(ObjectOffset(location), cachedObject{t, rawdata})
 			sha1, err := HashReaderWithSize(t.String(), int64(len(rawdata)), bytes.NewReader(rawdata))
 			if err != nil && opts.Strict {
 				return err
@@ -973,7 +919,7 @@ func indexClosure(c *Client, opts IndexPackOptions, deltas *[]*packObject) (*Pac
 				typ:            t,
 			}
 			priorLocations[ObjectOffset(location)] = self
-			*deltas = append(*deltas, self)
+			deltas.PushBack(self)
 			mu.Unlock()
 		case OBJ_OFS_DELTA:
 			log.Printf("Noting OFS_DELTA to resolve from %v\n", location-int64(offset))
@@ -1000,7 +946,7 @@ func indexClosure(c *Client, opts IndexPackOptions, deltas *[]*packObject) (*Pac
 				typ:            t,
 			}
 			priorLocations[ObjectOffset(location)] = self
-			*deltas = append(*deltas, self)
+			deltas.PushBack(self)
 			mu.Unlock()
 		default:
 			panic("Unhandled type in IndexPack: " + t.String())
@@ -1011,7 +957,6 @@ func indexClosure(c *Client, opts IndexPackOptions, deltas *[]*packObject) (*Pac
 		indexfile.CRC32[i] = crc
 		return nil
 	}
-
 	return &indexfile, icb, cb, crc32cb, priorObjects, priorLocations
 }
 
