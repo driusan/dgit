@@ -298,7 +298,12 @@ func (idx PackfileIndexV2) getObjectAtOffset(r io.ReaderAt, offset int64, metaOn
 var ocache *lru.Cache
 
 func init() {
-	ocache, _ = lru.New(5000)
+	// This is a ridiculously small cache, but on large repos
+	// it leaks memory like a sieve since Go is GC'd. It's the
+	// largest cache I could use to successfully index the pack
+	// from https:/github.com/Perl/perl5 on a 2GB vultr node
+	// without running out of memory on Go 1.14.2
+	ocache, _ = lru.New(250)
 }
 
 type cachedObject struct {
@@ -306,7 +311,7 @@ type cachedObject struct {
 	Data         []byte
 
 	RefOffset int
-	Ref Sha1
+	Ref       Sha1
 }
 
 // Retrieve an object from the packfile represented by r at offset.
@@ -327,6 +332,9 @@ func (idx PackfileIndexV2) resolveDeltaForIndexing(pack io.ReaderAt, deltat Pack
 		base, err := ioutil.ReadAll(r)
 		if err != nil {
 			return 0, nil, 0, err
+		}
+		if parent.deltasAgainst > 0 && parent.deltasAgainst < parent.deltasResolved {
+			ocache.Add(parent.location, cachedObject{t, base, 0, Sha1{}})
 		}
 		deltareader := newDelta(datareader, bytes.NewReader(base))
 		return t, &deltareader, int64(deltareader.sz), err
@@ -787,6 +795,19 @@ func indexClosure(c *Client, opts IndexPackOptions, deltas *list.List) (*Packfil
 		indexfile.Sha1Table = make([]Sha1, n)
 		indexfile.CRC32 = make([]uint32, n)
 		indexfile.FourByteOffsets = make([]uint32, n)
+
+		// See note in init function about the LRU causing
+		// memory leaks. If it's a small pack, we don't care,
+		// but on very large repos we need to use a small
+		// cache to avoid running out of memory.
+		//
+		// Chains of deltas tend to be close together it does
+		// still give us some benefit even with a small cache.
+		if n > 1000000 {
+			ocache, _ = lru.New(250)
+		} else {
+			ocache, _ = lru.New(5000)
+		}
 	}
 
 	cb := func(r io.ReaderAt, i, n int, location int64, t PackEntryType, sz PackEntrySize, ref Sha1, offset ObjectOffset, rawdata []byte) error {
