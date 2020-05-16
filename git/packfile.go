@@ -1,8 +1,6 @@
 package git
 
 import (
-	"bufio"
-	"bytes"
 	"compress/flate"
 	"fmt"
 	"io"
@@ -127,33 +125,6 @@ func (p PackfileHeader) ReadHeaderSize(r flate.Reader) (PackEntryType, PackEntry
 func (p PackfileHeader) dataStream(r flate.Reader) (io.Reader, error) {
 	zr, err := zlib.NewReader(r)
 	return zr, err
-}
-
-func (p PackfileHeader) readEntryDataStream1(r flate.Reader) []byte {
-	b := new(bytes.Buffer)
-	zr, err := zlib.NewReader(r)
-	if err != nil {
-		panic(err)
-	}
-	defer zr.Close()
-	if _, err := io.Copy(b, zr); err != nil {
-		panic(err)
-	}
-	return b.Bytes()
-}
-
-func (p PackfileHeader) readEntryDataStream2(r io.ReadSeeker) []byte {
-	b := new(bytes.Buffer)
-	bookmark, _ := r.Seek(0, 1)
-	zr, err := zlib.NewReader(bufio.NewReader(r))
-	if err != nil {
-		panic(err)
-	}
-	defer zr.Close()
-	io.Copy(b, zr)
-
-	r.Seek(bookmark+zr.CompressedSize(), 0)
-	return b.Bytes()
 }
 
 type VariableLengthInt uint64

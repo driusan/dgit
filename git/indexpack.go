@@ -185,7 +185,15 @@ func (idx PackfileIndexV2) getObjectAtOffset(r io.ReaderAt, offset int64, metaOn
 		}
 		datareader := io.NewSectionReader(r, offset+int64(len(rawheader)), int64(worstdsize))
 		if !metaOnly || t == OBJ_OFS_DELTA || t == OBJ_REF_DELTA {
-			rawdata = p.readEntryDataStream1(bufio.NewReader(datareader))
+			//raw, err := p.dataStream(bufio.NewReader(datareader))
+			raw, err := p.dataStream(bufio.NewReader(datareader))
+			if err != nil {
+				return nil, err
+			}
+			rawdata, err = ioutil.ReadAll(raw)
+			if err != nil {
+				return nil, err
+			}
 		}
 	} else {
 		// If it's size 0, sz*3 would immediately return io.EOF and cause
@@ -398,7 +406,7 @@ func (idx PackfileIndexV2) getObjectAtOffsetForIndexing(r io.ReaderAt, offset in
 			worstdsize = 512
 		}
 		if !metaOnly || t == OBJ_OFS_DELTA || t == OBJ_REF_DELTA {
-			// readDataEntryStream needs a ByteReader, so we wrap
+			// dataStream needs a ByteReader, so we wrap
 			// the reader in a bufio
 			dr, err := p.dataStream(bufio.NewReader(io.NewSectionReader(r, offset+int64(len(rawheader)), int64(worstdsize))))
 			if err != nil {
