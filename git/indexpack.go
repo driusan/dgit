@@ -653,6 +653,20 @@ func (p *PackfileIndexV2) calculateTrailer() error {
 	return nil
 }
 
+// Update both the fanout table and Sha1Table for this index.
+func (idx *PackfileIndexV2) updateFanout(i int, val Sha1) {
+	for j := int(val[0]); j < 256; j++ {
+		atomic.AddUint32(&idx.Fanout[j], 1)
+	}
+
+	// SHA1 is 160 bits.. since we know no one else is writing here,
+	// we pretend it's 2 64 bit ints and a 32 bit int so that we can
+	// use atomic writes instead of a lock.
+	atomic.StoreUint64((*uint64)(unsafe.Pointer(&idx.Sha1Table[i][0])), *(*uint64)(unsafe.Pointer(&val[0])))
+	atomic.StoreUint64((*uint64)(unsafe.Pointer(&idx.Sha1Table[i][8])), *(*uint64)(unsafe.Pointer(&val[8])))
+	atomic.StoreUint32((*uint32)(unsafe.Pointer(&idx.Sha1Table[i][16])), *(*uint32)(unsafe.Pointer(&val[16])))
+}
+
 func IndexPack(c *Client, opts IndexPackOptions, r io.Reader) (idx PackfileIndex, rerr error) {
 	isfile := false
 	if f, ok := r.(*os.File); ok && !opts.Stdin {
@@ -712,15 +726,12 @@ func IndexPack(c *Client, opts IndexPackOptions, r io.Reader) (idx PackfileIndex
 			}
 			delta.oid = sha1
 			priorObjects[sha1] = delta
-			indexfile.Sha1Table[delta.idx] = sha1
-			for j := int(sha1[0]); j < 256; j++ {
-				atomic.AddUint32(&indexfile.Fanout[j], 1)
-			}
+			indexfile.updateFanout(i, sha1)
 		}
 
 		indexfile.Packfile = trailer
 
-		println("Cached reads", cachedn, " Cache misses", cachemiss)
+		//	println("Cached reads", cachedn, " Cache misses", cachemiss)
 		sort.Sort(indexfile)
 		// The sorting may have changed things, so as a final pass, hash
 		// everything in the index to get the trailer (instead of doing it
@@ -733,7 +744,7 @@ func IndexPack(c *Client, opts IndexPackOptions, r io.Reader) (idx PackfileIndex
 
 	pack, err := iteratePack(c, r, initcb, cb, trailerCB, crc32cb)
 	if err != nil {
-		println("err: Cached reads", cachedn, " Cache misses", cachemiss)
+		//	println("err: Cached reads", cachedn, " Cache misses", cachemiss)
 		return nil, err
 	}
 	defer pack.Close()
@@ -803,7 +814,7 @@ func indexClosure(c *Client, opts IndexPackOptions, deltas *list.List) (*Packfil
 		//
 		// Chains of deltas tend to be close together it does
 		// still give us some benefit even with a small cache.
-		if n > 1000000 {
+		if n > 100000 {
 			ocache, _ = lru.New(250)
 		} else {
 			ocache, _ = lru.New(5000)
@@ -824,9 +835,6 @@ func indexClosure(c *Client, opts IndexPackOptions, deltas *list.List) (*Packfil
 			mu.Unlock()
 		}
 
-		// The way we calculate the hash changes based on if it's a delta
-		// or not.
-		var sha1 Sha1
 		switch t {
 		case OBJ_COMMIT, OBJ_TREE, OBJ_BLOB, OBJ_TAG:
 			ocache.Add(ObjectOffset(location), cachedObject{t, rawdata, 0, Sha1{}})
@@ -834,17 +842,8 @@ func indexClosure(c *Client, opts IndexPackOptions, deltas *list.List) (*Packfil
 			if err != nil && opts.Strict {
 				return err
 			}
-			for j := int(sha1[0]); j < 256; j++ {
-				atomic.AddUint32(&indexfile.Fanout[j], 1)
-			}
 
-			// SHA1 is 160 bits.. since we know no one else is writing here,
-			// we pretend it's 2 64 bit ints and a 32 bit int so that we can
-			// use atomic writes instead of a lock.
-			atomic.StoreUint64((*uint64)(unsafe.Pointer(&indexfile.Sha1Table[i][0])), *(*uint64)(unsafe.Pointer(&sha1[0])))
-			atomic.StoreUint64((*uint64)(unsafe.Pointer(&indexfile.Sha1Table[i][8])), *(*uint64)(unsafe.Pointer(&sha1[8])))
-			atomic.StoreUint32((*uint32)(unsafe.Pointer(&indexfile.Sha1Table[i][16])), *(*uint32)(unsafe.Pointer(&sha1[16])))
-
+			indexfile.updateFanout(i, sha1)
 			// Maintain the list of references for delta chains.
 			// There's a possibility a delta refers to a reference
 			// before the reference in packs inflated from thin packs,
@@ -882,7 +881,7 @@ func indexClosure(c *Client, opts IndexPackOptions, deltas *list.List) (*Packfil
 				// Since we haven't seen it yet, we don't
 				// have a location.
 				objCache := &packObject{
-					oid:            sha1,
+					oid:            ref,
 					deltasAgainst:  1,
 					deltasResolved: 0,
 				}
@@ -892,7 +891,6 @@ func indexClosure(c *Client, opts IndexPackOptions, deltas *list.List) (*Packfil
 			}
 			self := &packObject{
 				idx:            i,
-				oid:            sha1,
 				location:       ObjectOffset(location),
 				deltasAgainst:  0,
 				deltasResolved: 0,
@@ -918,7 +916,6 @@ func indexClosure(c *Client, opts IndexPackOptions, deltas *list.List) (*Packfil
 			// Add ourselves to the map for future deltas
 			self := &packObject{
 				idx:            i,
-				oid:            sha1,
 				location:       ObjectOffset(location),
 				deltasAgainst:  0,
 				deltasResolved: 0,

@@ -9,10 +9,6 @@ import (
 	"compress/flate"
 )
 
-type deltaeval struct {
-	value []byte
-}
-
 type delta struct {
 	src  flate.Reader
 	base io.ReadSeeker
@@ -157,6 +153,10 @@ func (d *delta) readCached(buf []byte) (n int, err error) {
 	return n, nil
 }
 
+type deltaeval struct {
+	value []byte
+}
+
 // Insert length bytes from src into d.
 func (d *deltaeval) Insert(src io.Reader, length uint8) error {
 
@@ -213,16 +213,6 @@ func calculateDelta(ref resolvedDelta, delta []byte) (PackEntryType, []byte, err
 		}
 	}
 	return ref.Type, d.value, nil
-}
-
-// Calculate an offset delta. refs must be a map of all previous references in
-// the packfile.
-func calculateOfsDelta(ref ObjectOffset, delta []byte, refs map[ObjectOffset]resolvedDelta) (PackEntryType, []byte, error) {
-	refdata, ok := refs[ref]
-	if !ok {
-		return 0, nil, fmt.Errorf("Thin packs are not currently supported.")
-	}
-	return calculateDelta(refdata, delta)
 }
 
 // A Delta base which has already been resolved earlier in the pack file.
@@ -286,14 +276,4 @@ func (d *deltaeval) DoInstruction(delta io.Reader, src []byte, targetSize uint64
 	} else {
 		return d.Insert(delta, uint8(b[0]))
 	}
-}
-
-// Calculate a reference delta. refs must be a map of all previous objects in
-// the packfile.
-func calculateRefDelta(ref Sha1, delta []byte, refs map[Sha1]resolvedDelta) (PackEntryType, []byte, error) {
-	refdata, ok := refs[ref]
-	if !ok {
-		return 0, nil, fmt.Errorf("Thin packs are not currently supported.")
-	}
-	return calculateDelta(refdata, delta)
 }

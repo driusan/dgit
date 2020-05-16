@@ -224,18 +224,3 @@ func ReadVariable(src flate.Reader) uint64 {
 	}
 	return val
 }
-
-func writeResolvedObject(c *Client, t PackEntryType, rawdata []byte) (Sha1, error) {
-	switch t {
-	case OBJ_COMMIT, OBJ_TREE, OBJ_BLOB:
-		// Do nothing. We're just checking that it's a type we can
-		// handle.
-	default:
-		return Sha1{}, fmt.Errorf("Unknown type: %s", t)
-	}
-	sha, err := c.WriteObject(t.String(), rawdata)
-	if err != nil {
-		return sha, err
-	}
-	return sha, nil
-}
