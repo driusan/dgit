@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"io/ioutil"
 	"os"
+	"path/filepath"
 	"strconv"
 	"strings"
 )
@@ -281,7 +282,10 @@ func (c *Client) getObject(sha1 Sha1, metaOnly bool) (GitObject, error) {
 		c.objcache[shaRef{sha1, metaOnly}] = gobj
 		return gobj, nil
 	} else {
-		objectname := fmt.Sprintf("%s/objects/%x/%x", c.GitDir, sha1[0:1], sha1[1:])
+		objectname := filepath.Join(c.ObjectDir,
+			fmt.Sprintf("%02x", sha1[0:1]),
+			fmt.Sprintf("%18x", sha1[1:]),
+		)
 		f, err := os.Open(objectname)
 		if err != nil {
 			return nil, err

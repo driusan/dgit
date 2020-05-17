@@ -24,9 +24,11 @@ func updateReflog(c *Client, create bool, file File, oldvalue, newvalue Commitis
 		if !create {
 			return nil
 		}
-		if err := file.Create(); err != nil {
+		f, err := file.Create()
+		if err != nil {
 			return err
 		}
+		f.Close()
 	}
 
 	now := time.Now()
