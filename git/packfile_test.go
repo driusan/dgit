@@ -23,6 +23,7 @@ func runCase(label string, tc PackfileTestCase, t *testing.T) {
 		t.Fatal(err)
 	}
 	defer os.RemoveAll(gitdir)
+	os.MkdirAll(gitdir+"/objects/pack/", 0700)
 
 	c, err := NewClient(gitdir, "")
 	if err != nil {
@@ -31,7 +32,8 @@ func runCase(label string, tc PackfileTestCase, t *testing.T) {
 
 	shas, err := UnpackObjects(c, UnpackObjectsOptions{Quiet: true}, bytes.NewReader(tc.Packfile))
 	if err != nil {
-		t.Fatal(err)
+		//panic(err)
+		t.Fatalf("%s: %v", label, err)
 	}
 	if g := len(shas); g != len(tc.ExpectedObjects) {
 		t.Errorf("%s: Unexpected number of objects: got %v want %v", label, g, len(tc.ExpectedObjects))

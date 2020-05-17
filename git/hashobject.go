@@ -10,6 +10,23 @@ import (
 	"strings"
 )
 
+func HashReaderWithSize(t string, sz int64, r io.Reader) (Sha1, error) {
+	h := sha1.New()
+	fmt.Fprintf(h, "%s %d\000", t, sz)
+
+	if sz < 0 {
+		return Sha1{}, fmt.Errorf("Invalid size: %v", sz)
+	}
+	n, err := io.Copy(h, r)
+	if err != nil {
+		return Sha1{}, err
+	}
+	if n != sz {
+		return Sha1{}, fmt.Errorf("Unexpected reader size (got %v != want %v)", n, sz)
+	}
+	return Sha1FromSlice(h.Sum(nil))
+}
+
 // Hashes the data of r with object type t, and returns
 // the hash, and the data that was read from r.
 func HashReader(t string, r io.Reader) (Sha1, []byte, error) {

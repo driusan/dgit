@@ -2,12 +2,13 @@ package git
 
 import (
 	"bufio"
+	// "bytes"
 	"compress/flate"
 	"fmt"
+	"hash/crc32"
 	"io"
 	"io/ioutil"
 	"os"
-	"sync"
 
 	"encoding/binary"
 )
@@ -39,9 +40,9 @@ func (r *flateCounter) ReadByte() (byte, error) {
 	return r.Reader.ReadByte()
 }
 
-type packIterator func(r io.ReaderAt, i, n int, loc int64, compsz int64, t PackEntryType, osz PackEntrySize, deltaref Sha1, deltaoffset ObjectOffset, rawdata []byte) error
+type packIterator func(r io.ReaderAt, i, n int, loc int64, t PackEntryType, osz PackEntrySize, deltaref Sha1, deltaoffset ObjectOffset, rawdata []byte) error
 
-func iteratePack(c *Client, r io.Reader, initcallback func(int), callback packIterator, trailerCB func(packtrailer Sha1) error) (*os.File, error) {
+func iteratePack(c *Client, r io.Reader, initcallback func(int), callback packIterator, trailerCB func(r io.ReaderAt, packn int, packtrailer Sha1) error, crc32cb func(i int, crc uint32) error) (*os.File, error) {
 	// if the reader is not a file, tee it into a temp file to resolve
 	// deltas from.
 	var pack *os.File
@@ -78,37 +79,48 @@ func iteratePack(c *Client, r io.Reader, initcallback func(int), callback packIt
 	br := bufio.NewReader(r)
 	initcallback(int(p.Size))
 
-	var wg sync.WaitGroup
 	for i := uint32(0); i < p.Size; i += 1 {
-		wg.Add(1)
-		t, sz, deltasha, deltaoff, rawheader := p.ReadHeaderSize(br)
+		r := br
+		t, sz, deltasha, deltaoff, rawheader := p.ReadHeaderSize(r)
 
-		datacounter := flateCounter{br, 0}
-		raw := p.readEntryDataStream1(&datacounter)
+		datacounter := flateCounter{r, 0}
+		stream, err := p.dataStream(&datacounter)
+		if err != nil {
+			return nil, err
+		}
+		data, err := ioutil.ReadAll(stream)
+		if err != nil {
+			return nil, err
+		}
+
+		ocache.Add(ObjectOffset(loc), cachedObject{t, data, int(deltaoff), deltasha})
+
+		if err := callback(pack, int(i), int(p.Size), loc, t, sz, deltasha, deltaoff, data); err != nil {
+			return nil, err
+		}
 
 		compsize := int64(len(rawheader)) + int64(datacounter.n)
 
-		// Doing this in goroutines seems to crash 9front and provides very
-		// little performance gain, so for now only do 1 a time.
-		func(i int, psize int, loc int64, compsize int64, t PackEntryType, sz PackEntrySize, deltasha Sha1, deltaoff ObjectOffset, raw []byte) {
-			//go func(i int, psize int, loc int64, compsize int64, t PackEntryType, sz PackEntrySize, deltasha Sha1, deltaoff ObjectOffset, raw []byte) {
-			defer wg.Done()
-			if err := callback(pack, i, psize, loc, compsize, t, sz, deltasha, deltaoff, raw); err != nil {
-				panic(err)
-			}
-		}(int(i), int(p.Size), loc, compsize, t, sz, deltasha, deltaoff, raw)
+		crc := crc32.NewIEEE()
+		datareader := io.NewSectionReader(pack, loc, compsize)
+		if _, err := io.Copy(crc, datareader); err != nil {
+			return nil, err
+		}
+		crc32cb(int(i), crc.Sum32())
 
 		loc += compsize
+
 	}
 
-	wg.Wait()
 	// We need to read the packfile trailer so that it gets tee'd into
 	// the temp file, or it won't be there for index-pack.
 	var trailer PackfileIndexV2
 	if err := binary.Read(br, binary.BigEndian, &trailer.Packfile); err != nil {
 		return nil, err
 	}
-	trailerCB(trailer.Packfile)
+	if err := trailerCB(pack, int(p.Size), trailer.Packfile); err != nil {
+		return nil, err
+	}
 
 	return pack, nil
 }

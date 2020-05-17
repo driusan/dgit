@@ -5,6 +5,10 @@
 # bitbucket.org/mischief/libauth v0.0.0-20180917063427-eea7aee20a38
 ## explicit
 bitbucket.org/mischief/libauth
+# github.com/hashicorp/golang-lru v0.5.4
+## explicit
+github.com/hashicorp/golang-lru
+github.com/hashicorp/golang-lru/simplelru
 # golang.org/x/crypto v0.0.0-20180910181607-0e37d006457b
 ## explicit
 golang.org/x/crypto/curve25519
