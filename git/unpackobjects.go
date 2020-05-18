@@ -43,6 +43,10 @@ func UnpackObjects(c *Client, opts UnpackObjectsOptions, r io.Reader) ([]Sha1, e
 	priorObjects := make(map[Sha1]*packObject)
 	// For OFS_DELTA to resolve.
 	priorLocations := make(map[ObjectOffset]*packObject)
+
+	if f := File(c.ObjectDir); !f.Exists() {
+		os.MkdirAll(f.String(), 0755)
+	}
 	cb := func(r io.ReaderAt, i, n int, location int64, t PackEntryType, sz PackEntrySize, refSha1 Sha1, offset ObjectOffset, rawdata []byte) error {
 		if !opts.Quiet {
 			progressF("Unpacking objects: %2.f%% (%d/%d)", i+1 == n, (float32(i+1)/float32(n))*100, i+1, n)

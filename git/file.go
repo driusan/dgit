@@ -123,17 +123,15 @@ func (f File) IsSymlink() bool {
 	return stat.Mode()&os.ModeSymlink == os.ModeSymlink
 }
 
-func (f File) Create() error {
+func (f File) Create() (*os.File, error) {
 	dir := File(filepath.Dir(f.String()))
 	if !dir.Exists() {
 		if err := os.MkdirAll(dir.String(), 0755); err != nil {
-			return err
+			return nil, err
 		}
 	}
 
-	fi, err := os.Create(f.String())
-	fi.Close()
-	return err
+	return os.Create(f.String())
 }
 
 // Reads the entire contents of file and return as a string. Note

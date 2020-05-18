@@ -105,6 +105,8 @@ type Client struct {
 	GitDir  GitDir
 	WorkDir WorkDir
 
+	ObjectDir string
+
 	// This is used by the git-read-tree test suite. The description from the
 	// git man page is:
 	//
@@ -207,16 +209,24 @@ func findGitDir() GitDir {
 // Creates a new client with the given gitDir and workdir. If not specified,
 // NewClient will walk the filesystem until it finds a .git directory to use.
 func NewClient(gitDir, workDir string) (*Client, error) {
+	var objdir string
 	gitdir := GitDir(gitDir)
 	if gitdir == "" {
 		gitdir = GitDir(os.Getenv("GIT_DIR"))
 		if gitdir == "" {
 			gitdir = findGitDir()
 		}
+
 	}
 
 	if gitdir == "" || !gitdir.Exists() {
 		return nil, fmt.Errorf("fatal: Not a git repository (or any parent)")
+	}
+
+	if e := os.Getenv("GIT_OBJECT_DIRECTORY"); e != "" {
+		objdir = e
+	} else {
+		objdir = gitdir.File("objects").String()
 	}
 
 	workdir := WorkDir(workDir)
@@ -227,7 +237,7 @@ func NewClient(gitDir, workDir string) (*Client, error) {
 		}
 	}
 	m := make(map[Sha1]objectLocation)
-	return &Client{GitDir(gitdir), WorkDir(workdir), "", m, make(map[shaRef]GitObject), nil, nil, nil}, nil
+	return &Client{GitDir(gitdir), WorkDir(workdir), objdir, "", m, make(map[shaRef]GitObject), nil, nil, nil}, nil
 }
 
 // Returns the branchname of the HEAD branch, or the empty string if the
@@ -343,7 +353,7 @@ func (c *Client) CreateBranch(name string, commit Commitish) error {
 	}
 
 	// Create the file using File.Create first to ensure any parent directories are created.
-	if err := c.GitDir.File(File("refs/heads/" + name)).Create(); err != nil {
+	if _, err := c.GitDir.File(File("refs/heads/" + name)).Create(); err != nil {
 		return err
 	}
 
@@ -493,8 +503,8 @@ func (c *Client) WriteObject(objType string, rawdata []byte) (Sha1, error) {
 	directory := fmt.Sprintf("%x", sha[0:1])
 	file := fmt.Sprintf("%x", sha[1:])
 
-	os.MkdirAll(c.GitDir.String()+"/objects/"+directory, os.FileMode(0755))
-	f, err := c.GitDir.Create(File("objects/" + directory + "/" + file))
+	os.MkdirAll(filepath.Join(c.ObjectDir, directory), 0755)
+	f, err := File(filepath.Join(c.ObjectDir, directory, file)).Create()
 	if err != nil {
 		return Sha1{}, err
 	}
@@ -556,7 +566,12 @@ func (c *Client) HaveObject(id Sha1) (found bool, packedfile File, err error) {
 	}
 
 	// First the easy case
-	if f := c.GitDir.File(File(fmt.Sprintf("objects/%02x/%018x", id[0], id[1:]))); f.Exists() {
+	file := filepath.Join(
+		c.ObjectDir,
+		fmt.Sprintf("%02x", id[0]),
+		fmt.Sprintf("%018x", id[1:]),
+	)
+	if f := File(file); f.Exists() {
 		log.Printf("Object %s was found in the objects directory\n", id)
 		c.objectCache[id] = objectLocation{true, "", nil, 0}
 		return true, "", nil

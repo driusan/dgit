@@ -101,9 +101,11 @@ func Clone(opts CloneOptions, rmt Remote, dst File) error {
 		}
 		refname := strings.Replace(ref.Name, "refs/heads/", "refs/remotes/"+org+"/", 1)
 		f := c.GitDir.File(File(refname))
-		if err := f.Create(); err != nil {
+		cf, err := f.Create()
+		if err != nil {
 			return err
 		}
+		cf.Close()
 		if err := f.Append(fmt.Sprintf("%v\n", ref.Value)); err != nil {
 			return err
 		}

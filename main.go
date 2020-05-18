@@ -319,7 +319,10 @@ func main() {
 		}
 	case "pack-objects":
 		subcommandUsage = "<basename>"
-		cmd.PackObjects(c, os.Stdin, args)
+		if err := cmd.PackObjects(c, os.Stdin, args); err != nil {
+			fmt.Fprintf(os.Stderr, "%v\n", err)
+			os.Exit(4)
+		}
 	case "send-pack":
 		cmd.SendPack(c, args)
 	case "read-tree":
