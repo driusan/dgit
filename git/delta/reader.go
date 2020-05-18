@@ -1,4 +1,4 @@
-package git
+package delta
 
 import (
 	"fmt"
@@ -7,7 +7,9 @@ import (
 	"compress/flate"
 )
 
-type delta struct {
+// Reader reads a Delta from Src and computes the
+// delta using Base to resolve inserts.
+type Reader struct {
 	src  flate.Reader
 	base io.ReadSeeker
 
@@ -16,19 +18,21 @@ type delta struct {
 	cached []byte
 }
 
-func newDelta(src flate.Reader, base io.ReadSeeker) delta {
-	d := delta{src: src, base: base}
+// Creates a new Delta using src and base as the source and
+func NewReader(src flate.Reader, base io.ReadSeeker) Reader {
+	d := Reader{src: src, base: base}
 	// Read the source length. We don't care about the value,
 	// but need to advance the stream by an approprite amount
-	ReadVariable(src)
+	d.readVariable()
 
 	// Read the target length so we know when we've finished processing
 	// the delta stream.
-	d.sz = ReadVariable(src)
+	d.sz = d.readVariable()
 	return d
 }
 
-func (d *delta) Read(buf []byte) (n int, err error) {
+// Reads the resolved delta from the underlying delta stream into buf
+func (d *Reader) Read(buf []byte) (n int, err error) {
 	// Read the cached data before we read more from
 	// the stream
 	if len(d.cached) > 0 {
@@ -91,7 +95,6 @@ func (d *delta) Read(buf []byte) (n int, err error) {
 			}
 			length |= uint64(l) << 16
 		}
-
 		if length == 0 {
 			length = 0x10000
 		}
@@ -141,7 +144,7 @@ func (d *delta) Read(buf []byte) (n int, err error) {
 	panic("Unreachable code reached")
 }
 
-func (d *delta) readCached(buf []byte) (n int, err error) {
+func (d *Reader) readCached(buf []byte) (n int, err error) {
 	n = copy(buf, d.cached)
 	if n == len(d.cached) {
 		d.cached = nil
@@ -149,4 +152,27 @@ func (d *delta) readCached(buf []byte) (n int, err error) {
 		d.cached = d.cached[n:]
 	}
 	return n, nil
+}
+
+// Reads a variable length integer from the underlying stream and
+// returns it as a uint64
+func (d *Reader) readVariable() uint64 {
+	var val uint64
+	var i uint = 0
+	for {
+		b, err := d.src.ReadByte()
+		if err != nil {
+			panic(err)
+		}
+		val |= uint64(b&127) << (i * 7)
+		if b < 128 {
+			break
+		}
+		i += 1
+	}
+	return val
+}
+
+func (d Reader) Len() int {
+	return int(d.sz)
 }

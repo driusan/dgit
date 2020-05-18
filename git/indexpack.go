@@ -23,6 +23,7 @@ import (
 	"crypto/sha1"
 	"encoding/binary"
 
+	"github.com/driusan/dgit/git/delta"
 	"github.com/hashicorp/golang-lru"
 	// "hash/crc32"
 )
@@ -223,20 +224,20 @@ func (idx PackfileIndexV2) getObjectAtOffset(r io.ReaderAt, offset int64, metaOn
 			return nil, err
 		}
 
-		deltareader := newDelta(bytes.NewBuffer(rawdata), bytes.NewReader(base.GetContent()))
+		deltareader := delta.NewReader(bytes.NewBuffer(rawdata), bytes.NewReader(base.GetContent()))
 		resolved, err := ioutil.ReadAll(&deltareader)
 		if err != nil {
 			return nil, err
 		}
 		switch ty := base.GetType(); ty {
 		case "commit":
-			return GitCommitObject{int(deltareader.sz), resolved}, nil
+			return GitCommitObject{deltareader.Len(), resolved}, nil
 		case "tree":
-			return GitTreeObject{int(deltareader.sz), resolved}, nil
+			return GitTreeObject{deltareader.Len(), resolved}, nil
 		case "blob":
-			return GitBlobObject{int(deltareader.sz), resolved}, nil
+			return GitBlobObject{deltareader.Len(), resolved}, nil
 		case "tag":
-			return GitTagObject{int(deltareader.sz), resolved}, nil
+			return GitTagObject{deltareader.Len(), resolved}, nil
 		default:
 			return nil, InvalidObject
 		}
@@ -249,20 +250,20 @@ func (idx PackfileIndexV2) getObjectAtOffset(r io.ReaderAt, offset int64, metaOn
 			return nil, err
 		}
 
-		deltareader := newDelta(bytes.NewBuffer(rawdata), bytes.NewReader(base.GetContent()))
+		deltareader := delta.NewReader(bytes.NewBuffer(rawdata), bytes.NewReader(base.GetContent()))
 		resolved, err := ioutil.ReadAll(&deltareader)
 		if err != nil {
 			return nil, err
 		}
 		switch ty := base.GetType(); ty {
 		case "commit":
-			return GitCommitObject{int(deltareader.sz), resolved}, nil
+			return GitCommitObject{deltareader.Len(), resolved}, nil
 		case "tree":
-			return GitTreeObject{int(deltareader.sz), resolved}, nil
+			return GitTreeObject{deltareader.Len(), resolved}, nil
 		case "blob":
-			return GitBlobObject{int(deltareader.sz), resolved}, nil
+			return GitBlobObject{deltareader.Len(), resolved}, nil
 		case "tag":
-			return GitTagObject{int(deltareader.sz), resolved}, nil
+			return GitTagObject{deltareader.Len(), resolved}, nil
 		default:
 			return nil, InvalidObject
 		}
@@ -312,8 +313,8 @@ func (idx PackfileIndexV2) resolveDeltaForIndexing(pack io.ReaderAt, deltat Pack
 		if parent.deltasAgainst > 0 && parent.deltasAgainst < parent.deltasResolved {
 			ocache.Add(parent.location, cachedObject{t, base, 0, Sha1{}})
 		}
-		deltareader := newDelta(datareader, bytes.NewReader(base))
-		return t, &deltareader, int64(deltareader.sz), err
+		deltareader := delta.NewReader(datareader, bytes.NewReader(base))
+		return t, &deltareader, int64(deltareader.Len()), err
 	case OBJ_OFS_DELTA:
 		parent := cache[ObjectOffset(location)-ObjectOffset(refoffset)]
 		parent.deltasResolved++
@@ -328,8 +329,8 @@ func (idx PackfileIndexV2) resolveDeltaForIndexing(pack io.ReaderAt, deltat Pack
 		if parent.deltasAgainst > 0 && parent.deltasAgainst < parent.deltasResolved {
 			ocache.Add(ObjectOffset(location)-ObjectOffset(refoffset), cachedObject{t, base, 0, Sha1{}})
 		}
-		deltareader := newDelta(datareader, bytes.NewReader(base))
-		return t, &deltareader, int64(deltareader.sz), err
+		deltareader := delta.NewReader(datareader, bytes.NewReader(base))
+		return t, &deltareader, int64(deltareader.Len()), err
 		//return t, &deltareader, int64(sz), err
 	default:
 		return 0, nil, 0, fmt.Errorf("Unhandled delta type %v: ", t)
