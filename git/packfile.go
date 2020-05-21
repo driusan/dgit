@@ -149,7 +149,11 @@ func (v VariableLengthInt) WriteVariable(w io.Writer, typ PackEntryType) error {
 		v = v >> 7
 
 	}
-	w.Write(b)
+	if n, err := w.Write(b); err != nil {
+		return err
+	} else if n != len(b) {
+		return fmt.Errorf("Could not write length to w")
+	}
 	return nil
 }
 

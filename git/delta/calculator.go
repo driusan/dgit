@@ -3,6 +3,7 @@ package delta
 import (
 	"bytes"
 	"container/list"
+	"encoding/binary"
 	"fmt"
 	"index/suffixarray"
 	"io"
@@ -76,13 +77,18 @@ func (c copyinst) equals(i2 instruction) bool {
 
 // The meat of our algorithm. Calculate a list of instructions to
 // insert into the stream.
-func calculate(src, dst []byte) *list.List {
+func calculate(src, dst []byte, maxsz int) (*list.List, error) {
 	instructions := list.New()
 	index := suffixarray.New(src)
 	remaining := dst
+	estsz := 0
 	for len(remaining) > 0 {
 		nexto, nextl := longestPrefix(index, remaining)
+		if maxsz > 0 && estsz > maxsz {
+			return nil, fmt.Errorf("Max size exceeded")
+		}
 		if nextl > 0 {
+			estsz += 9
 			instructions.PushBack(copyinst{uint32(nexto), uint32(nextl)})
 			remaining = remaining[nextl:]
 			continue
@@ -90,6 +96,7 @@ func calculate(src, dst []byte) *list.List {
 		// FIXME: Find where the next prefix > minCopy starts,
 		// insert until then instead of always inserting minCopy
 		if len(remaining) <= minCopy {
+			estsz += len(remaining)+1
 			instructions.PushBack(insert(remaining))
 			remaining = nil
 			continue
@@ -97,17 +104,19 @@ func calculate(src, dst []byte) *list.List {
 
 		nextOffset := nextPrefixStart(index, dst)
 		if nextOffset >= 0 {
+			estsz += 1 + len(remaining)-nextOffset
 			instructions.PushBack(insert(remaining[:nextOffset]))
 			remaining = remaining[nextOffset:]
 		} else {
 			// nextPrefixStart went through the whole string
 			// and didn't find anything, so insert the whole string
+			estsz += len(remaining) + 1
 			instructions.PushBack(insert(remaining))
 			remaining = nil
 		}
 
 	}
-	return instructions
+	return instructions, nil
 }
 
 // Returns the longest prefix of dst that is found somewhere in src.
@@ -165,21 +174,25 @@ func nextPrefixStart(src *suffixarray.Index, dst []byte) (offset int) {
 
 // Calculate how to generate dst using src as the base
 // of the deltas and write the result to w.
-func Calculate(w io.Writer, src, dst []byte) error {
-	instructions := calculate(src, dst)
-	var buf bytes.Buffer
+func Calculate(w io.Writer, src, dst []byte, maxsz int) error {
+	instructions, err := calculate(src, dst, maxsz)
+	if err != nil {
+		return err
+	}
 	// Write src and dst length header
-	if err := writeVarInt(&buf, len(src)); err != nil {
+	if err := writeVarInt(w, len(src)); err != nil {
 		return err
 	}
-	if err := writeVarInt(&buf, len(dst)); err != nil {
+	if err := writeVarInt(w, len(dst)); err != nil {
 		return err
 	}
+	/*
 	if n, err := w.Write(buf.Bytes()); err != nil {
 		return err
 	} else if n != buf.Len() {
 		return fmt.Errorf("Could not write delta header")
 	}
+	*/
 
 	// Write the instructions themselves
 	for e := instructions.Front(); e != nil; e = e.Next() {
@@ -288,7 +301,13 @@ func (c copyinst) write(w io.Writer) error {
 	return nil
 }
 
-func writeVarInt(w io.ByteWriter, val int) error {
+func writeVarInt(w io.Writer, val int) error {
+	var buf [128]byte
+	n := binary.PutUvarint(buf[:], uint64(val))
+	if _, err := w.Write(buf[:n]); err != nil {
+		return err
+	}
+	/*
 	for val >= 128 {
 		if err := w.WriteByte(byte(val & 127)); err != nil {
 			return err
@@ -298,5 +317,6 @@ func writeVarInt(w io.ByteWriter, val int) error {
 	if err := w.WriteByte(byte(val & 127)); err != nil {
 		return err
 	}
+	*/
 	return nil
 }
