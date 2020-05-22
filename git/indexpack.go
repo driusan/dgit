@@ -8,6 +8,7 @@ import (
 	"io/ioutil"
 	"log"
 	"os"
+	"path/filepath"
 	//"runtime"
 	"sort"
 	"strings"
@@ -731,8 +732,14 @@ func IndexPack(c *Client, opts IndexPackOptions, r io.Reader) (idx PackfileIndex
 		idxname = basename + ".idx"
 	} else {
 		packhash, _ := indexfile.GetTrailer()
-		basename := fmt.Sprintf("%s/pack-%s", c.GitDir.File("objects/pack").String(), packhash)
+		basename := filepath.Join(c.ObjectDir, "pack", fmt.Sprintf("pack-%s", packhash))
 		idxname = basename + ".idx"
+
+		if opts.Keep != "" {
+			if err := ioutil.WriteFile(basename+".keep", []byte(opts.Keep+"\n"), 0755); err != nil {
+				return indexfile, err
+			}
+		}
 
 		if err := os.Rename(pack.Name(), basename+".pack"); err != nil {
 			return indexfile, err

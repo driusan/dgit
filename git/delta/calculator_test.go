@@ -3,6 +3,7 @@ package delta
 import (
 	"bytes"
 	"container/list"
+	"index/suffixarray"
 	"io/ioutil"
 	"testing"
 )
@@ -63,7 +64,11 @@ func TestCalculator(t *testing.T) {
 	}
 
 	for _, tc := range tests {
-		instructions := calculate(tc.src, tc.dst)
+		idx := suffixarray.New(tc.src)
+		instructions, err := calculate(idx, tc.src, tc.dst, -1)
+		if err != nil {
+			t.Fatal(err)
+		}
 		if identicalInstructions(tc.want, instructions) != true {
 			t.Errorf("%s", tc.label)
 		}
@@ -251,13 +256,35 @@ func TestSanityTest(t *testing.T) {
 	var delta bytes.Buffer
 	base := []byte("def")
 	target := []byte("defabc")
-	Calculate(&delta, base, target)
+	Calculate(&delta, base, target, -1)
 
 	resolved := NewReader(
 		bytes.NewReader(delta.Bytes()),
 		bytes.NewReader(base),
 	)
 	val, err := ioutil.ReadAll(&resolved)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if string(val) != string(target) {
+		t.Errorf("Unexpected delta resolution: got %v want %v", val, target)
+	}
+
+	// "Large" delta, one which gave us problems with the git test suite..
+	base = make([]byte, 4096)
+
+	for i := range base {
+		base[i] = 'c'
+	}
+	target = []byte(string(base) + "foo")
+	delta.Reset()
+	Calculate(&delta, base, target, -1)
+
+	resolved = NewReader(
+		bytes.NewReader(delta.Bytes()),
+		bytes.NewReader(base),
+	)
+	val, err = ioutil.ReadAll(&resolved)
 	if err != nil {
 		t.Fatal(err)
 	}

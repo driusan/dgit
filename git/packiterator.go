@@ -9,6 +9,7 @@ import (
 	"io"
 	"io/ioutil"
 	"os"
+	"path/filepath"
 
 	"encoding/binary"
 )
@@ -53,7 +54,13 @@ func iteratePack(c *Client, r io.Reader, initcallback func(int), callback packIt
 		r = counter
 	} else {
 		var err error
-		pack, err = ioutil.TempFile(c.GitDir.File("objects/pack").String(), ".tmppackfile")
+		pdir := filepath.Join(c.ObjectDir, "pack")
+		if !File(pdir).Exists() {
+			if err := os.MkdirAll(pdir, 0755); err != nil {
+				return nil, err
+			}
+		}
+		pack, err = ioutil.TempFile(pdir, ".tmppackfile")
 		if err != nil {
 			return nil, err
 		}

@@ -31,7 +31,7 @@ func PackObjects(c *git.Client, input io.Reader, args []string) (rv error) {
 		flags.Var(newNotimplStringValue(), sf, "Not implemented")
 	}
 
-	flags.IntVar(&opts.Window, "window", 0, "Size of the sliding window to use for delta calculation")
+	flags.IntVar(&opts.Window, "window", 10, "Size of the sliding window to use for delta calculation")
 	flags.BoolVar(&opts.DeltaBaseOffset, "delta-base-offset", false, "Use offset deltas instead of ref deltas in pack")
 
 	flags.Parse(args)

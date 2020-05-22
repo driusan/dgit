@@ -129,7 +129,7 @@ func (p PackfileHeader) dataStream(r flate.Reader) (io.Reader, error) {
 
 type VariableLengthInt uint64
 
-func (v VariableLengthInt) WriteVariable(w io.Writer, typ PackEntryType) error {
+func (v VariableLengthInt) WriteVariable(w io.Writer, typ PackEntryType) (int, error) {
 	b := make([]byte, 0)
 	// Encode the type
 	theByte := byte(typ) << 4
@@ -149,8 +149,7 @@ func (v VariableLengthInt) WriteVariable(w io.Writer, typ PackEntryType) error {
 		v = v >> 7
 
 	}
-	w.Write(b)
-	return nil
+	return w.Write(b)
 }
 
 // Reads a delta offset from the io.Reader, and returns both the value
