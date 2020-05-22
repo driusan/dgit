@@ -96,7 +96,7 @@ func calculate(src, dst []byte, maxsz int) (*list.List, error) {
 		// FIXME: Find where the next prefix > minCopy starts,
 		// insert until then instead of always inserting minCopy
 		if len(remaining) <= minCopy {
-			estsz += len(remaining)+1
+			estsz += len(remaining) + 1
 			instructions.PushBack(insert(remaining))
 			remaining = nil
 			continue
@@ -104,7 +104,7 @@ func calculate(src, dst []byte, maxsz int) (*list.List, error) {
 
 		nextOffset := nextPrefixStart(index, dst)
 		if nextOffset >= 0 {
-			estsz += 1 + len(remaining)-nextOffset
+			estsz += 1 + len(remaining) - nextOffset
 			instructions.PushBack(insert(remaining[:nextOffset]))
 			remaining = remaining[nextOffset:]
 		} else {
@@ -187,11 +187,11 @@ func Calculate(w io.Writer, src, dst []byte, maxsz int) error {
 		return err
 	}
 	/*
-	if n, err := w.Write(buf.Bytes()); err != nil {
-		return err
-	} else if n != buf.Len() {
-		return fmt.Errorf("Could not write delta header")
-	}
+		if n, err := w.Write(buf.Bytes()); err != nil {
+			return err
+		} else if n != buf.Len() {
+			return fmt.Errorf("Could not write delta header")
+		}
 	*/
 
 	// Write the instructions themselves
@@ -308,15 +308,15 @@ func writeVarInt(w io.Writer, val int) error {
 		return err
 	}
 	/*
-	for val >= 128 {
+		for val >= 128 {
+			if err := w.WriteByte(byte(val & 127)); err != nil {
+				return err
+			}
+			val = val >> 7
+		}
 		if err := w.WriteByte(byte(val & 127)); err != nil {
 			return err
 		}
-		val = val >> 7
-	}
-	if err := w.WriteByte(byte(val & 127)); err != nil {
-		return err
-	}
 	*/
 	return nil
 }
