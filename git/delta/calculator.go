@@ -303,16 +303,5 @@ func writeVarInt(w io.Writer, val int) error {
 	if _, err := w.Write(buf[:n]); err != nil {
 		return err
 	}
-	/*
-		for val >= 128 {
-			if err := w.WriteByte(byte(val & 127)); err != nil {
-				return err
-			}
-			val = val >> 7
-		}
-		if err := w.WriteByte(byte(val & 127)); err != nil {
-			return err
-		}
-	*/
 	return nil
 }

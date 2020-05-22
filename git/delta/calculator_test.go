@@ -270,7 +270,6 @@ func TestSanityTest(t *testing.T) {
 		t.Errorf("Unexpected delta resolution: got %v want %v", val, target)
 	}
 
-	println("Doing delta that we want")
 	// "Large" delta, one which gave us problems with the git test suite..
 	base = make([]byte, 4096)
 

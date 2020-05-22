@@ -103,7 +103,6 @@ func PackObjects(c *Client, opts PackObjectsOptions, w io.Writer, objects []Sha1
 		if ref != nil {
 			if opts.DeltaBaseOffset {
 				offset := pos - ref.location
-				println("Offset", pos-ref.location)
 				var buf [128]byte
 				n := binary.PutUvarint(buf[:], uint64(offset))
 				n, err := w.Write(buf[:n])
