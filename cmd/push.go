@@ -3,10 +3,10 @@ package cmd
 import (
 	"flag"
 	"fmt"
-	"os"
-	"strings"
 	"io"
 	"io/ioutil"
+	"os"
+	"strings"
 
 	"github.com/driusan/dgit/git"
 )
