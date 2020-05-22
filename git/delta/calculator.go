@@ -77,9 +77,8 @@ func (c copyinst) equals(i2 instruction) bool {
 
 // The meat of our algorithm. Calculate a list of instructions to
 // insert into the stream.
-func calculate(src, dst []byte, maxsz int) (*list.List, error) {
+func calculate(index *suffixarray.Index, src, dst []byte, maxsz int) (*list.List, error) {
 	instructions := list.New()
-	index := suffixarray.New(src)
 	remaining := dst
 	estsz := 0
 	for len(remaining) > 0 {
@@ -172,10 +171,8 @@ func nextPrefixStart(src *suffixarray.Index, dst []byte) (offset int) {
 	return -1
 }
 
-// Calculate how to generate dst using src as the base
-// of the deltas and write the result to w.
-func Calculate(w io.Writer, src, dst []byte, maxsz int) error {
-	instructions, err := calculate(src, dst, maxsz)
+func CalculateWithIndex(index *suffixarray.Index, w io.Writer, src, dst []byte, maxsz int) error {
+	instructions, err := calculate(index, src, dst, maxsz)
 	if err != nil {
 		return err
 	}
@@ -186,14 +183,6 @@ func Calculate(w io.Writer, src, dst []byte, maxsz int) error {
 	if err := writeVarInt(w, len(dst)); err != nil {
 		return err
 	}
-	/*
-		if n, err := w.Write(buf.Bytes()); err != nil {
-			return err
-		} else if n != buf.Len() {
-			return fmt.Errorf("Could not write delta header")
-		}
-	*/
-
 	// Write the instructions themselves
 	for e := instructions.Front(); e != nil; e = e.Next() {
 		inst := e.Value.(instruction)
@@ -203,6 +192,13 @@ func Calculate(w io.Writer, src, dst []byte, maxsz int) error {
 		}
 	}
 	return nil
+}
+
+// Calculate how to generate dst using src as the base
+// of the deltas and write the result to w.
+func Calculate(w io.Writer, src, dst []byte, maxsz int) error {
+	index := suffixarray.New(src)
+	return CalculateWithIndex(index, w, src, dst, maxsz)
 }
 
 func (c copyinst) write(w io.Writer) error {

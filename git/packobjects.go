@@ -2,16 +2,15 @@ package git
 
 import (
 	"bytes"
-	//	"fmt"
 	"io"
-	//"io/ioutil"
 	"log"
-	//	"os"
+	//"os"
 	//"runtime/pprof"
 
 	"compress/zlib"
 	"crypto/sha1"
 	"encoding/binary"
+	"index/suffixarray"
 
 	"github.com/driusan/dgit/git/delta"
 )
@@ -32,6 +31,7 @@ type packWindow struct {
 	location int
 	typ      PackEntryType
 	cache    []byte
+	index    *suffixarray.Index
 }
 
 // Writes a packfile to w of the objects objects from the client's
@@ -63,7 +63,8 @@ func PackObjects(c *Client, opts PackObjectsOptions, w io.Writer, objects []Sha1
 		best := objbytes
 		otyp := obj.PackEntryType(c)
 		otypreal := obj.PackEntryType(c)
-		var offref *Sha1
+		written := 0
+		var ref *packWindow
 
 		// We don't bother trying to calculate how close the object
 		// is, we just blindly calculate a delta and calculate the
@@ -75,12 +76,16 @@ func PackObjects(c *Client, opts PackObjectsOptions, w io.Writer, objects []Sha1
 			}
 
 			var newdelta bytes.Buffer
-			if err := delta.Calculate(&newdelta, basebytes, objbytes, len(best)/2); err == nil {
+			if err := delta.CalculateWithIndex(tryobj.index, &newdelta, basebytes, objbytes, len(best)/2); err == nil {
 
 				if d := newdelta.Bytes(); len(d) < len(best) {
 					best = d
-					otyp = OBJ_REF_DELTA
-					offref = &tryobj.oid
+					if opts.DeltaBaseOffset {
+						otyp = OBJ_OFS_DELTA
+					} else {
+						otyp = OBJ_REF_DELTA
+					}
+					ref = &tryobj
 				}
 			} else {
 				log.Println(err)
@@ -89,19 +94,36 @@ func PackObjects(c *Client, opts PackObjectsOptions, w io.Writer, objects []Sha1
 
 		s := VariableLengthInt(len(best))
 
-		if err := s.WriteVariable(w, otyp); err != nil {
+		if n, err := s.WriteVariable(w, otyp); err != nil {
 			return Sha1{}, err
+		} else {
+			written += n
 		}
 
-		if offref != nil {
-			derefoff := Sha1(*offref)
-			if n, err := w.Write(derefoff[:]); err != nil {
-				return Sha1{}, err
-			} else if n != 20 {
-				panic("could not write ref offset")
+		if ref != nil {
+			if opts.DeltaBaseOffset {
+				offset := pos - ref.location
+				println("Offset", pos-ref.location)
+				var buf [128]byte
+				n := binary.PutUvarint(buf[:], uint64(offset))
+				n, err := w.Write(buf[:n])
+				if err != nil {
+					return Sha1{}, err
+				}
+				written += n
+
+			} else {
+				if _, err := w.Write(ref.oid[:]); err != nil {
+					return Sha1{}, err
+				}
+				written += 20
 			}
 		}
-		zw := zlib.NewWriter(w)
+
+		// We write into a buffer so that we can calcualte the compressed
+		// size easily. the n from io.Writer is the uncompressed size.
+		var cbuf bytes.Buffer
+		zw := zlib.NewWriter(&cbuf)
 		if err != nil {
 			panic(err)
 		}
@@ -110,21 +132,34 @@ func PackObjects(c *Client, opts PackObjectsOptions, w io.Writer, objects []Sha1
 		}
 		zw.Close()
 
-		if i < opts.Window {
-			window = append(window, packWindow{
-				oid:      obj,
-				location: n,
-				typ:      otypreal,
-				cache:    objbytes,
-			})
-		} else {
-			window[i%opts.Window] = packWindow{
-				oid:      obj,
-				location: pos,
-				typ:      otypreal,
-				cache:    objbytes,
+		if _, err := w.Write(cbuf.Bytes()); err != nil {
+			return Sha1{}, err
+		}
+
+		written += cbuf.Len()
+
+		suffix := suffixarray.New(objbytes)
+		if opts.Window > 0 {
+			if i < opts.Window {
+				window = append(window, packWindow{
+					oid:      obj,
+					location: pos,
+					typ:      otypreal,
+					cache:    objbytes,
+					index:    suffix,
+				})
+			} else {
+				window[i%opts.Window] = packWindow{
+					oid:      obj,
+					location: pos,
+					typ:      otypreal,
+					cache:    objbytes,
+					index:    suffix,
+				}
 			}
 		}
+
+		pos += written
 	}
 	trail := sha.Sum(nil)
 	w.Write(trail)

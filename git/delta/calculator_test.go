@@ -3,6 +3,7 @@ package delta
 import (
 	"bytes"
 	"container/list"
+	"index/suffixarray"
 	"io/ioutil"
 	"testing"
 )
@@ -63,7 +64,8 @@ func TestCalculator(t *testing.T) {
 	}
 
 	for _, tc := range tests {
-		instructions, err := calculate(tc.src, tc.dst, -1)
+		idx := suffixarray.New(tc.src)
+		instructions, err := calculate(idx, tc.src, tc.dst, -1)
 		if err != nil {
 			t.Fatal(err)
 		}
