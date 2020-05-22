@@ -3,6 +3,7 @@ package cmd
 import (
 	"flag"
 	"fmt"
+	"io"
 	"io/ioutil"
 	"os"
 	"strings"
@@ -100,24 +101,20 @@ To push and set the upstream to the remote named "origin" use:
 			remoteCommits = append(remoteCommits, git.CommitID(refsha))
 		}
 	}
-	var objects strings.Builder
-	if _, err := git.RevList(c, git.RevListOptions{Objects: true}, &objects, []git.Commitish{localSha[0]}, remoteCommits); err != nil {
+	objs, err := git.RevList(c, git.RevListOptions{Objects: true, Quiet: true}, nil, []git.Commitish{localSha[0]}, remoteCommits)
+	if err != nil {
 		return err
 	}
 
-	f, err := ioutil.TempFile("", "sendpack")
-	if err != nil {
-		panic(err)
-	}
-	os.Remove(f.Name())
-	fmt.Fprintf(f, objects.String())
-
-	PackObjects(c, strings.NewReader(objects.String()), []string{f.Name()})
-	f, err = os.Open(f.Name() + ".pack")
+	f, err := ioutil.TempFile("", "dgitpush")
 	if err != nil {
 		return err
 	}
 	defer os.Remove(f.Name())
+	if _, err := git.PackObjects(c, git.PackObjectsOptions{}, f, objs); err != nil {
+		return err
+	}
+	f.Seek(0, io.SeekStart)
 	stat, err := f.Stat()
 	if err != nil {
 		return err
