@@ -53,6 +53,7 @@ func Init(c *Client, opts InitOptions, dir string) (*Client, error) {
 			}
 			c.GitDir = GitDir(gd)
 			c.WorkDir = WorkDir(wd)
+			c.ObjectDir = c.GetObjectsDir().String()
 		} else {
 			c2, err := NewClient(dir+"/.git", dir)
 			if err != nil {
@@ -63,6 +64,7 @@ func Init(c *Client, opts InitOptions, dir string) (*Client, error) {
 	} else {
 		if c != nil {
 			c.GitDir = GitDir(dir)
+			c.ObjectDir = c.GetObjectsDir().String()
 		} else {
 			c2, err := NewClient(dir, "")
 			if err != nil {
@@ -74,7 +76,6 @@ func Init(c *Client, opts InitOptions, dir string) (*Client, error) {
 
 	// These are all the directories created by a clean "git init"
 	// with the canonical git implementation
-	println("ObjectDir", c.ObjectDir)
 	if err := os.MkdirAll(filepath.Join(c.ObjectDir, "pack"), 0755); err != nil {
 		return nil, err
 	}
