@@ -578,7 +578,7 @@ func (c *Client) HaveObject(id Sha1) (found bool, packedfile File, err error) {
 	}
 
 	// Then, check if it's in a pack file.
-	files, err := ioutil.ReadDir(c.GitDir.File("objects/pack").String())
+	files, err := ioutil.ReadDir(filepath.Join(c.ObjectDir, "pack"))
 	if err != nil {
 		// The pack directory doesn't exist. It's not an error, but it definitely
 		// doesn't have the file..
@@ -589,7 +589,7 @@ func (c *Client) HaveObject(id Sha1) (found bool, packedfile File, err error) {
 		if filepath.Ext(fi.Name()) == ".idx" {
 			// It's ambiguous if Name() has the full path or not according to what
 			// ReadDir returns, so just be very cautious on how we open it.
-			name := c.GitDir.File(File(fmt.Sprintf("objects/pack/%s", filepath.Base(fi.Name()))))
+			name := File(filepath.Join(c.ObjectDir, "pack", filepath.Base(fi.Name())))
 			f, err := os.Open(name.String())
 			if err != nil {
 				log.Print(err)

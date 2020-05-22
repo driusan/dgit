@@ -74,10 +74,11 @@ func Init(c *Client, opts InitOptions, dir string) (*Client, error) {
 
 	// These are all the directories created by a clean "git init"
 	// with the canonical git implementation
-	if err := os.MkdirAll(c.GitDir.String()+"/objects/pack", 0755); err != nil {
+	println("ObjectDir", c.ObjectDir)
+	if err := os.MkdirAll(filepath.Join(c.ObjectDir, "pack"), 0755); err != nil {
 		return nil, err
 	}
-	if err := os.MkdirAll(c.GitDir.String()+"/objects/info", 0755); err != nil {
+	if err := os.MkdirAll(filepath.Join(c.ObjectDir, "info"), 0755); err != nil {
 		return nil, err
 	}
 	if err := os.MkdirAll(c.GitDir.String()+"/info", 0755); err != nil {
