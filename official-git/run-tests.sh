@@ -58,7 +58,7 @@ GIT_SKIP_TESTS="$GIT_SKIP_TESTS t1503.[5-7] t1503.10" # No support for @{suffix}
 GIT_SKIP_TESTS="$GIT_SKIP_TESTS t2018.[6-7] t2018.[9] t2018.1[5-8]"
 GIT_SKIP_TESTS="$GIT_SKIP_TESTS t3000.7"
 # Only the setup for pack-objects tests has been tested
-GIT_SKIP_TESTS="$GIT_SKIP_TESTS t5300.1[6-9] t5300.2[0-9] t5300.3[0-3]"
+GIT_SKIP_TESTS="$GIT_SKIP_TESTS t5300.1[7-9] t5300.2[0-9] t5300.3[0-3]"
 GIT_SKIP_TESTS="$GIT_SKIP_TESTS t5512.1[1234] t5512.1[079] t5512.9 t5512.2[01234]" # 1[234] seem to get stuck in an infinite loop. The rest fail and need investigation.
 GIT_SKIP_TESTS="$GIT_SKIP_TESTS t5510.[4-9] t5510.[1-7][0-9]" # Just the basic fetch tests are working for now
 export GIT_SKIP_TESTS

@@ -54,7 +54,13 @@ func iteratePack(c *Client, r io.Reader, initcallback func(int), callback packIt
 		r = counter
 	} else {
 		var err error
-		pack, err = ioutil.TempFile(filepath.Join(c.ObjectDir, "pack"), ".tmppackfile")
+		pdir := filepath.Join(c.ObjectDir, "pack")
+		if !File(pdir).Exists() {
+			if err := os.MkdirAll(pdir, 0755); err != nil {
+				return nil, err
+			}
+		}
+		pack, err = ioutil.TempFile(pdir, ".tmppackfile")
 		if err != nil {
 			return nil, err
 		}
