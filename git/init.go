@@ -53,12 +53,22 @@ func Init(c *Client, opts InitOptions, dir string) (*Client, error) {
 			}
 			c.GitDir = GitDir(gd)
 			c.WorkDir = WorkDir(wd)
-			c.ObjectDir = c.GetObjectsDir().String()
+
+			od, err := filepath.Abs(c.GetObjectsDir().String())
+			if err != nil {
+				return nil, err
+			}
+			c.ObjectDir = od
 		} else {
 			c2, err := NewClient(dir+"/.git", dir)
 			if err != nil {
 				return nil, err
 			}
+			od, err := filepath.Abs(c2.ObjectDir)
+			if err != nil {
+				return nil, err
+			}
+			c2.ObjectDir = od
 			c = c2
 		}
 	} else {
