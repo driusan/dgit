@@ -142,7 +142,8 @@ type RemoteConn interface {
 	SetSideband(w io.Writer)
 
 	// A RemoteConn should act as a writter. When written to, it should
-	// write to the underlying connection in pkt-line format.
+	// write to the underlying connection in pkt-line format or directly
+	// as per SetWriteMode.
 	io.Writer
 
 	// Reading from a RemoteConn should return the data after decoding
@@ -154,6 +155,10 @@ type RemoteConn interface {
 	// Determines how reading from the connection returns data to the
 	// caller.
 	SetReadMode(mode PackProtocolMode)
+
+	// Determines how reading from the connection returns data to the
+	// caller.
+	SetWriteMode(mode PackProtocolMode)
 
 	// Send a flush packet to the connection
 	Flush() error
@@ -211,13 +216,19 @@ type sharedRemoteConn struct {
 	refs []Ref
 
 	*packProtocolReader
+
+	writemode PackProtocolMode
 }
 
 func (r *sharedRemoteConn) SetService(s string) error {
-	println("Setting service to", s)
 	r.service = s
 	return nil
 }
+
+func (r *sharedRemoteConn) SetWriteMode(m PackProtocolMode) {
+	r.writemode = m
+}
+
 func (r sharedRemoteConn) Capabilities() map[string]map[string]struct{} {
 	return r.capabilities
 }

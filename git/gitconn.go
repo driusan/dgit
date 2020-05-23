@@ -87,14 +87,21 @@ func (g *gitConn) GetRefs(opts LsRemoteOptions, patterns []string) ([]Ref, error
 }
 
 func (g *gitConn) Write(data []byte) (int, error) {
-	l, err := PktLineEncodeNoNl(data)
-	if err != nil {
-		return 0, err
+	switch g.writemode {
+	case PktLineMode:
+		l, err := PktLineEncodeNoNl(data)
+		if err != nil {
+			return 0, err
+		}
+		fmt.Fprintf(g.conn, "%s", l)
+		// We lie about how much data was written since
+		// we wrote more than asked.
+		return len(data), nil
+	case DirectMode:
+		return g.conn.Write(data)
+	default:
+		return 0, fmt.Errorf("Invalid write mode")
 	}
-	fmt.Fprintf(g.conn, "%s", l)
-	// We lie about how much data was written since
-	// we wrote more than asked.
-	return len(data), nil
 }
 
 func (g *gitConn) Flush() error {

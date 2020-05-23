@@ -123,10 +123,17 @@ func (s localConn) Delim() error {
 }
 
 func (s localConn) Write(data []byte) (int, error) {
-	l, err := PktLineEncodeNoNl(data)
-	if err != nil {
-		return 0, err
+	switch s.writemode {
+	case PktLineMode:
+		l, err := PktLineEncodeNoNl(data)
+		if err != nil {
+			return 0, err
+		}
+		fmt.Fprintf(s.stdout, "%s", l)
+		return len(data), nil
+	case DirectMode:
+		return s.stdout.Write(data)
+	default:
+		return 0, fmt.Errorf("Invalid write mode")
 	}
-	fmt.Fprintf(s.stdout, "%s", l)
-	return len(data), nil
 }

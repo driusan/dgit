@@ -1,6 +1,7 @@
 package git
 
 import (
+	"bytes"
 	"fmt"
 	"io"
 	"log"
@@ -38,6 +39,8 @@ type smartHTTPConn struct {
 	lastresp io.ReadCloser
 
 	almostdone bool
+
+	openmode GitService
 }
 
 var _ RemoteConn = &smartHTTPConn{}
@@ -66,6 +69,8 @@ func (s *smartHTTPConn) OpenConn(srv GitService) error {
 		panic("SetService not called before OpenConn")
 	}
 
+	s.openmode = srv
+
 	// Make variable references out of true and false so we can take
 	// their address for isopen
 	var trueref bool = true
@@ -91,9 +96,20 @@ func (s *smartHTTPConn) OpenConn(srv GitService) error {
 	}
 	defer resp.Body.Close()
 	var respreader io.Reader
+	if resp.StatusCode == 401 && strings.HasSuffix(s.giturl, ".git") {
+		// The git protocol only responds 403, 200, or 304.
+		// 401 means our credentials are wrong regardless of
+		// whether or not the URL ends in .git
+		var buf bytes.Buffer
+		io.Copy(&buf, resp.Body)
+		return fmt.Errorf("%s", buf)
+	}
 	if ct := resp.Header.Get("Content-Type"); ct != expectedmime || resp.StatusCode != 200 {
 		// If the content-type was wrong, try again at "url.git"
 		log.Printf("Unexpected Content-Type for %v: got %v\n", s.giturl, ct)
+		if strings.HasSuffix(s.giturl, ".git") {
+			return fmt.Errorf("Remote did not speak git protocol")
+		}
 		s.giturl = s.giturl + ".git"
 		req, err = http.NewRequest("GET", s.giturl+"/info/refs?service="+s.service, nil)
 		if s.username != "" || s.password != "" {
@@ -109,6 +125,11 @@ func (s *smartHTTPConn) OpenConn(srv GitService) error {
 		if ct := newresp.Header.Get("Content-Type"); ct != expectedmime || newresp.StatusCode != 200 {
 			log.Printf("Unexpected Content-Type for %v: got %v\n", s.giturl, ct)
 			s.isopen = &falseref
+			if newresp.StatusCode == 403 {
+				var buf bytes.Buffer
+				io.Copy(&buf, resp.Body)
+				return fmt.Errorf("%s", buf)
+			}
 			return fmt.Errorf("Remote did not speak git protocol")
 		}
 		respreader = newresp.Body
@@ -298,32 +319,47 @@ func (s smartHTTPConn) Close() error {
 }
 
 func (s *smartHTTPConn) Write(data []byte) (int, error) {
-	l, err := PktLineEncodeNoNl(data)
-	if err != nil {
-		return 0, err
-	}
-	if n, err := fmt.Fprintf(&s.buf, "%s", l); err != nil {
-		return n, err
-	}
-	// protocol v2 sends "done" and then a flush, while v1 sends a flush
-	// and then done. So if it's v2, don't send the request when we see
-	// "done"
-	if s.protocolversion != 2 {
-		if string(data) == "done\n" || string(data) == "done" {
-			if err := s.sendRequest("application/x-git-upload-pack-result"); err != nil {
-				return 0, err
-			}
-			s.almostdone = false
+	switch s.writemode {
+	case PktLineMode:
+		l, err := PktLineEncodeNoNl(data)
+		if err != nil {
+			return 0, err
 		}
+		if n, err := fmt.Fprintf(&s.buf, "%s", l); err != nil {
+			return n, err
+		}
+		// protocol v2 sends "done" and then a flush, while v1 sends a flush
+		// and then done. So if it's v2, don't send the request when we see
+		// "done"
+		if s.protocolversion != 2 {
+			if string(data) == "done\n" || string(data) == "done" {
+				if err := s.sendRequest("application/x-git-upload-pack-result"); err != nil {
+					return 0, err
+				}
+				s.almostdone = false
+			}
+		}
+		return len(l), nil
+	case DirectMode:
+		return s.buf.Write(data)
+	default:
+		return 0, fmt.Errorf("Invalid write mode for writing")
 	}
-	return len(l), nil
 }
 func (s *smartHTTPConn) Flush() error {
-	fmt.Fprintf(&s.buf, "0000")
-	if s.almostdone && s.protocolversion == 1 {
-		return nil
+	switch s.openmode {
+	case UploadPackService:
+		fmt.Fprintf(&s.buf, "0000")
+		if s.almostdone && s.protocolversion == 1 {
+			return nil
+		}
+		return s.sendRequest("application/x-git-upload-pack-result")
+	case ReceivePackService:
+		fmt.Fprintf(&s.buf, "0000")
+		return s.sendRequest("application/x-git-receive-pack-result")
+	default:
+		return fmt.Errorf("Invalid service")
 	}
-	return s.sendRequest("application/x-git-upload-pack-result")
 }
 
 func (s *smartHTTPConn) Delim() error {
@@ -334,13 +370,20 @@ func (s *smartHTTPConn) Delim() error {
 func (s *smartHTTPConn) sendRequest(expectedmime string) error {
 	log.Println("Sending HTTP Request")
 	topost := s.buf.String()
-	r, err := http.NewRequest("POST", s.giturl+"/git-upload-pack", strings.NewReader(topost))
+	r, err := http.NewRequest("POST", s.giturl+"/"+s.service, strings.NewReader(topost))
 	r.Header.Set("User-Agent", "dgit/0.0.2")
 	if s.protocolversion == 2 {
 		r.Header.Set("Git-Protocol", "version=2")
 	}
 
-	r.Header.Set("Content-Type", "application/x-git-upload-pack-request")
+	switch s.openmode {
+	case UploadPackService:
+		r.Header.Set("Content-Type", "application/x-git-upload-pack-request")
+	case ReceivePackService:
+		r.Header.Set("Content-Type", "application/x-git-receive-pack-request")
+	default:
+		return fmt.Errorf("Invalid request type")
+	}
 	r.ContentLength = int64(len([]byte(topost)))
 	if s.username != "" || s.password != "" {
 		r.SetBasicAuth(s.username, s.password)

@@ -21,6 +21,31 @@ func (rn Refname) String() string {
 	return string(rn)
 }
 
+// Returns the local part of a refname when given a ref like
+// refs/heads/foo:refs/heads/bar for send-pack
+func (rn Refname) LocalName() Refname {
+	if idx := strings.IndexByte(rn.String(), ':'); idx >= 0 {
+		return rn[:idx]
+	}
+	return rn
+}
+
+func (rn Refname) RemoteName() Refname {
+	if idx := strings.IndexByte(rn.String(), ':'); idx >= 0 {
+		return rn[idx+1:]
+	}
+	return rn
+}
+
+func (rn Refname) CommitID(c *Client) (CommitID, error) {
+	local := rn.LocalName()
+	cmt, err := RevParseCommitish(c, &RevParseOptions{}, local.String())
+	if err != nil {
+		return CommitID{}, err
+	}
+	return cmt.CommitID(c)
+}
+
 type FetchPackOptions struct {
 	All                            bool
 	Stdin                          io.Reader
@@ -59,6 +84,14 @@ func FetchPack(c *Client, opts FetchPackOptions, rm Remote, wants []Refname) ([]
 	if err != nil {
 		return nil, err
 	}
+	if opts.UploadPack == "" {
+		opts.UploadPack = "git-upload-pack"
+	}
+
+	if err := conn.SetService(opts.UploadPack); err != nil {
+		return nil, err
+	}
+
 	if err := conn.OpenConn(UploadPackService); err != nil {
 		return nil, err
 	}
@@ -73,13 +106,6 @@ func fetchPackDone(c *Client, opts FetchPackOptions, conn RemoteConn, wants []Re
 	if len(wants) == 0 && !opts.All {
 		// There is nothing to fetch, so don't bother doing anything.
 		return nil, nil
-	}
-
-	if opts.UploadPack != "" {
-		opts.UploadPack = "git-upload-pack"
-	}
-	if err := conn.SetService(opts.UploadPack); err != nil {
-		return nil, err
 	}
 
 	// FIXME: This should be configurable
@@ -285,7 +311,7 @@ func fetchPackDone(c *Client, opts FetchPackOptions, conn RemoteConn, wants []Re
 		if sideband {
 			conn.SetReadMode(PktLineSidebandMode)
 		} else {
-			conn.SetReadMode(DirectReadMode)
+			conn.SetReadMode(DirectMode)
 		}
 	}
 
@@ -312,9 +338,9 @@ type PackProtocolMode uint8
 
 // Valid PackProtocolModes
 const (
-	// Directly pass through read requests (used when sending a packfile
-	// without
-	DirectReadMode = PackProtocolMode(iota)
+	// Directly pass through read/write requests (used when sending a
+	// packfile)
+	DirectMode = PackProtocolMode(iota)
 
 	// Decode PktLine format and send the decoded data to the caller.
 	// (used when negotiating pack files)
@@ -366,7 +392,7 @@ func (p *packProtocolReader) Read(buf []byte) (int, error) {
 		}
 	}
 	switch p.state {
-	case DirectReadMode:
+	case DirectMode:
 		return p.conn.Read(buf)
 	case PktLineMode:
 		n, err := io.ReadFull(p.conn, buf[0:4])

@@ -5,7 +5,8 @@ import (
 )
 
 type MergeBaseOptions struct {
-	Octopus bool
+	IsAncestor bool
+	Octopus    bool
 }
 
 func MergeBase(c *Client, options MergeBaseOptions, commits []Commitish) (CommitID, error) {
@@ -22,6 +23,15 @@ func MergeBase(c *Client, options MergeBaseOptions, commits []Commitish) (Commit
 		if err != nil {
 			return CommitID{}, err
 		}
+
+		if options.IsAncestor {
+			if cmt0.IsAncestor(c, cmt1) {
+				return cmt0, nil
+			} else {
+				return CommitID{}, fmt.Errorf("Not an ancestor")
+			}
+		}
+
 		if cmt0.IsAncestor(c, cmt1) {
 			return cmt0, nil
 		} else if cmt1.IsAncestor(c, cmt0) {
