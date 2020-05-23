@@ -95,6 +95,13 @@ func (r Remote) GetLocalRefs(c *Client) ([]Ref, error) {
 	return ourrefs, nil
 }
 
+type GitService uint8
+
+const (
+	UploadPackService = GitService(iota)
+	ReceivePackService
+)
+
 // A RemoteConn represends a connection to a remote which communicates
 // with the remote.
 type RemoteConn interface {
@@ -102,7 +109,7 @@ type RemoteConn interface {
 	// trip to the service and may mutate the state of this RemoteConn.
 	//
 	// After calling this, the RemoteConn should be in a useable state.
-	OpenConn() error
+	OpenConn(GitService) error
 
 	// Gets a list of references on the remote. If patterns is specified,
 	// restrict to refs which match the pattern. If not, return all
@@ -118,7 +125,7 @@ type RemoteConn interface {
 	// as the git transport protocol), it will return a nil error. An
 	// error indicates that the protocol *should* support the operation
 	// but was unable to set the variable.
-	SetUploadPack(string) error
+	SetService(string) error
 
 	// Gets the protocol version that was negotiated during connection
 	// opening. Only valid after calling OpenConn.
@@ -179,12 +186,10 @@ func NewRemoteConn(c *Client, r Remote) (RemoteConn, error) {
 	case "ssh":
 		return &sshConn{
 			sharedRemoteConn: &sharedRemoteConn{uri: uri},
-			uploadpack:       "git-upload-pack",
 		}, nil
 	case "file":
 		return &localConn{
 			sharedRemoteConn: &sharedRemoteConn{uri: uri},
-			uploadpack:       "git-upload-pack",
 		}, nil
 	default:
 		return nil, fmt.Errorf("Unsupported remote type for: %v", r)
@@ -198,6 +203,9 @@ type sharedRemoteConn struct {
 	protocolversion uint8
 	capabilities    map[string]map[string]struct{}
 
+	// The remote service to be invoked
+
+	service string
 	// References advertised during opening of connection. Only valid
 	// for protocol v1
 	refs []Ref
@@ -205,6 +213,11 @@ type sharedRemoteConn struct {
 	*packProtocolReader
 }
 
+func (r *sharedRemoteConn) SetService(s string) error {
+	println("Setting service to", s)
+	r.service = s
+	return nil
+}
 func (r sharedRemoteConn) Capabilities() map[string]map[string]struct{} {
 	return r.capabilities
 }

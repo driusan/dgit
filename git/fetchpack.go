@@ -59,7 +59,7 @@ func FetchPack(c *Client, opts FetchPackOptions, rm Remote, wants []Refname) ([]
 	if err != nil {
 		return nil, err
 	}
-	if err := conn.OpenConn(); err != nil {
+	if err := conn.OpenConn(UploadPackService); err != nil {
 		return nil, err
 	}
 	defer conn.Close()
@@ -76,9 +76,10 @@ func fetchPackDone(c *Client, opts FetchPackOptions, conn RemoteConn, wants []Re
 	}
 
 	if opts.UploadPack != "" {
-		if err := conn.SetUploadPack(opts.UploadPack); err != nil {
-			return nil, err
-		}
+		opts.UploadPack = "git-upload-pack"
+	}
+	if err := conn.SetService(opts.UploadPack); err != nil {
+		return nil, err
 	}
 
 	// FIXME: This should be configurable

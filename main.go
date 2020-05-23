@@ -324,7 +324,10 @@ func main() {
 			os.Exit(4)
 		}
 	case "send-pack":
-		cmd.SendPack(c, args)
+		if err := cmd.SendPack(c, args); err != nil {
+			fmt.Fprintf(os.Stderr, "%v\n", err)
+			os.Exit(4)
+		}
 	case "read-tree":
 		if err := cmd.ReadTree(c, args); err != nil {
 			fmt.Fprintf(os.Stderr, "%v\n", err)

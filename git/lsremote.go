@@ -34,10 +34,10 @@ func LsRemote(c *Client, opts LsRemoteOptions, r Remote, patterns []string) ([]R
 		return nil, err
 	}
 	if opts.UploadPack != "" {
-		remoteconn.SetUploadPack(opts.UploadPack)
+		remoteconn.SetService(opts.UploadPack)
 	}
 
-	if err := remoteconn.OpenConn(); err != nil {
+	if err := remoteconn.OpenConn(UploadPackService); err != nil {
 		return nil, err
 	}
 	defer remoteconn.Close()

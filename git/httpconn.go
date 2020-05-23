@@ -12,6 +12,7 @@ import (
 // protocol. It keeps track of state such as "what protocol version did the
 // server initially send" and "what info have we already determined from previous
 // requests"
+
 type smartHTTPConn struct {
 	*sharedRemoteConn
 
@@ -39,18 +40,38 @@ type smartHTTPConn struct {
 	almostdone bool
 }
 
+var _ RemoteConn = &smartHTTPConn{}
+
 // Opens a connection to s.giturl over the smart http protocol
-func (s *smartHTTPConn) OpenConn() error {
+func (s *smartHTTPConn) OpenConn(srv GitService) error {
 	// Try directly accessing the server's URL.
 	s.giturl = strings.TrimSuffix(s.giturl, "/")
-	expectedmime := "application/x-git-upload-pack-advertisement"
+	var expectedmime string
+	switch srv {
+	case UploadPackService:
+		expectedmime = "application/x-git-upload-pack-advertisement"
+	case ReceivePackService:
+		userpass, err := getUserPassword(s.giturl)
+		if err != nil {
+			return err
+		}
+		s.username = userpass.user
+		s.password = userpass.password
+
+		expectedmime = "application/x-git-receive-pack-advertisement"
+	default:
+		return fmt.Errorf("Unsupported service")
+	}
+	if s.service == "" {
+		panic("SetService not called before OpenConn")
+	}
 
 	// Make variable references out of true and false so we can take
 	// their address for isopen
 	var trueref bool = true
 	var falseref bool = false
 
-	req, err := http.NewRequest("GET", s.giturl+"/info/refs?service=git-upload-pack", nil)
+	req, err := http.NewRequest("GET", s.giturl+"/info/refs?service="+s.service, nil)
 	if err != nil {
 		// We couldn't even try making a request, so give up early.
 		return err
@@ -60,6 +81,7 @@ func (s *smartHTTPConn) OpenConn() error {
 	if s.username != "" || s.password != "" {
 		req.SetBasicAuth(s.username, s.password)
 	}
+
 	req.Header.Set("Git-Protocol", "version=2")
 	resp, err := http.DefaultClient.Do(req)
 	if err != nil {
@@ -73,7 +95,7 @@ func (s *smartHTTPConn) OpenConn() error {
 		// If the content-type was wrong, try again at "url.git"
 		log.Printf("Unexpected Content-Type for %v: got %v\n", s.giturl, ct)
 		s.giturl = s.giturl + ".git"
-		req, err = http.NewRequest("GET", s.giturl+"/info/refs?service=git-upload-pack", nil)
+		req, err = http.NewRequest("GET", s.giturl+"/info/refs?service="+s.service, nil)
 		if s.username != "" || s.password != "" {
 			req.SetBasicAuth(s.username, s.password)
 		}
@@ -118,7 +140,8 @@ func (s *smartHTTPConn) OpenConn() error {
 func parseRemoteInitialConnection(r io.Reader, stateless bool) (uint8, map[string]map[string]struct{}, []Ref, error) {
 	line := loadLine(r)
 	switch line {
-	case "# service=git-upload-pack", "# service=git-upload-pack\n":
+	case "# service=git-upload-pack", "# service=git-upload-pack\n",
+		"# service=git-receive-pack", "# service=git-receive-pack\n":
 		// An http connection starts with the service announcement. We
 		// need to parse the next line
 		line = loadLine(r)
@@ -271,11 +294,6 @@ func (s smartHTTPConn) GetRefs(opts LsRemoteOptions, patterns []string) ([]Ref, 
 
 func (s smartHTTPConn) Close() error {
 	// http remotes are stateless, closing them is meaningless
-	return nil
-}
-
-func (s smartHTTPConn) SetUploadPack(string) error {
-	// Not applicable for http (or should it change the URL?)
 	return nil
 }
 

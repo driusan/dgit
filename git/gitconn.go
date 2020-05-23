@@ -13,7 +13,9 @@ type gitConn struct {
 	conn io.ReadWriteCloser
 }
 
-func (g *gitConn) OpenConn() error {
+var _ RemoteConn = &gitConn{}
+
+func (g *gitConn) OpenConn(srv GitService) error {
 	host := g.uri.Hostname()
 	port := g.uri.Port()
 	if port == "" {
@@ -30,7 +32,7 @@ func (g *gitConn) OpenConn() error {
 	// Advertise the connection and try to negotiate protocol version 2
 	fmt.Fprintf(
 		g,
-		"git-upload-pack %s\x00host=%s\x00\x00version=2\x00",
+		g.service+" %s\x00host=%s\x00\x00version=2\x00",
 		g.uri.Path,
 		host,
 	)
@@ -82,11 +84,6 @@ func (g *gitConn) GetRefs(opts LsRemoteOptions, patterns []string) ([]Ref, error
 	default:
 		return nil, fmt.Errorf("Protocol version not supported")
 	}
-}
-
-func (g gitConn) SetUploadPack(up string) error {
-	// not applicable for git protocol
-	return nil
 }
 
 func (g *gitConn) Write(data []byte) (int, error) {

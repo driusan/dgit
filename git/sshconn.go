@@ -16,16 +16,15 @@ type sshConn struct {
 	// Add functionality shared amongst all types of remotes
 	*sharedRemoteConn
 
-	// name of the remote upload pack command
-	uploadpack string
-
 	session *ssh.Session
 
 	stdin  io.Reader
 	stdout io.Writer
 }
 
-func (s *sshConn) OpenConn() error {
+var _ RemoteConn = &sshConn{}
+
+func (s *sshConn) OpenConn(srv GitService) error {
 	host := s.uri.Hostname()
 	port := s.uri.Port()
 	if port == "" {
@@ -67,7 +66,7 @@ func (s *sshConn) OpenConn() error {
 	session.Setenv("GIT_PROTOCOL", "version=2")
 	s.session = session
 
-	if err := session.Start(s.uploadpack + " " + s.uri.Path); err != nil {
+	if err := session.Start(s.service + " " + s.uri.Path); err != nil {
 		return err
 	}
 
@@ -120,14 +119,6 @@ func (s sshConn) GetRefs(opts LsRemoteOptions, patterns []string) ([]Ref, error)
 	default:
 		return nil, fmt.Errorf("Protocol version not supported")
 	}
-}
-
-func (s *sshConn) SetUploadPack(up string) error {
-	if s.session != nil {
-		return fmt.Errorf("Must call SetUploadPack before opening connection")
-	}
-	s.uploadpack = up
-	return nil
 }
 
 func (s sshConn) Flush() error {

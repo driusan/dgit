@@ -15,21 +15,27 @@ type localConn struct {
 	// Add functionality shared amongst all types of remotes
 	*sharedRemoteConn
 
-	// name of the remote upload pack command
-	uploadpack string
-
 	stdin  io.ReadCloser
 	stdout io.WriteCloser
 	cmd    *exec.Cmd
 }
 
-func (s *localConn) OpenConn() error {
+var _ RemoteConn = &localConn{}
+
+func (s *localConn) OpenConn(srv GitService) error {
 	var cmd *exec.Cmd
 	log.Println("Connecting locally via", s.uri.Path)
-	if s.uploadpack == "" {
-		cmd = exec.Command("git-upload-pack", s.uri.Path)
+	if s.service == "" {
+		cmd = exec.Command(s.service, s.uri.Path)
 	} else {
-		cmd = exec.Command(s.uploadpack, s.uri.Path)
+		switch srv {
+		case UploadPackService:
+			cmd = exec.Command("git-upload-pack", s.uri.Path)
+		case ReceivePackService:
+			cmd = exec.Command("git-receive-pack", s.uri.Path)
+		default:
+			return fmt.Errorf("Unhandled service")
+		}
 	}
 	cmd.Stderr = os.Stderr
 	cmdIn, err := cmd.StdinPipe()
@@ -104,11 +110,6 @@ func (s localConn) GetRefs(opts LsRemoteOptions, patterns []string) ([]Ref, erro
 	default:
 		return nil, fmt.Errorf("Protocol version not supported")
 	}
-}
-
-func (s *localConn) SetUploadPack(up string) error {
-	s.uploadpack = up
-	return nil
 }
 
 func (s localConn) Flush() error {
