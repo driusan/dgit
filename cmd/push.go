@@ -17,7 +17,7 @@ func Push(c *git.Client, args []string) error {
 	}
 
 	// These flags can be moved out of these lists and below as proper flags as they are implemented
-	for _, bf := range []string{"all", "mirror", "tags", "follow-tags", "atomic", "n", "dry-run", "f", "force", "delete", "prune", "v", "verbose", "u", "no-signed", "no-verify"} {
+	for _, bf := range []string{"all", "mirror", "tags", "follow-tags", "atomic", "delete", "prune", "v", "verbose", "u", "no-signed", "no-verify"} {
 		flags.Var(newNotimplBoolValue(), bf, "Not implemented")
 	}
 	for _, sf := range []string{"receive-pack", "repo", "o", "push-option", "signed", "force-with-lease"} {
@@ -26,6 +26,10 @@ func Push(c *git.Client, args []string) error {
 
 	opts := git.PushOptions{}
 	flags.BoolVar(&opts.SetUpstream, "set-upstream", false, "Sets the upstream remote for the branch")
+	flags.BoolVar(&opts.SendPackOptions.Force, "force", false, "Push even if not fast-forward")
+	flags.BoolVar(&opts.SendPackOptions.Force, "f", false, "Alias of --force")
+	flags.BoolVar(&opts.SendPackOptions.DryRun, "dry-run", false, "Do not update branches remotely")
+	flags.BoolVar(&opts.SendPackOptions.DryRun, "n", false, "Alias of --dry-run")
 
 	flags.Parse(args)
 
