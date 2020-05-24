@@ -15,21 +15,27 @@ type localConn struct {
 	// Add functionality shared amongst all types of remotes
 	*sharedRemoteConn
 
-	// name of the remote upload pack command
-	uploadpack string
-
 	stdin  io.ReadCloser
 	stdout io.WriteCloser
 	cmd    *exec.Cmd
 }
 
-func (s *localConn) OpenConn() error {
+var _ RemoteConn = &localConn{}
+
+func (s *localConn) OpenConn(srv GitService) error {
 	var cmd *exec.Cmd
 	log.Println("Connecting locally via", s.uri.Path)
-	if s.uploadpack == "" {
-		cmd = exec.Command("git-upload-pack", s.uri.Path)
+	if s.service == "" {
+		cmd = exec.Command(s.service, s.uri.Path)
 	} else {
-		cmd = exec.Command(s.uploadpack, s.uri.Path)
+		switch srv {
+		case UploadPackService:
+			cmd = exec.Command("git-upload-pack", s.uri.Path)
+		case ReceivePackService:
+			cmd = exec.Command("git-receive-pack", s.uri.Path)
+		default:
+			return fmt.Errorf("Unhandled service")
+		}
 	}
 	cmd.Stderr = os.Stderr
 	cmdIn, err := cmd.StdinPipe()
@@ -78,6 +84,7 @@ func (s localConn) GetRefs(opts LsRemoteOptions, patterns []string) ([]Ref, erro
 	case 1:
 		return getRefsV1(s.refs, opts, patterns)
 	case 2:
+		s.SetWriteMode(PktLineMode)
 		cmd, err := buildLsRefsCmdV2(opts, patterns)
 		if err != nil {
 			return nil, err
@@ -106,11 +113,6 @@ func (s localConn) GetRefs(opts LsRemoteOptions, patterns []string) ([]Ref, erro
 	}
 }
 
-func (s *localConn) SetUploadPack(up string) error {
-	s.uploadpack = up
-	return nil
-}
-
 func (s localConn) Flush() error {
 	fmt.Fprintf(s.stdout, "0000")
 	return nil
@@ -122,10 +124,17 @@ func (s localConn) Delim() error {
 }
 
 func (s localConn) Write(data []byte) (int, error) {
-	l, err := PktLineEncodeNoNl(data)
-	if err != nil {
-		return 0, err
+	switch s.writemode {
+	case PktLineMode:
+		l, err := PktLineEncodeNoNl(data)
+		if err != nil {
+			return 0, err
+		}
+		fmt.Fprintf(s.stdout, "%s", l)
+		return len(data), nil
+	case DirectMode:
+		return s.stdout.Write(data)
+	default:
+		return 0, fmt.Errorf("Invalid write mode")
 	}
-	fmt.Fprintf(s.stdout, "%s", l)
-	return len(data), nil
 }

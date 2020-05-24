@@ -1,4 +1,4 @@
-// +build dragonfly openbsd darwin freebsd netbsd solaris
+// +build dragonfly openbsd darwin freebsd netbsd solaris linux
 
 package git
 
@@ -11,7 +11,6 @@ import (
 func getSigners() ([]ssh.Signer, error) {
 	user, err := user.Current()
 	if err != nil {
-		//
 		return nil, nil
 	}
 	f, err := ioutil.ReadFile(user.HomeDir + "/.ssh/id_rsa")

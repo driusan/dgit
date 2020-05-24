@@ -13,7 +13,9 @@ type gitConn struct {
 	conn io.ReadWriteCloser
 }
 
-func (g *gitConn) OpenConn() error {
+var _ RemoteConn = &gitConn{}
+
+func (g *gitConn) OpenConn(srv GitService) error {
 	host := g.uri.Hostname()
 	port := g.uri.Port()
 	if port == "" {
@@ -30,7 +32,7 @@ func (g *gitConn) OpenConn() error {
 	// Advertise the connection and try to negotiate protocol version 2
 	fmt.Fprintf(
 		g,
-		"git-upload-pack %s\x00host=%s\x00\x00version=2\x00",
+		g.service+" %s\x00host=%s\x00\x00version=2\x00",
 		g.uri.Path,
 		host,
 	)
@@ -56,6 +58,7 @@ func (g *gitConn) GetRefs(opts LsRemoteOptions, patterns []string) ([]Ref, error
 	case 1:
 		return getRefsV1(g.refs, opts, patterns)
 	case 2:
+		g.SetWriteMode(PktLineMode)
 		cmd, err := buildLsRefsCmdV2(opts, patterns)
 		if err != nil {
 			return nil, err
@@ -84,20 +87,22 @@ func (g *gitConn) GetRefs(opts LsRemoteOptions, patterns []string) ([]Ref, error
 	}
 }
 
-func (g gitConn) SetUploadPack(up string) error {
-	// not applicable for git protocol
-	return nil
-}
-
 func (g *gitConn) Write(data []byte) (int, error) {
-	l, err := PktLineEncodeNoNl(data)
-	if err != nil {
-		return 0, err
+	switch g.writemode {
+	case PktLineMode:
+		l, err := PktLineEncodeNoNl(data)
+		if err != nil {
+			return 0, err
+		}
+		fmt.Fprintf(g.conn, "%s", l)
+		// We lie about how much data was written since
+		// we wrote more than asked.
+		return len(data), nil
+	case DirectMode:
+		return g.conn.Write(data)
+	default:
+		return 0, fmt.Errorf("Invalid write mode")
 	}
-	fmt.Fprintf(g.conn, "%s", l)
-	// We lie about how much data was written since
-	// we wrote more than asked.
-	return len(data), nil
 }
 
 func (g *gitConn) Flush() error {

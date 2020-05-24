@@ -54,7 +54,12 @@ func (r Remote) FetchURL(c *Client) (string, error) {
 
 // Returns the URL used to push to a remote.
 func (r Remote) PushURL(c *Client) (string, error) {
-	// FIXME: Handle push url config settings if they don't match url
+	if config := c.GetConfig("remote." + r.String() + ".pushurl"); config != "" {
+		return config, nil
+	}
+	if config := c.GetConfig("remote." + r.String() + ".url"); config != "" {
+		return config, nil
+	}
 	return r.RemoteURL(c)
 }
 
@@ -95,6 +100,13 @@ func (r Remote) GetLocalRefs(c *Client) ([]Ref, error) {
 	return ourrefs, nil
 }
 
+type GitService uint8
+
+const (
+	UploadPackService = GitService(iota)
+	ReceivePackService
+)
+
 // A RemoteConn represends a connection to a remote which communicates
 // with the remote.
 type RemoteConn interface {
@@ -102,7 +114,7 @@ type RemoteConn interface {
 	// trip to the service and may mutate the state of this RemoteConn.
 	//
 	// After calling this, the RemoteConn should be in a useable state.
-	OpenConn() error
+	OpenConn(GitService) error
 
 	// Gets a list of references on the remote. If patterns is specified,
 	// restrict to refs which match the pattern. If not, return all
@@ -118,7 +130,7 @@ type RemoteConn interface {
 	// as the git transport protocol), it will return a nil error. An
 	// error indicates that the protocol *should* support the operation
 	// but was unable to set the variable.
-	SetUploadPack(string) error
+	SetService(string) error
 
 	// Gets the protocol version that was negotiated during connection
 	// opening. Only valid after calling OpenConn.
@@ -135,7 +147,8 @@ type RemoteConn interface {
 	SetSideband(w io.Writer)
 
 	// A RemoteConn should act as a writter. When written to, it should
-	// write to the underlying connection in pkt-line format.
+	// write to the underlying connection in pkt-line format or directly
+	// as per SetWriteMode.
 	io.Writer
 
 	// Reading from a RemoteConn should return the data after decoding
@@ -147,6 +160,10 @@ type RemoteConn interface {
 	// Determines how reading from the connection returns data to the
 	// caller.
 	SetReadMode(mode PackProtocolMode)
+
+	// Determines how reading from the connection returns data to the
+	// caller.
+	SetWriteMode(mode PackProtocolMode)
 
 	// Send a flush packet to the connection
 	Flush() error
@@ -179,12 +196,10 @@ func NewRemoteConn(c *Client, r Remote) (RemoteConn, error) {
 	case "ssh":
 		return &sshConn{
 			sharedRemoteConn: &sharedRemoteConn{uri: uri},
-			uploadpack:       "git-upload-pack",
 		}, nil
 	case "file":
 		return &localConn{
 			sharedRemoteConn: &sharedRemoteConn{uri: uri},
-			uploadpack:       "git-upload-pack",
 		}, nil
 	default:
 		return nil, fmt.Errorf("Unsupported remote type for: %v", r)
@@ -198,11 +213,25 @@ type sharedRemoteConn struct {
 	protocolversion uint8
 	capabilities    map[string]map[string]struct{}
 
+	// The remote service to be invoked
+
+	service string
 	// References advertised during opening of connection. Only valid
 	// for protocol v1
 	refs []Ref
 
 	*packProtocolReader
+
+	writemode PackProtocolMode
+}
+
+func (r *sharedRemoteConn) SetService(s string) error {
+	r.service = s
+	return nil
+}
+
+func (r *sharedRemoteConn) SetWriteMode(m PackProtocolMode) {
+	r.writemode = m
 }
 
 func (r sharedRemoteConn) Capabilities() map[string]map[string]struct{} {

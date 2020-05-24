@@ -16,16 +16,15 @@ type sshConn struct {
 	// Add functionality shared amongst all types of remotes
 	*sharedRemoteConn
 
-	// name of the remote upload pack command
-	uploadpack string
-
 	session *ssh.Session
 
 	stdin  io.Reader
 	stdout io.Writer
 }
 
-func (s *sshConn) OpenConn() error {
+var _ RemoteConn = &sshConn{}
+
+func (s *sshConn) OpenConn(srv GitService) error {
 	host := s.uri.Hostname()
 	port := s.uri.Port()
 	if port == "" {
@@ -67,7 +66,7 @@ func (s *sshConn) OpenConn() error {
 	session.Setenv("GIT_PROTOCOL", "version=2")
 	s.session = session
 
-	if err := session.Start(s.uploadpack + " " + s.uri.Path); err != nil {
+	if err := session.Start(s.service + " " + s.uri.Path); err != nil {
 		return err
 	}
 
@@ -94,6 +93,7 @@ func (s sshConn) GetRefs(opts LsRemoteOptions, patterns []string) ([]Ref, error)
 	case 1:
 		return getRefsV1(s.refs, opts, patterns)
 	case 2:
+		s.SetWriteMode(PktLineMode)
 		cmd, err := buildLsRefsCmdV2(opts, patterns)
 		if err != nil {
 			return nil, err
@@ -122,14 +122,6 @@ func (s sshConn) GetRefs(opts LsRemoteOptions, patterns []string) ([]Ref, error)
 	}
 }
 
-func (s *sshConn) SetUploadPack(up string) error {
-	if s.session != nil {
-		return fmt.Errorf("Must call SetUploadPack before opening connection")
-	}
-	s.uploadpack = up
-	return nil
-}
-
 func (s sshConn) Flush() error {
 	fmt.Fprintf(s.stdout, "0000")
 	return nil
@@ -141,12 +133,19 @@ func (s sshConn) Delim() error {
 }
 
 func (s sshConn) Write(data []byte) (int, error) {
-	l, err := PktLineEncodeNoNl(data)
-	if err != nil {
-		return 0, err
+	switch s.writemode {
+	case PktLineMode:
+		l, err := PktLineEncodeNoNl(data)
+		if err != nil {
+			return 0, err
+		}
+		fmt.Fprintf(s.stdout, "%s", l)
+		return len(data), nil
+	case DirectMode:
+		return s.stdout.Write(data)
+	default:
+		return 0, fmt.Errorf("Invalid write mode")
 	}
-	fmt.Fprintf(s.stdout, "%s", l)
-	return len(data), nil
 }
 
 // this should be overridden for various platforms. Plan9/9front should parse

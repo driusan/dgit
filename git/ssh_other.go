@@ -5,6 +5,7 @@
 // +build !freebsd
 // +build !netbsd
 // +build !solaris
+// +build !linux
 
 package git
 
