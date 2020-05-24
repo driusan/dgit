@@ -54,7 +54,12 @@ func (r Remote) FetchURL(c *Client) (string, error) {
 
 // Returns the URL used to push to a remote.
 func (r Remote) PushURL(c *Client) (string, error) {
-	// FIXME: Handle push url config settings if they don't match url
+	if config := c.GetConfig("remote." + r.String() + ".pushurl"); config != "" {
+		return config, nil
+	}
+	if config := c.GetConfig("remote." + r.String() + ".url"); config != "" {
+		return config, nil
+	}
 	return r.RemoteURL(c)
 }
 
