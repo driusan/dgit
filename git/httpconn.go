@@ -102,7 +102,7 @@ func (s *smartHTTPConn) OpenConn(srv GitService) error {
 		// whether or not the URL ends in .git
 		var buf bytes.Buffer
 		io.Copy(&buf, resp.Body)
-		return fmt.Errorf("%s", buf)
+		return fmt.Errorf("%s", buf.String())
 	}
 	if ct := resp.Header.Get("Content-Type"); ct != expectedmime || resp.StatusCode != 200 {
 		// If the content-type was wrong, try again at "url.git"
@@ -128,7 +128,7 @@ func (s *smartHTTPConn) OpenConn(srv GitService) error {
 			if newresp.StatusCode == 403 {
 				var buf bytes.Buffer
 				io.Copy(&buf, resp.Body)
-				return fmt.Errorf("%s", buf)
+				return fmt.Errorf("%s", buf.String())
 			}
 			return fmt.Errorf("Remote did not speak git protocol")
 		}
@@ -280,6 +280,7 @@ func (s smartHTTPConn) GetRefs(opts LsRemoteOptions, patterns []string) ([]Ref, 
 	case 1:
 		return getRefsV1(s.refs, opts, patterns)
 	case 2:
+		s.SetWriteMode(PktLineMode)
 		var vals []Ref
 		// Make request to $giturl/git-upload-pack
 		// payload ls-refs=	maybe symrefs, maybe peel, maybe ref-prefix depending on options\n

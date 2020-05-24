@@ -119,6 +119,7 @@ func fetchPackDone(c *Client, opts FetchPackOptions, conn RemoteConn, wants []Re
 		rs[i] = string(wants[i])
 	}
 
+	conn.SetWriteMode(PktLineMode)
 	switch v := conn.ProtocolVersion(); v {
 	case 2:
 		log.Println("Using protocol version 2 for fetch-pack")

@@ -84,6 +84,7 @@ func (s localConn) GetRefs(opts LsRemoteOptions, patterns []string) ([]Ref, erro
 	case 1:
 		return getRefsV1(s.refs, opts, patterns)
 	case 2:
+		s.SetWriteMode(PktLineMode)
 		cmd, err := buildLsRefsCmdV2(opts, patterns)
 		if err != nil {
 			return nil, err

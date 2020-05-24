@@ -33,9 +33,10 @@ func LsRemote(c *Client, opts LsRemoteOptions, r Remote, patterns []string) ([]R
 	if err != nil {
 		return nil, err
 	}
-	if opts.UploadPack != "" {
-		remoteconn.SetService(opts.UploadPack)
+	if opts.UploadPack == "" {
+		opts.UploadPack = "git-upload-pack"
 	}
+	remoteconn.SetService(opts.UploadPack)
 
 	if err := remoteconn.OpenConn(UploadPackService); err != nil {
 		return nil, err
