@@ -69,6 +69,10 @@ func SendPack(c *Client, opts SendPackOptions, r Remote, refs []Refname) error {
 			log.Printf("%v is a delete, not a fast-forward\n", ref)
 			continue
 		}
+		if remotesha == (Sha1{}) {
+			log.Printf("%v is a new branch\n", ref)
+			continue
+		}
 		localsha := localrefs[ref.LocalName()]
 		if localsha == remotesha {
 			// Unmodified
@@ -103,7 +107,7 @@ func SendPack(c *Client, opts SendPackOptions, r Remote, refs []Refname) error {
 				caps = append(caps, "atomic")
 			}
 
-			fmt.Fprintf(w, "%v %v %v\000%v\n", remoteref, localref, ref.RemoteName(), strings.Join(caps, " "))
+			fmt.Fprintf(w, "%v %v %v\000 %v\n", remoteref, localref, ref.RemoteName(), strings.Join(caps, " "))
 		} else {
 			fmt.Fprintf(w, "%v %v %v\n", remoteref, localref, ref.RemoteName())
 		}
@@ -130,7 +134,12 @@ func SendPack(c *Client, opts SendPackOptions, r Remote, refs []Refname) error {
 	remoteConn.SetWriteMode(DirectMode)
 	fmt.Fprintf(w, "0000")
 	rcaps := remoteConn.Capabilities()
-	popts := PackObjectsOptions{Window: 10}
+
+	// Our deltas aren't robust enough to reliably send in the wild yet,
+	// so for now don't use them in send-pack. (Our implementation is
+	// also slow enough that packing often takes longer than writing the
+	// raw data)
+	popts := PackObjectsOptions{Window: 0}
 	if _, ok := rcaps["ofs-delta"]; ok {
 		popts.DeltaBaseOffset = true
 	}

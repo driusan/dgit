@@ -6,6 +6,7 @@ import (
 	"io"
 	"log"
 	"net/http"
+	"os"
 	"strings"
 )
 
@@ -87,7 +88,9 @@ func (s *smartHTTPConn) OpenConn(srv GitService) error {
 		req.SetBasicAuth(s.username, s.password)
 	}
 
-	req.Header.Set("Git-Protocol", "version=2")
+	if srv == UploadPackService {
+		req.Header.Set("Git-Protocol", "version=2")
+	}
 	resp, err := http.DefaultClient.Do(req)
 	if err != nil {
 		// If we couldn't perform the request, there's probably a
