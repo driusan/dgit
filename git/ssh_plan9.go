@@ -5,7 +5,7 @@ import (
 	_ "crypto/sha1"
 	"io"
 
-	"bitbucket.org/mischief/libauth"
+	"github.com/Plan9-Archive/libauth"
 	"golang.org/x/crypto/ssh"
 )
 
