@@ -1,7 +1,7 @@
 package git
 
 import (
-	"bitbucket.org/mischief/libauth"
+	"github.com/Plan9-Archive/libauth"
 )
 
 func getUserPassword(url string) (userPasswd, error) {

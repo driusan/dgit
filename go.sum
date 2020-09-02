@@ -1,7 +1,7 @@
 9fans.net/go v0.0.0-20180727211846-5d4fa602e1e8 h1:I5as7fR6RT+wVrs+vOeEtOHJ4z2vnUnIR+cqvAiQ80s=
 9fans.net/go v0.0.0-20180727211846-5d4fa602e1e8/go.mod h1:diCsxrliIURU9xsYtjCp5AbpQKqdhKmf0ujWDUSkfoY=
-bitbucket.org/mischief/libauth v0.0.0-20180917063427-eea7aee20a38 h1:UQkBplKkYbmXVI3uXbSuEeWQhwe6iri1qNOHV7g3eSg=
-bitbucket.org/mischief/libauth v0.0.0-20180917063427-eea7aee20a38/go.mod h1:3xI+y8DcaNvBpBDXfN1UyhUONW++xFj4jsYTQKES3Ak=
+github.com/Plan9-Archive/libauth v0.0.0-20180917063427-d1ca9e94969d h1:xH/U6K+HYxh1480TkQYRqRO8F2RJsg+R6wFiVJzdldg=
+github.com/Plan9-Archive/libauth v0.0.0-20180917063427-d1ca9e94969d/go.mod h1:UKp8dv9aeaZoQFWin7eQXtz89iHly1YAFZNn3MCutmQ=
 github.com/hashicorp/golang-lru v0.5.4 h1:YDjusn29QI/Das2iO9M0BHnIbxPeyuCHsjMW+lJfyTc=
 github.com/hashicorp/golang-lru v0.5.4/go.mod h1:iADmTwqILo4mZ8BN3D2Q6+9jd8WM5uGBxy+E8yxSoD4=
 golang.org/x/crypto v0.0.0-20180910181607-0e37d006457b h1:2b9XGzhjiYsYPnKXoEfL7klWZQIt8IfyRCz62gCqqlQ=
