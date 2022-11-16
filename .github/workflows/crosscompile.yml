@@ -1,0 +1,29 @@
+name: Cross-compile dgit
+
+on:
+  - push
+  - pull_request
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    strategy:
+        matrix:
+            buildplatform: ['darwin', 'netbsd', 'plan9', 'windows']
+# Go 1.10 is the oldest version with no module support. We build it to
+# ensure that any decision to break it an explicit decision.
+            go: ['1.10', '1.11', '1.12', '1.13', '1.14', '1.15', '1.16', '1.17', '1.18', '1.19']
+
+    steps:
+
+    - uses: actions/checkout@v3
+    - name: Setup Go
+      uses: actions/setup-go@v3
+      with:
+        go-version: ${{ matrix.go }}
+
+    - name: Build dgit
+      run: GOOS=${{ matrix.buildplatform }} go build
+
+
+
