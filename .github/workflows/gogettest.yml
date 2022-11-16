@@ -9,9 +9,9 @@ jobs:
     runs-on: ubuntu-latest
     strategy:
         matrix:
-# Go get tests are heavier, so we only run them with the oldest supported
-# version and the newest
-            go: ['1.11', '1.19']
+# dgit started breaking with go get tests after 1.15, so
+# we only run 1.11 (the oldest that we support) and 1.15
+            go: ['1.11', '1.15']
 
     steps:
 
