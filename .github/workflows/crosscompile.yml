@@ -14,9 +14,18 @@ jobs:
 # ensure that any decision to break it an explicit decision.
             go: ['1.10', '1.11', '1.12', '1.13', '1.14', '1.15', '1.16', '1.17', '1.18', '1.19']
 
+    defaults:
+      run:
+        working-directory: ${{ env.GOPATH }}/github.com/driusan/dgit
+    env:
+      GOPATH: ${{ github.workspace }}
+      GOBIN: ${{ github.workspace }}/bin
     steps:
 
     - uses: actions/checkout@v3
+      with:
+        fetch-depth: 1
+        path: ${{ env.GOPATH}}/github.com/driusan/dgit
     - name: Setup Go
       uses: actions/setup-go@v3
       with:
