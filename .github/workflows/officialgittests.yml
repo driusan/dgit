@@ -24,6 +24,10 @@ jobs:
     - name: Build dgit
       run: go build
 
+
+    - name: Install git building dependencies
+      run: sudo apt-get install libcurl4-openssl-dev gettext
+
     - name: Test suite from the official git client
       run: ./official-git/run-tests.sh
 
