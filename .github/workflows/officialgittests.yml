@@ -1,0 +1,31 @@
+name: Official Git tests
+
+on:
+  - push
+  - pull_request
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    strategy:
+        matrix:
+# The official git tests are very heavy, so we only run
+# it with the latest version of go
+            go: ['1.19']
+
+    steps:
+
+    - uses: actions/checkout@v3
+    - name: Setup Go
+      uses: actions/setup-go@v3
+      with:
+        go-version: ${{ matrix.go }}
+
+    - name: Build dgit
+      run: go build
+
+    - name: Test suite from the official git client
+      run: ./official-git/run-tests.sh
+
+
+
