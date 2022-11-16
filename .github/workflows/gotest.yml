@@ -1,4 +1,4 @@
-name: Cross-compile dgit
+name: go test 
 
 on:
   - push
@@ -9,7 +9,6 @@ jobs:
     runs-on: ubuntu-latest
     strategy:
         matrix:
-            buildplatform: ['darwin', 'netbsd', 'plan9', 'windows']
 # Go 1.11 is the first one with module support. Building without module
 # support didn't survive the switch from Travis CI -> GitHub actions, but
 # 1.11 was released in 2018, so it's probably fair to drop support for <=1.10
@@ -24,7 +23,11 @@ jobs:
         go-version: ${{ matrix.go }}
 
     - name: Build dgit
-      run: GOOS=${{ matrix.buildplatform }} go build
+      run: go build
+
+# Go test is relatively fast, so run it on all the platforms
+    - name: Go test ./...
+      run: go test -v ./...
 
 
 
