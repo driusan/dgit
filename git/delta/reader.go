@@ -32,7 +32,7 @@ func NewReader(src flate.Reader, base io.ReadSeeker) Reader {
 }
 
 // Reads the resolved delta from the underlying delta stream into buf
-func (d *Reader) Read(buf []byte) (n int, err error) {
+func (d *Reader) Read(buf []byte) (int, error) {
 	// Read the cached data before we read more from
 	// the stream
 	if len(d.cached) > 0 {
@@ -41,6 +41,9 @@ func (d *Reader) Read(buf []byte) (n int, err error) {
 	instruction, err := d.src.ReadByte()
 	if err != nil {
 		return 0, err
+	}
+	if instruction == 0 {
+		panic("Reserved/undocumented instruction found.")
 	}
 	if instruction >= 128 {
 		var offset, length uint64
@@ -133,11 +136,12 @@ func (d *Reader) Read(buf []byte) (n int, err error) {
 			return n, err
 		}
 		d.cached = make([]byte, length)
-		if n, err := io.ReadFull(d.src, d.cached); err != nil {
+		n, err := io.ReadFull(d.src, d.cached)
+		if err != nil {
 			return n, err
 		}
 		if n != length {
-			return n, fmt.Errorf("Insert: Could not read %v bytes", n)
+			return n, fmt.Errorf("Insert: Could not read %v bytes", length)
 		}
 		return d.readCached(buf)
 	}
