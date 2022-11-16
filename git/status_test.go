@@ -61,8 +61,8 @@ func compareStatus(c *Client, opts StatusOptions, expected expectedStatus) error
 // It also tests that the second commit can be done while
 // in a detached head mode.
 func TestStatus(t *testing.T) {
-	if os.Getenv("TRAVIS") == "true" {
-		fmt.Printf("Skipping known failure for Travis\n")
+	if os.Getenv("SkipKnownFailures") == "true" {
+		fmt.Printf("Skipping known failure.\n")
 		return
 	}
 

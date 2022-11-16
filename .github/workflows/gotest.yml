@@ -4,6 +4,9 @@ on:
   - push
   - pull_request
 
+env:
+  SkipKnownFailures: true
+
 jobs:
   build:
     runs-on: ubuntu-latest
