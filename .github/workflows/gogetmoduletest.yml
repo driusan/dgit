@@ -1,4 +1,4 @@
-name: Go get tests
+name: Go get modules tests
 
 on:
   - push
@@ -9,10 +9,6 @@ jobs:
     runs-on: ubuntu-latest
     strategy:
         matrix:
-# dgit started breaking with go get tests after 1.15, so
-# we only run 1.11 (the oldest that we support) and 1.15
-# More can be added when we add support for the missing
-# pieces
             go: ['1.11', '1.15']
 
     steps:
@@ -26,8 +22,8 @@ jobs:
     - name: Build dgit
       run: go build
 
-    - name: Run tests for go get command
-      run: ./go-get-tests.sh
+    - name: Run tests for go get with modules
+      run: ./go-get-modules-tests.sh
 
 
 
