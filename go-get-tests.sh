@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 set -e
 
 echo "Running go get tests"
@@ -6,12 +6,17 @@ echo "Running go get tests"
 # Ensure that git is called, not the proxy
 export GOPROXY="direct"
 
-# Keep existing state
+#Keep existing state
 export ORIG_PATH=$PATH
 export ORIG_GIT=$(which git)
 
 echo "Adding dgit to the path"
 go build
+
+# Ensure that expected "go get" behaviour is
+# consistent across go versions
+export GO111MODULE="off"
+
 mkdir -p bin
 cp dgit bin/git
 export PATH=$(pwd)/bin:$PATH
