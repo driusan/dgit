@@ -741,6 +741,7 @@ func IndexPack(c *Client, opts IndexPackOptions, r io.Reader) (idx PackfileIndex
 			}
 		}
 
+		pack.Close()
 		if err := os.Rename(pack.Name(), basename+".pack"); err != nil {
 			return indexfile, err
 		}

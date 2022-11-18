@@ -1,11 +1,5 @@
-// +build !plan9
-// +build !dragonfly
-// +build !openbsd
-// +build !darwin
-// +build !freebsd
-// +build !netbsd
-// +build !solaris
-// +build !linux
+//go:build !plan9 && !dragonfly && !openbsd && !darwin && !freebsd && !netbsd && !solaris && !linux
+// +build !plan9,!dragonfly,!openbsd,!darwin,!freebsd,!netbsd,!solaris,!linux
 
 package git
 

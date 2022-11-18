@@ -1,3 +1,4 @@
+//go:build dragonfly || linux || openbsd || netbsd
 // +build dragonfly linux openbsd netbsd
 
 package git

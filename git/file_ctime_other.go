@@ -1,8 +1,5 @@
-// +build !dragonfly
-// +build !darwin
-// +build !linux
-// +build !openbsd
-// +build !netbsd
+//go:build !dragonfly && !darwin && !linux && !openbsd && !netbsd
+// +build !dragonfly,!darwin,!linux,!openbsd,!netbsd
 
 package git
 
