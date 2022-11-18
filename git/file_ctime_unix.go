@@ -1,3 +1,4 @@
+//go:build dragonfly || linux || openbsd
 // +build dragonfly linux openbsd
 
 package git

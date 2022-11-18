@@ -1,4 +1,5 @@
-//+build !plan9
+//go:build !plan9
+// +build !plan9
 
 package git
 
