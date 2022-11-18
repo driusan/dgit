@@ -1,0 +1,29 @@
+name: Go get tests
+
+on:
+  - push
+  - pull_request
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    strategy:
+        matrix:
+            go: ['1.11', '1.15', '1.16', '1.18', '1.19']
+
+    steps:
+
+    - uses: actions/checkout@v3
+    - name: Setup Go
+      uses: actions/setup-go@v3
+      with:
+        go-version: ${{ matrix.go }}
+
+    - name: Build dgit
+      run: go build
+
+    - name: Run tests for go get command
+      run: ./go-get-tests.sh
+
+
+

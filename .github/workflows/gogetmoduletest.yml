@@ -1,0 +1,30 @@
+name: SKIPPED -- Go get modules tests
+
+on:
+  - push
+  - pull_request
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    strategy:
+        matrix:
+            go: ['1.11', '1.15']
+
+    steps:
+
+    - uses: actions/checkout@v3
+    - name: Setup Go
+      uses: actions/setup-go@v3
+      with:
+        go-version: ${{ matrix.go }}
+
+    - name: Build dgit
+      run: go build
+
+    - name: Run tests for go get with modules
+#      run: ./go-get-modules-tests.sh
+      run: echo 'Skipping go-get-modules-tests under GitHub Actions until it works'
+
+
+

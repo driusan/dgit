@@ -1,0 +1,30 @@
+name: Cross-compile dgit
+
+on:
+  - push
+  - pull_request
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    strategy:
+        matrix:
+            buildplatform: ['darwin', 'netbsd', 'plan9', 'windows']
+# Go 1.11 is the first one with module support. Building without module
+# support didn't survive the switch from Travis CI -> GitHub actions, but
+# 1.11 was released in 2018, so it's probably fair to drop support for <=1.10
+            go: ['1.11', '1.12', '1.13', '1.14', '1.15', '1.16', '1.17', '1.18', '1.19']
+
+    steps:
+
+    - uses: actions/checkout@v3
+    - name: Setup Go
+      uses: actions/setup-go@v3
+      with:
+        go-version: ${{ matrix.go }}
+
+    - name: Build dgit
+      run: GOOS=${{ matrix.buildplatform }} go build
+
+
+
